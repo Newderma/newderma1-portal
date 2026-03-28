@@ -625,6 +625,7 @@ tr:hover td{background:#f8fafc}
         <div class="rtb">
           <input type="text" id="srch" placeholder="Search patient, doctor…" oninput="renderRecords()">
           <select id="fDoc" onchange="renderRecords()"><option value="">All Doctors</option></select>
+          <select id="fNur" onchange="renderRecords()" style="display:none"><option value="">All Nurses</option></select>
           <select id="fMon" onchange="renderRecords()"><option value="">All Months</option></select>
           <span class="rcc" id="recCnt">0 records</span>
           <button class="btn bx" id="btnExportRec" onclick="exportRecXLS()">Export XLS</button>
@@ -683,7 +684,7 @@ tr:hover td{background:#f8fafc}
             <div><label>From · من</label><input type="date" id="vacFrom" oninput="calcVacDays()"></div>
             <div><label>To · إلى</label><input type="date" id="vacTo" oninput="calcVacDays()"></div>
             <div><label>Duration · المدة</label><div id="vacDisp" style="padding:.6rem .85rem;background:var(--tbg);border-radius:var(--rs);font-weight:700;color:var(--td)">— days</div></div>
-            <div><label>Type · النوع</label><select id="vacType" onchange="toggleSickFields()"><option>Annual Leave</option><option>Sick Leave</option><option>Emergency Leave</option><option>Unpaid Leave</option><option>Maternity Leave</option><option>Other</option></select></div>
+            <div><label>Type · النوع</label><select id="vacType" onchange="toggleSickFields()"><option value="Annual Leave">Annual Leave · إجازة سنوية</option><option value="Sick Leave">Sick Leave · إجازة مرضية</option><option value="Emergency Leave">Emergency Leave · إجازة طارئة</option><option value="Unpaid Leave">Unpaid Leave · إجازة بدون راتب</option><option value="Maternity Leave">Maternity Leave · إجازة أمومة</option><option value="Other">Other · أخرى</option></select></div>
             <div><label>ID Number · رقم الهوية <span style="color:var(--red)">*</span></label><input type="text" id="vacIdNumber" placeholder="10-digit ID" inputmode="numeric" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)"></div>
             <div><label>Contact During Leave · للتواصل <span style="color:var(--red)">*</span></label><input type="tel" id="vacContact" placeholder="10-digit number" inputmode="numeric" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)"></div>
             <div class="ff"><label>Write Your Name · اكتب اسمك <span style="color:var(--red)">*</span></label>
@@ -2128,6 +2129,14 @@ function updateFilters(){
   ds.sort(); ms.sort().reverse();
   document.getElementById('fDoc').innerHTML='<option value="">All Doctors</option>'+ds.map(function(d){return '<option>'+d+'</option>';}).join('');
   document.getElementById('fMon').innerHTML='<option value="">All Months</option>'+ms.map(function(m){return '<option value="'+m+'">'+fmtM(m)+'</option>';}).join('');
+  if(isGM()){
+    var nurEl=document.getElementById('fNur');
+    if(nurEl){
+      nurEl.style.display='';
+      var nurses=[...new Set(records.map(function(r){return r.nurse;}).filter(Boolean))].sort();
+      nurEl.innerHTML='<option value="">All Nurses</option>'+nurses.map(function(n){return '<option>'+n+'</option>';}).join('');
+    }
+  }
 }
 var recSortCol='date', recSortAsc=false;
 function sortRecords(col){
@@ -2138,9 +2147,10 @@ function renderRecords(){
   var q=(document.getElementById('srch').value||'').toLowerCase();
   var fd=document.getElementById('fDoc').value||'';
   var fm=document.getElementById('fMon').value||'';
+  var fn=(document.getElementById('fNur')||{}).value||'';
   var f=records.filter(function(r){
     return (!q||(r.patient.toLowerCase().indexOf(q)>=0||r.doctor.toLowerCase().indexOf(q)>=0||r.procedure.toLowerCase().indexOf(q)>=0||(r.patientId&&r.patientId.toLowerCase().indexOf(q)>=0)))
-        &&(!fd||r.doctor===fd)&&(!fm||r.date.indexOf(fm)===0);
+        &&(!fd||r.doctor===fd)&&(!fm||r.date.indexOf(fm)===0)&&(!fn||r.nurse===fn);
   });
   // Sort
   f.sort(function(a,b){
@@ -2178,7 +2188,15 @@ function renderRecords(){
       html+='<td style="color:#6d28d9;font-weight:600">'+r.margin+'%</td>';
       html+='<td style="color:var(--ss);font-size:.8rem">'+esc(r.nurse||'—')+'<br><div style="display:flex;gap:.4rem;margin-top:.3rem"><button class="expand-btn" onclick="openEditModal('+r.id+')">✏️ Edit</button><button class="expand-btn" style="color:var(--red)" onclick="confirmDeleteRecord('+r.id+')">🗑 Delete</button></div></td>';
     } else {
-      html+='<td style="color:var(--ss);font-size:.8rem">'+esc(r.nurse||'—')+'</td>';
+      // Staff can edit own records within 48 hours
+      var dp=r.date.split('-');
+      var recDate=new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2]),0,0,0,0);
+      var now=new Date();
+      var diffHours=(now-recDate)/3600000;
+      var canEdit=r.nurse===CU.empName && diffHours>=0 && diffHours<=48;
+      html+='<td style="color:var(--ss);font-size:.8rem">'+esc(r.nurse||'—')+
+        (canEdit?'<br><button class="expand-btn" onclick="openEditModal('+r.id+')">✏️ Edit</button>':'')+
+      '</td>';
     }
     html+='</tr>';
   });
@@ -2257,6 +2275,23 @@ function openEditModal(id){
   var areaSel=document.getElementById('eAreaSel');
   if(areaSel) areaSel.value=rec.area||'';
   if(rec.items&&rec.items.length) rec.items.forEach(function(it){addEditItemRow(it);}); else addEditItemRow(null);
+  // For staff: lock date field and restrict doctor/nurse/patient fields
+  var dateField = document.getElementById('eProcDate');
+  var ptNameField = document.getElementById('ePtName');
+  var ptIdField = document.getElementById('ePtId');
+  var docSel = document.getElementById('eDocSel');
+  var nurSel = document.getElementById('eNurSel');
+  if(isGM()){
+    // GM can edit everything
+    if(dateField){ dateField.disabled=false; dateField.style.opacity=''; }
+    [ptNameField,ptIdField,docSel,nurSel].forEach(function(el){if(el){el.disabled=false;el.style.opacity='';}});
+    document.getElementById('editModal').querySelector('h3').textContent='Edit Procedure Record';
+  } else {
+    // Staff: lock date, doctor, nurse, patient
+    if(dateField){ dateField.disabled=true; dateField.style.opacity='.5'; }
+    [ptNameField,ptIdField,docSel,nurSel].forEach(function(el){if(el){el.disabled=true;el.style.opacity='.5';}});
+    document.getElementById('editModal').querySelector('h3').textContent='Edit Record (within 48h)';
+  }
   document.getElementById('editModal').classList.remove('hidden');
 }
 function addEditItemRow(p){
@@ -2282,11 +2317,13 @@ function calcEditRow(id){
 }
 async function saveEditRecord(){
   var id=parseInt(document.getElementById('editId').value);
-  var patient=document.getElementById('ePtName').value.trim();
-  var doctor=document.getElementById('eDocSel').value;
+  // Find original record to preserve locked fields for staff
+  var origRec=null; for(var i=0;i<records.length;i++){if(records[i].id===id){origRec=records[i];break;}}
+  var patient=isGM()?document.getElementById('ePtName').value.trim():(origRec?origRec.patient:'');
+  var doctor=isGM()?document.getElementById('eDocSel').value:(origRec?origRec.doctor:'');
   var proc=document.getElementById('ePrcSel').value;
-  var date=document.getElementById('eProcDate').value;
-  var nurse=document.getElementById('eNurSel').value;
+  var date=origRec?origRec.date:document.getElementById('eProcDate').value; // date always from original
+  var nurse=isGM()?document.getElementById('eNurSel').value:(origRec?origRec.nurse:'');
   if(!patient||!doctor||!proc||!date||!nurse){ toast('Fill in all required fields.',false); return; }
   var items=[]; var ts=0,tc=0;
   for(var i=1;i<=editRowId;i++){
