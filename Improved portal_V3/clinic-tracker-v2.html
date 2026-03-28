@@ -1452,6 +1452,17 @@ function bootApp(){
     vacEmp.style.color = 'var(--td)';
     vacEmp.style.fontWeight = '600';
   }
+  // Lock vacation employee for ALL non-GM staff (including Other Staff)
+  if(!isGM()){
+    var vacEmpEl = document.getElementById('vacEmp');
+    if(vacEmpEl){
+      vacEmpEl.innerHTML = '<option value="'+CU.empName+'">'+CU.empName+'</option>';
+      vacEmpEl.disabled = true;
+      vacEmpEl.style.background = 'var(--tbg)';
+      vacEmpEl.style.color = 'var(--td)';
+      vacEmpEl.style.fontWeight = '600';
+    }
+  }
   rowId=0; document.getElementById('itemRows').innerHTML=''; addItemRow();
   renderManage(); renderPasswordGrid();
 
