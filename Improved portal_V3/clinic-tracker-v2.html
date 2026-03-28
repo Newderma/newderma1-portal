@@ -568,7 +568,6 @@ tr:hover td{background:#f8fafc}
 
           <div><label>Area Treated <span style="color:var(--red)">*</span></label>
             <div class="si-wrap" id="areaSI" style="min-width:0"></div>
-            <input type="hidden" id="areaSel" value="">
           </div>
 
           <div><label>Date <span style="color:var(--red)">*</span></label><input type="date" id="procDate"></div>
@@ -1273,7 +1272,7 @@ function getStaffPass(name){ return staffPasswords[name] || 'staff123'; }
 
 function toggleCustomArea(){ /* areas now dynamic */ }
 function toggleEditCustomArea(){ /* areas now dynamic */ }
-function getAreaValue(){ return document.getElementById('areaSel').value||''; }
+function getAreaValue(){ return getSIVal('areaSI')||''; }
 
 function showLoginMsg(msg){
   var el=document.getElementById('loginMsg');
@@ -1514,15 +1513,7 @@ function showPage(id,btn){
   if(id==='vacation')  { populateVacEmp(); showVTab(isGM()?'pending':'submit',document.querySelector('.vtab')); renderBalances(); renderStaffBalCard(); checkVacStatusAlerts(); }
   if(id==='entry'){
     renderStaffBalCard();
-    // Re-init area search select in case it wasn't ready at boot
-    setTimeout(function(){
-      var areaSI=document.getElementById('areaSI');
-      if(areaSI&&!areaSI.querySelector('.si-input')){
-        buildSearchSelect('areaSI', lists.areas||[], '', function(val){
-          var h=document.getElementById('areaSel'); if(h) h.value=val;
-        });
-      }
-    },50);
+    setTimeout(function(){ buildSearchSelect('areaSI', lists.areas||[], '', null); }, 30);
   }
   if(id==='manage')    { renderManage(); renderPasswordGrid(); renderEmpProfiles(); renderManageShiftHours(); loadEmailjsConfig(); }
 }
@@ -1547,11 +1538,8 @@ function populateDDL(){
   document.getElementById('nurSel').innerHTML=d+lists.nurses.map(function(x){return '<option>'+x+'</option>';}).join('');
   document.getElementById('prcSel').innerHTML=d+lists.procedures.map(function(x){return '<option>'+x+'</option>';}).join('');
   var areaOpts='<option value="">— Select area —</option>'+(lists.areas||[]).map(function(x){return '<option>'+x+'</option>';}).join('');
-  // Area search select for new entry
-  var areaSI=document.getElementById('areaSI');
-  if(areaSI) buildSearchSelect('areaSI', lists.areas||[], '', function(val){
-    var h=document.getElementById('areaSel'); if(h) h.value=val;
-  });
+  // Area searchable select for new entry
+  buildSearchSelect('areaSI', lists.areas||[], '', null);
   // Area plain select for edit modal
   var eas=document.getElementById('eAreaSel'); if(eas)eas.innerHTML=areaOpts;
 }
@@ -1823,12 +1811,7 @@ function resetForm(){
   var tb=document.getElementById('tSell');if(tb&&tb.closest('.tbar'))tb.closest('.tbar').style.display='';
   document.querySelectorAll('#noteChips .note-chip').forEach(function(c){c.classList.remove('active');});
   ['docSel','prcSel'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  var aHid=document.getElementById('areaSel'); if(aHid) aHid.value='';
-  // Re-init area search select
-  var areaSI=document.getElementById('areaSI');
-  if(areaSI) buildSearchSelect('areaSI', lists.areas||[], '', function(val){
-    var h=document.getElementById('areaSel'); if(h) h.value=val;
-  });
+  buildSearchSelect('areaSI', lists.areas||[], '', null);
   if(isGM()) document.getElementById('nurSel').value='';
   var cad=document.getElementById('customAreaDiv'); if(cad)cad.style.display='none';
   document.getElementById('procDate').valueAsDate=new Date();
