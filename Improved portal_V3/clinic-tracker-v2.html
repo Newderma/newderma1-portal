@@ -393,6 +393,11 @@ tr:hover td{background:#f8fafc}
 .badge-retouch{background:#fef9c3;color:#854d0e;padding:.15rem .5rem;border-radius:99px;font-size:.7rem;font-weight:700}
 .badge-comp{background:#ede9fe;color:#6d28d9;padding:.15rem .5rem;border-radius:99px;font-size:.7rem;font-weight:700}
 @keyframes popIn{0%{transform:scale(0);opacity:0}70%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+
+.mbtt{position:relative;display:inline-block;cursor:pointer;margin-left:2px;opacity:.7;font-size:.65rem;vertical-align:middle}
+.mbtt .mbtt-box{visibility:hidden;opacity:0;background:#1e293b;color:#fff;font-size:.72rem;border-radius:8px;padding:.5rem .75rem;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:200px;line-height:1.5;text-align:center;z-index:9999;transition:opacity .2s;pointer-events:none;font-weight:400}
+.mbtt:hover .mbtt-box,.mbtt:focus .mbtt-box,.mbtt.open .mbtt-box{visibility:visible;opacity:1}
+.mbtt .mbtt-box::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1e293b}
 </style>
   <!-- EmailJS — dormant until service/template IDs configured in Manage -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -668,7 +673,7 @@ tr:hover td{background:#f8fafc}
     <div class="page" id="page-vacation">
       <div id="staffBalCardVac" style="display:none;margin-bottom:1.2rem"></div>
       <div id="vacStatusAlert" style="display:none;margin-bottom:1rem"></div>
-      <div class="ph"><h2>Vacation Management</h2><p>Submit and manage leave requests.</p></div>
+      <div class="ph"><h2>Vacation Management · إدارة الإجازات</h2><p>Submit and manage leave requests · تقديم وإدارة طلبات الإجازة</p></div>
       <div class="vtabs" id="vacTabs"></div>
       <div class="vsec" id="vs-submit">
         <div class="card"><div class="ct">New Request</div>
@@ -1423,7 +1428,7 @@ function bootApp(){
 
   var vtabs = isGM()
     ? [['pending','Pending'],['balances','Balances'],['history','History']]
-    : [['submit','Submit'],['pending','My Requests'],['balances','My Balance'],['history','My History']];
+    : [['submit','Submit · تقديم'],['pending','My Requests · طلباتي'],['balances','My Balance · رصيدي'],['history','My History · سجلي']];
   var vh='';
   for(var j=0;j<vtabs.length;j++) vh+='<button class="vtab" onclick="showVTab(\''+vtabs[j][0]+'\',this)">'+vtabs[j][1]+'</button>';
   document.getElementById('vacTabs').innerHTML=vh;
@@ -2586,6 +2591,7 @@ function clearSig(){
 }
 
 function sigHasContent(){ return !sigEmpty; }
+function toggleTip(el){ el.classList.toggle('open'); }
 
 // ── Name handwriting pad ──
 var nameDrawing = false;
@@ -3359,15 +3365,15 @@ function renderStaffBalCard() {
   var html =
     '<div class="minibal">' +
     '<div>' +
-      '<div class="mbgreet">👋 Welcome back,</div>' +
+      '<div class="mbgreet">👋 Welcome back · أهلاً بعودتك،</div>' +
       '<div class="mbname">' + esc(emp) + '</div>' +
-      (b.nextRenewal ? '<div style="font-size:.72rem;color:#0a2a1a;font-weight:500;margin-top:.2rem">🔄 Renews ' + fmtD(b.nextRenewal) + '</div>' : '') +
+      (b.nextRenewal ? '<div style="font-size:.72rem;color:#0a2a1a;font-weight:500;margin-top:.2rem">🔄 Renews · يتجدد ' + fmtD(b.nextRenewal) + '</div>' : '') +
     '</div>' +
     '<div class="mbstats">' +
-      '<div class="mbstat"><div class="mbval">' + b.entitled + '</div><div class="mblbl">Due/yr</div></div>' +
-      '<div class="mbstat"><div class="mbval">' + b.accruedThis + '</div><div class="mblbl">Accrued</div></div>' +
-      '<div class="mbstat"><div class="mbval">' + b.totalUsed + '</div><div class="mblbl">Used</div></div>' +
-      '<div class="mbstat" style="' + availBg + '"><div class="mbval">' + b.available + '</div><div class="mblbl">Available</div></div>' +
+      '<div class="mbstat"><div class="mbval">' + b.entitled + '</div><div class="mblbl">Due/yr · المستحق <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Total vacation days entitled per year · إجمالي أيام الإجازة المستحقة سنوياً</span></span></div></div>' +
+      '<div class="mbstat"><div class="mbval">' + b.accruedThis + '</div><div class="mblbl">Accrued · المتراكم <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Days earned so far this year · الأيام المكتسبة حتى الآن هذا العام</span></span></div></div>' +
+      '<div class="mbstat"><div class="mbval">' + b.totalUsed + '</div><div class="mblbl">Used · المستخدم <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Vacation days already taken · أيام الإجازة المستخدمة</span></span></div></div>' +
+      '<div class="mbstat" style="' + availBg + '"><div class="mbval">' + b.available + '</div><div class="mblbl">Available · المتبقي <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Days you can still request · الأيام المتاحة للطلب</span></span></div></div>' +
     '</div></div>';
   card.style.display = '';
   card.innerHTML = html;
