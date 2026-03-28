@@ -1512,7 +1512,18 @@ function showPage(id,btn){
   if(id==='dashboard') { populateDashMonths(); renderDash(); }
   if(id==='utilization') { renderUtilization(); }
   if(id==='vacation')  { populateVacEmp(); showVTab(isGM()?'pending':'submit',document.querySelector('.vtab')); renderBalances(); renderStaffBalCard(); checkVacStatusAlerts(); }
-  if(id==='entry')     { renderStaffBalCard(); }
+  if(id==='entry'){
+    renderStaffBalCard();
+    // Re-init area search select in case it wasn't ready at boot
+    setTimeout(function(){
+      var areaSI=document.getElementById('areaSI');
+      if(areaSI&&!areaSI.querySelector('.si-input')){
+        buildSearchSelect('areaSI', lists.areas||[], '', function(val){
+          var h=document.getElementById('areaSel'); if(h) h.value=val;
+        });
+      }
+    },50);
+  }
   if(id==='manage')    { renderManage(); renderPasswordGrid(); renderEmpProfiles(); renderManageShiftHours(); loadEmailjsConfig(); }
 }
 
@@ -1560,7 +1571,7 @@ function buildSearchSelect(containerId, items, selectedVal, onChangeFn){
   var wrap = document.getElementById(containerId);
   if(!wrap) return;
   var val = selectedVal || '';
-  var label = val || '— Select item —';
+  var label = val || '— Select —';
   wrap.innerHTML =
     '<button type="button" class="si-input'+(val?' has-val':'')+'" onclick="toggleSI(\''+containerId+'\')" id="si-btn-'+containerId+'">'+escH(label)+'</button>'+
     '<div class="si-drop" id="si-drop-'+containerId+'">'+
@@ -1594,7 +1605,7 @@ function renderSIList(cid, q){
   var list  = document.getElementById('si-list-'+cid);
   if(!list) return;
   var filtered = q ? items.filter(function(it){ return it.toLowerCase().indexOf(q.toLowerCase())>=0; }) : items;
-  var html = '<div class="si-opt placeholder" onclick="selectSI(\''+cid+'\',\'\')">— Select item —</div>';
+  var html = '<div class="si-opt placeholder" onclick="selectSI(\''+cid+'\',\'\')">— Select —</div>';
   if(!filtered.length){ html += '<div class="si-none">No items match "'+escH(q)+'"</div>'; }
   filtered.forEach(function(it){
     var hi = q ? it.replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>') : escH(it);
