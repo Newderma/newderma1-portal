@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Newderma1 Attendance</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green:#6abf4b;--green2:#5aaf3b;
+  --gbg:rgba(106,191,75,.08);--gborder:rgba(106,191,75,.25);
+  --bg:#f8fafc;--w:#ffffff;
+  --sl:#1e293b;--sm:#475569;--ss:#94a3b8;
+  --border:#e2e8f0;
+  --teal:#16a34a;--tealb:rgba(22,163,74,.1);
+  --red:#ef4444;--redb:rgba(239,68,68,.08);
+  --gold:#d97706;--blue:#3b82f6;
+  --sh:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.06);
+  --shl:0 8px 32px rgba(0,0,0,.1);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--sl);font-family:'DM Sans',sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+
+/* LOADING */
+#loadingScreen{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LOGIN */
+#loginScreen{display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;padding:1.5rem;background:linear-gradient(160deg,#f0fdf4 0%,#f8fafc 50%,#f0f9ff 100%)}
+.lbox{background:#ffffff;border:1px solid var(--border);border-radius:16px;padding:2rem 1.8rem;width:100%;max-width:400px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.llogo{text-align:center;margin-bottom:1.5rem;display:flex;flex-direction:column;align-items:center}
+.llogo img{max-height:90px;max-width:180px;object-fit:contain;filter:drop-shadow(0 4px 16px rgba(106,191,75,.2)) contrast(1.05) saturate(1.1)}
+.llogo-title{font-size:1.1rem;font-weight:700;color:#1e293b;margin:.45rem 0 .1rem}
+.llogo-arabic{font-size:1rem;color:#475569;font-family:'Noto Sans Arabic',sans-serif;direction:rtl;text-align:center;font-weight:400}
+.lf{margin-bottom:.9rem}
+.lf label{display:block;font-size:.75rem;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.32rem}
+.lf input,.lf select{width:100%;padding:.62rem .88rem;background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;color:#1e293b;font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.lf input:focus,.lf select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(106,191,75,.1);background:#fff}
+.lf select option{background:#fff;color:#1e293b}
+.lf input[readonly]{opacity:.65;cursor:default;background:var(--gbg)}
+.lerr{background:var(--redb);color:#dc2626;border-radius:8px;padding:.5rem .88rem;font-size:.8rem;margin-bottom:.8rem;display:none}
+.lerr.show{display:block}
+.stamp-notice{background:var(--gbg);border:1px solid var(--gborder);border-radius:8px;padding:.45rem .88rem;font-size:.8rem;color:var(--green2);margin-bottom:.8rem;display:none}
+.btnL{width:100%;padding:.72rem;background:#6abf4b;color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;transition:background .15s}
+.btnL:hover{background:#5aaf3b}
+.lhint{margin-top:.85rem;background:var(--gbg);border:1px solid var(--gborder);border-radius:8px;padding:.5rem .8rem;font-size:.72rem;color:var(--green2);line-height:1.55}
+.lhint strong{font-weight:700}
+.lback{text-align:center;margin-top:.85rem;font-size:.74rem}
+.lback a{color:var(--ss);text-decoration:none}
+.lback a:hover{color:var(--green)}
+
+/* NAV — exact clinic tracker */
+nav{background:#1e293b;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2);gap:1rem}
+.nbrand{display:flex;align-items:center;gap:.6rem;flex-shrink:0}
+.nbrand span{color:#fff;font-size:1rem;font-weight:600}
+.nbrand small{color:#94a3b8;font-size:.7rem;display:block;margin-top:-2px}
+.nright{display:flex;align-items:center;gap:.5rem;min-width:0}
+.ntabs{display:flex;gap:.2rem;overflow-x:auto}
+.ntab{background:none;border:none;color:#ffffff;padding:.4rem .75rem;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:500;white-space:nowrap;flex-shrink:0}
+.ntab:hover{color:#6abf4b;background:rgba(255,255,255,.1)}
+.ntab.active{color:#fff;background:#6abf4b}
+.nuser{display:flex;align-items:center;gap:.4rem;padding:.3rem .7rem;background:rgba(255,255,255,.08);border-radius:99px;color:#ffffff;font-size:.78rem;font-weight:500;flex-shrink:0}
+.rb{font-size:.62rem;padding:.15rem .5rem;border-radius:99px;font-weight:700;text-transform:uppercase}
+.rb-admin{background:#fef9c3;color:#854d0e}
+.rb-staff{background:#dbeafe;color:#1e40af}
+.user-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:.3rem;flex-shrink:0}
+.btnOut{background:none;border:1px solid rgba(255,255,255,.2);color:#ffffff;padding:.3rem .7rem;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.76rem;flex-shrink:0}
+.btnOut:hover{border-color:#ef4444;color:#fca5a5}
+
+/* APP */
+#appShell{display:none;flex-direction:column;min-height:100vh}
+.main{flex:1;padding:1.1rem;max-width:880px;width:100%;margin:0 auto}
+.page{display:none}.page.active{display:block}
+.ph{margin-bottom:1.1rem}
+.ph h2{font-size:1.1rem;font-weight:700;color:var(--sl);margin-bottom:.15rem}
+.ph p{font-size:.78rem;color:var(--sm)}
+.card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:1.3rem;margin-bottom:1.1rem;box-shadow:var(--sh)}
+.ct{font-size:.68rem;font-weight:700;color:var(--green2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.9rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:.75rem;margin-bottom:.75rem}
+.fgrid .fw{grid-column:1/-1}
+label{display:block;font-size:.7rem;font-weight:600;color:var(--sm);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.28rem}
+input,select{width:100%;padding:.6rem .85rem;background:#fff;border:1.5px solid var(--border);border-radius:8px;color:var(--sl);font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--green)}
+select option{background:#fff}
+
+/* TOAST */
+#toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%) translateY(20px);background:var(--sl);color:#fff;border-radius:99px;padding:.5rem 1.1rem;font-size:.8rem;opacity:0;transition:all .22s;z-index:9999;white-space:nowrap;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.ok{background:var(--green)}
+#toast.err{background:var(--red)}
+
+/* BUTTONS */
+.btn{padding:.55rem 1rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:.4rem;transition:all .15s}
+.btn-p{background:var(--green);color:#fff}.btn-p:hover{background:var(--green2)}
+.btn-d{background:var(--redb);color:var(--red);border:1.5px solid rgba(239,68,68,.3)}.btn-d:hover{background:rgba(239,68,68,.15)}
+.btn-s{background:#fff;color:var(--sm);border:1.5px solid var(--border)}.btn-s:hover{border-color:var(--green);color:var(--green)}
+.btn-w{width:100%;justify-content:center}
+.btn-sm{font-size:.78rem;padding:.32rem .65rem}
+.btn-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem}
+
+/* GPS */
+.gps-bar{display:flex;align-items:center;gap:.5rem;padding:.55rem .9rem;background:var(--bg);border-radius:9px;font-size:.78rem;color:var(--sm);margin-bottom:1rem;border:1px solid var(--border)}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:var(--ss);flex-shrink:0}
+.gps-dot.ok{background:#22c55e}.gps-dot.err{background:var(--red)}
+.gps-dot.chk{background:var(--gold);animation:blink .8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* CLOCK PAGE */
+.clock-wrap{max-width:400px;margin:0 auto;text-align:center;padding-top:.5rem}
+.clock-time{font-size:3.2rem;font-weight:700;color:var(--sl);letter-spacing:-.02em;line-height:1}
+.clock-date{font-size:.82rem;color:var(--sm);margin:.35rem 0 1.2rem}
+.clock-card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:1.5rem;box-shadow:var(--sh)}
+.clock-greeting{font-size:.72rem;font-weight:700;color:var(--green2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.6rem}
+.clock-status{font-size:.82rem;color:var(--sm);margin-bottom:1.2rem;min-height:1.2rem}
+
+/* STAFF GRID */
+.staff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-top:.75rem}
+.staff-btn{background:var(--bg);border:1.5px solid var(--border);border-radius:9px;padding:.9rem .8rem;cursor:pointer;text-align:center;color:var(--sl);font-family:'DM Sans',sans-serif;transition:all .15s;width:100%;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.staff-btn:hover{border-color:var(--gborder);background:var(--gbg)}
+.staff-btn.in-now{border-color:rgba(22,163,74,.35);background:rgba(22,163,74,.06)}
+.sb-name{font-size:.83rem;font-weight:600;margin-bottom:.22rem}
+.sb-status{font-size:.68rem;color:var(--ss)}
+.staff-btn.in-now .sb-status{color:#16a34a;font-weight:500}
+
+/* TABLE */
+.filter-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.9rem;align-items:center}
+.filter-row input,.filter-row select{width:auto;flex:1;min-width:120px}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{text-align:left;padding:.55rem .75rem;color:var(--ss);font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)}
+td{padding:.6rem .75rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+tbody tr:hover{background:var(--bg)}
+.norec{text-align:center;color:var(--ss);font-style:italic;padding:1.8rem}
+.badge-in{background:rgba(22,163,74,.1);color:#16a34a;padding:.18rem .55rem;border-radius:99px;font-size:.7rem;font-weight:600}
+.badge-out{background:var(--bg);color:var(--ss);padding:.18rem .55rem;border-radius:99px;font-size:.7rem;font-weight:600}
+.badge-late{background:var(--redb);color:var(--red);padding:.18rem .55rem;border-radius:99px;font-size:.7rem;font-weight:600}
+.badge-early{background:rgba(59,130,246,.1);color:var(--blue);padding:.18rem .55rem;border-radius:99px;font-size:.7rem;font-weight:600}
+.badge-ontime{background:rgba(22,163,74,.1);color:#16a34a;padding:.18rem .55rem;border-radius:99px;font-size:.7rem;font-weight:600}
+
+/* SETTINGS */
+.staff-item{display:flex;align-items:center;justify-content:space-between;padding:.7rem 0;border-bottom:1px solid var(--border)}
+.staff-item:last-child{border-bottom:none}
+.si-name{font-weight:600;font-size:.86rem;color:var(--sl)}
+.si-role{font-size:.73rem;color:var(--ss);margin-top:.1rem}
+.pin-wrap{position:relative}
+.pin-wrap input{padding-right:3rem}
+.pin-toggle{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ss);font-size:.75rem;font-family:'DM Sans',sans-serif;padding:0}
+
+/* PIN MODAL */
+.pin-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:5000;display:none;align-items:center;justify-content:center;padding:1rem}
+.pin-overlay.open{display:flex}
+.pin-box{background:#fff;border:1px solid var(--border);border-radius:18px;padding:2rem;width:100%;max-width:300px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.pin-title{font-size:1rem;font-weight:700;color:var(--sl);margin-bottom:.15rem}
+.pin-sub{font-size:.8rem;color:var(--ss);margin-bottom:1.2rem}
+.pin-dots{display:flex;justify-content:center;gap:.6rem;margin-bottom:1.2rem}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .12s}
+.pin-dot.filled{background:var(--green);border-color:var(--green)}
+.pin-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.pin-key{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rs,9px);padding:.8rem;font-size:1.1rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--sl);transition:all .1s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.pin-key:hover,.pin-key:active{background:var(--gbg);border-color:var(--gborder);color:var(--green2)}
+.pin-key.del{font-size:.82rem;color:var(--ss)}
+.pin-err{color:var(--red);font-size:.76rem;margin-top:.55rem;min-height:1em}
+
+@media(max-width:580px){
+  nav{padding:0 .75rem;height:52px}
+  .ntabs{display:none}
+  .nright{gap:.3rem}
+  .nbrand span{font-size:.82rem;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nbrand small{display:none}
+  .nuser{padding:.25rem .5rem;gap:.3rem;max-width:130px;overflow:hidden}
+  #userLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:85px;font-size:.74rem}
+  .rb{display:none}
+  .user-dot{display:none}
+  .btnOut{padding:.25rem .5rem;font-size:.7rem}
+  .fgrid{grid-template-columns:1fr}
+  .clock-time{font-size:2.6rem}
+}
+
+
+/* CLOCK CONFIRM FLASH */
+.clock-confirm{position:fixed;inset:0;z-index:8000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;background:rgba(22,163,74,.97)}
+.clock-confirm.show{display:flex}
+.cc-check{font-size:4rem}
+.cc-title{color:#fff;font-size:1.4rem;font-weight:800}
+.cc-sub{color:rgba(255,255,255,.85);font-size:.9rem}
+.cc-badge{background:rgba(255,255,255,.2);color:#fff;border-radius:99px;padding:.3rem .9rem;font-size:.82rem;font-weight:600}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <div style="font-size:.78rem;color:var(--sm)">Loading...</div>
+</div>
+
+<div id="loginScreen">
+  <div class="lbox">
+    <div class="llogo">
+      <img src="data:image/png;base64,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" alt="Newderma1">
+      <div class="llogo-title">Attendance</div>
+      <div class="llogo-arabic">&#1575;&#1604;&#1581;&#1590;&#1608;&#1585; &#1608;&#1575;&#1604;&#1575;&#1606;&#1589;&#1585;&#1575;&#1601;</div>
+    </div>
+    <div id="stampNotice" class="stamp-notice"></div>
+    <div class="lf">
+      <label>Who are you? · من أنت؟</label>
+      <select id="loginName">
+        <option value="">-- Select your name --</option>
+        <option value="__admin__">Admin (General Manager)</option>
+      </select>
+    </div>
+    <div class="lf">
+      <label>Password · كلمة المرور</label>
+      <input type="password" id="loginPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="lerr" id="loginErr"></div>
+    <button class="btnL" onclick="doLogin()">Sign In · تسجيل الدخول</button>
+    <div class="lhint">
+      <strong>Forgot? · نسيت؟</strong> Use recovery key as password to reset
+    </div>
+    <div class="lback"><a href="index.html">&larr; Back to Portal · العودة للبوابة</a></div>
+  </div>
+</div>
+
+<div id="appShell">
+  <nav>
+    <div class="nbrand"><div><span>Newderma1 Attendance</span><small>&#1606;&#1610;&#1608;&#1583;&#1610;&#1585;&#1605;&#1575;</small></div></div>
+    <div class="nright">
+      <div class="ntabs" id="mainNav"></div>
+      <div class="nuser">
+        <span id="userLabel"></span>
+        <span class="rb" id="userRole"></span>
+        <span class="user-dot"></span>
+      </div>
+      <button class="btnOut" onclick="signOut()">Sign Out</button>
+    </div>
+  </nav>
+  <div class="main" id="mainContent"></div>
+</div>
+
+<div class="pin-overlay" id="pinOverlay">
+  <div class="pin-box">
+    <div class="pin-title" id="pinTitle">Enter PIN</div>
+    <div class="pin-sub" id="pinSub"></div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-keys">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key del" onclick="closePinModal()">&#10005;</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key del" onclick="pinDel()">&#9003;</button>
+    </div>
+    <div class="pin-err" id="pinErr"></div>
+  </div>
+</div>
+
+<script>
+function esc(s){if(!s)return'';s=String(s);s=s.split('&').join('&amp;');s=s.split('<').join('&lt;');s=s.split('>').join('&gt;');s=s.split('"').join('&quot;');s=s.split("'").join('&#39;');return s;}
+var _cModalCb=null;
+function showCModal(opts){
+  document.getElementById('cModalIcon').textContent=opts.icon||'⚠️';
+  document.getElementById('cModalTitle').textContent=opts.title||'Are you sure?';
+  document.getElementById('cModalMsg').textContent=opts.msg||'';
+  var det=document.getElementById('cModalDetail');
+  if(opts.detail){det.textContent=opts.detail;det.style.display='';}else{det.style.display='none';}
+  var inp=document.getElementById('cModalInput');
+  if(opts.inputLabel){
+    inp.style.display='';inp.value='';inp.placeholder=opts.inputLabel;
+    // PIN inputs: numeric, 4 digits. Password inputs: free text
+    if(opts.inputType==='pin'){
+      inp.type='tel';inp.inputMode='numeric';inp.maxLength=4;inp.style.textAlign='center';inp.style.letterSpacing='.3em';
+    } else {
+      inp.type='text';inp.inputMode='';inp.maxLength=524288;inp.style.textAlign='left';inp.style.letterSpacing='normal';
+    }
+  } else { inp.style.display='none'; }
+  var ok=document.getElementById('cModalOkBtn');
+  ok.textContent=opts.okLabel||'Confirm';
+  ok.style.background=opts.okStyle||'var(--red)';ok.style.color='#fff';ok.style.border='none';
+  _cModalCb=opts.onOk||null;
+  document.getElementById('cModal').style.display='flex';
+}
+function closeCModal(){document.getElementById('cModal').style.display='none';_cModalCb=null;}
+function doCModal(){
+  var inp=document.getElementById('cModalInput');
+  var val=inp.style.display!=='none'?inp.value.trim():null;
+  document.getElementById('cModal').style.display='none';
+  if(_cModalCb)_cModalCb(val);_cModalCb=null;
+}
+function showClockConfirm(action,staffName,clockTime){
+  var el=document.getElementById('clockConfirm');if(!el)return;
+  var isIn=action==='in';
+  el.style.background=isIn?'rgba(22,163,74,.97)':'rgba(30,41,59,.97)';
+  document.getElementById('ccTitle').textContent=isIn?'Clocked IN':'Clocked OUT';
+  document.getElementById('ccSub').textContent=staffName+' at '+fmtTime(clockTime);
+  var badge=document.getElementById('ccBadge');
+  if(isIn){
+    var arr=calcArr(clockTime);var g=cfg.graceMin!=null?cfg.graceMin:10;
+    if(arr===null){badge.style.display='none';}
+    else if(arr<-g){badge.textContent='⏰ Late '+Math.abs(arr)+' min';badge.style.display='';}
+    else if(arr>g){badge.textContent='⚡ Early '+Math.abs(arr)+' min';badge.style.display='';}
+    else{badge.textContent='✓ On Time';badge.style.display='';}
+  }else{badge.style.display='none';}
+  el.style.display='flex';
+  setTimeout(function(){el.style.display='none';},2800);
+}
+var SB_URL='https://pdlhcgdjrqzjanonevqx.supabase.co';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkbGhjZ2RqcnF6amFub25ldnF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MDQ1OTIsImV4cCI6MjA4ODQ4MDU5Mn0.902WRLQAChto_Rw3QMegm2i_saVyRTpAF5vdpwFoUkU';
+function sbH(x){return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},x||{});}
+async function sbGet(t,q){var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+(q||'order=id.desc'),{headers:sbH()});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbPost(t,d,p){var r=await fetch(SB_URL+'/rest/v1/'+t,{method:'POST',headers:sbH({'Prefer':p||'return=representation'}),body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbPatch(t,q,d){var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+q,{method:'PATCH',headers:sbH({'Prefer':'return=representation'}),body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbDel(t,q){var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+q,{method:'DELETE',headers:sbH()});if(!r.ok)throw new Error(await r.text());}
+async function sbRpc(fn,p){var r=await fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:sbH(),body:JSON.stringify(p)});if(!r.ok)throw new Error(await r.text());return r.json();}
+
+// STATE
+var cfg={adminPass:'admin123',staffPass:'staff123',recoveryKey:'NEWDERMA1-ATT-RESET',
+  clinicLat:null,clinicLng:null,radiusM:150,workStart:'',workEnd:'',graceMin:10,phoneStamps:[]};
+var staffList=[];
+var records=[];
+var CU=null;
+var gpsOk=false;
+var userCoords=null;
+var pinBuf='';
+var pinTarget=null;
+
+// SESSION — staff only via localStorage
+function saveSession(){
+  try{
+    if(CU&&CU.role==='admin'){
+      sessionStorage.setItem('att_cu',JSON.stringify(CU));
+    } else {
+      localStorage.setItem('att_cu',JSON.stringify(CU));
+    }
+  }catch(e){}
+}
+function loadSession(){
+  try{
+    var s=sessionStorage.getItem('att_cu')||localStorage.getItem('att_cu');
+    if(s)CU=JSON.parse(s);
+  }catch(e){}
+}
+function clearSession(){
+  try{sessionStorage.removeItem('att_cu');}catch(e){}
+  try{localStorage.removeItem('att_cu');}catch(e){}
+}
+
+// PHONE STAMP
+function getStamp(){try{return localStorage.getItem('att_stamp');}catch(e){return null;}}
+function setStamp(n){try{localStorage.setItem('att_stamp',n);}catch(e){}}
+function clearStamp(){try{localStorage.removeItem('att_stamp');}catch(e){}}
+
+function toast(msg,ok){
+  var el=document.getElementById('toast');
+  el.textContent=msg;el.className='show '+(ok===false?'err':'ok');
+  clearTimeout(el._t);el._t=setTimeout(function(){el.className='';},3000);
+}
+
+// CONFIG
+async function loadCfg(){var r=await sbGet('att_config','key=eq.attConfig');if(r&&r[0])cfg=Object.assign(cfg,JSON.parse(r[0].value));}
+async function saveCfg(){await fetch(SB_URL+'/rest/v1/att_config',{method:'POST',headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),body:JSON.stringify({key:'attConfig',value:JSON.stringify(cfg)})});}
+async function loadStaff(){
+  var r=await sbGet('att_config','key=eq.attStaff');
+  staffList=(r&&r[0])?JSON.parse(r[0].value):[];
+  populateLoginDropdown();
+}
+async function saveStaff(){await fetch(SB_URL+'/rest/v1/att_config',{method:'POST',headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),body:JSON.stringify({key:'attStaff',value:JSON.stringify(staffList)})});}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+async function loadTodayRecs(){try{records=await sbGet('att_records','date=eq.'+todayStr()+'&order=clock_in.asc');}catch(e){records=[];}}
+async function loadAllRecs(from,to){try{var q='order=date.desc,clock_in.desc';if(from)q+='&date=gte.'+from;if(to)q+='&date=lte.'+to;return await sbGet('att_records',q);}catch(e){return[];}}
+
+// GPS
+function haversine(a,b,c,d){var R=6371000,dL=(c-a)*Math.PI/180,dO=(d-b)*Math.PI/180,x=Math.sin(dL/2)*Math.sin(dL/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dO/2)*Math.sin(dO/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function startGPS(cb){
+  var bar=document.getElementById('gpsBar');
+  var setBar=function(cls,txt){
+    if(bar){
+      bar.querySelector('.gps-dot').className='gps-dot '+cls;
+      bar.querySelector('.gps-txt').textContent=txt;
+    }
+  };
+  setBar('chk','Checking location...');
+  if(!navigator.geolocation){gpsOk=false;setBar('err','GPS not available');if(cb)cb(false);return;}
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      userCoords={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      if(!cfg.clinicLat||!cfg.clinicLng){gpsOk=true;setBar('ok','Location OK');if(cb)cb(true);return;}
+      var dist=haversine(userCoords.lat,userCoords.lng,cfg.clinicLat,cfg.clinicLng);
+      gpsOk=dist<=(cfg.radiusM||150);
+      setBar(gpsOk?'ok':'err',gpsOk?'At clinic ('+Math.round(dist)+'m)':'Too far ('+Math.round(dist)+'m)');
+      if(cb)cb(gpsOk);
+    },
+    function(){gpsOk=false;setBar('err','Location denied');if(cb)cb(false);},
+    {enableHighAccuracy:true,timeout:10000}
+  );
+}
+
+// AUTH
+function populateLoginDropdown(){
+  var sel=document.getElementById('loginName');
+  if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">-- Select your name --</option><option value="__admin__">Admin (General Manager)</option>';
+  var active=staffList.filter(function(s){return s.active!==false;});
+  active.sort(function(a,b){return a.name.localeCompare(b.name);});
+  active.forEach(function(s){
+    var opt=document.createElement('option');
+    opt.value=s.name; opt.textContent=s.name;
+    if(s.name===cur) opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+
+async function doLogin(){
+  var name=document.getElementById('loginName').value.trim();
+  var pass=document.getElementById('loginPass').value.trim();
+  var err=document.getElementById('loginErr');
+  err.classList.remove('show');
+  if(!name){err.textContent='Please select your name';err.classList.add('show');return;}
+  if(pass===cfg.recoveryKey){
+    cfg.adminPass='admin123';
+    await saveCfg();toast('Password reset to admin123',true);return;
+  }
+  if(name==='__admin__'&&pass===cfg.adminPass){
+    CU={role:'admin',name:'Admin'};
+    clearStamp();
+    document.getElementById('loginScreen').style.display='none';
+    bootApp();
+  } else if(name!=='__admin__'){
+    var found=staffList.find(function(s){return s.name.toLowerCase()===name.toLowerCase();});
+    if(!found){err.textContent='Name not found. Contact admin.';err.classList.add('show');return;}
+    var expectedPwd=found.password||'staff123';
+    if(pass!==expectedPwd){err.textContent='Incorrect password';err.classList.add('show');return;}
+    var stamp=getStamp();
+    if(stamp&&stamp.toLowerCase()!==found.name.toLowerCase()){
+      err.textContent='This phone belongs to '+stamp+'. Contact admin to clear.';
+      err.classList.add('show');return;
+    }
+    CU={role:'staff',name:found.name};
+    saveSession(); // staff session saved for auto-restore
+    document.getElementById('loginScreen').style.display='none';
+    bootApp();
+  } else {
+    err.textContent='Incorrect password';err.classList.add('show');
+  }
+}
+
+function signOut(){
+  CU=null;
+  clearSession();
+  // do NOT clear stamp — phone stays locked to staff name
+  location.reload();
+}
+
+// BOOT
+async function bootApp(){
+  // Save session on every boot
+  saveSession();
+  document.getElementById('userLabel').textContent=CU.name;
+  var rb=document.getElementById('userRole');
+  if(rb){rb.textContent=CU.role.toUpperCase();rb.className='rb '+(CU.role==='admin'?'rb-admin':'rb-staff');}
+  var nav=document.getElementById('mainNav');
+  var content=document.getElementById('mainContent');
+  if(CU.role==='admin'){
+    nav.innerHTML=[
+      '<button class="ntab active" onclick="showPage(\'live\',this)">Live</button>',
+      '<button class="ntab" onclick="showPage(\'logs\',this)">Logs</button>',
+      '<button class="ntab" onclick="showPage(\'settings\',this)">Settings</button>'
+    ].join('');
+    content.innerHTML=buildLivePage()+buildLogsPage()+buildSettingsPage();
+    await loadTodayRecs();
+    renderLive();renderSettings();
+    try{var lp=sessionStorage.getItem('att_page');if(lp&&lp!=='live'){var ab=null;document.querySelectorAll('.ntab').forEach(function(b){if(b.textContent.trim().toLowerCase()===lp)ab=b;});showPage(lp,ab);}}catch(e){}
+    document.getElementById('appShell').style.display='flex';
+  } else {
+    nav.innerHTML='';
+    content.innerHTML=buildClockPage();
+    await loadTodayRecs();
+    renderClock();
+    startClock();
+    document.getElementById('appShell').style.display='flex';
+  }
+}
+
+function showPage(id,btn){
+  try{sessionStorage.setItem('att_page',id);}catch(e){}
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.ntab').forEach(function(b){b.classList.remove('active');});
+  var pg=document.getElementById('page-'+id);
+  if(pg)pg.classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(id==='live'){loadTodayRecs().then(renderLive);}
+  if(id==='logs'){renderLogs();}
+  if(id==='settings'){renderSettings();}
+}
+
+// ── CLOCK PAGE (staff) ────────────────────────────────────────────────────
+function buildClockPage(){
+  return [
+    '<div class="page active" id="page-clock">',
+    '<div class="clock-wrap">',
+    '<div class="gps-bar" id="gpsBar"><div class="gps-dot chk"></div><span class="gps-txt">Checking location...</span></div>',
+    '<div class="clock-time" id="clockTime">--:--:--</div>',
+    '<div class="clock-date" id="clockDate"></div>',
+    '<div class="clock-card">',
+    '<div class="clock-greeting" id="clockGreeting">Welcome</div>',
+    '<div class="clock-status" id="clockStatus"></div>',
+    '<button id="clockBtn" class="btn btn-p btn-w" style="font-size:1rem;padding:.85rem" onclick="clockBtnClick()">Clock IN</button>',
+    '</div></div></div>'
+  ].join('');
+}
+
+function startClock(){
+  var tick=function(){
+    var now=new Date();
+    var t=document.getElementById('clockTime');
+    var d=document.getElementById('clockDate');
+    if(t)t.textContent=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+    if(d)d.textContent=now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  };
+  tick();setInterval(tick,1000);
+  startGPS(function(){renderClock();});
+}
+
+function renderClock(){
+  var s=staffList.find(function(x){return x.name.toLowerCase()===CU.name.toLowerCase();});
+  var g=document.getElementById('clockGreeting');
+  var st=document.getElementById('clockStatus');
+  var btn=document.getElementById('clockBtn');
+  if(!g||!st||!btn)return;
+  if(!s){g.textContent='Hello, '+CU.name;st.textContent='Name not found. Contact admin.';btn.disabled=true;btn.textContent='Unavailable';return;}
+  var rec=records.find(function(r){return r.staff_id==s.id&&!r.clock_out;});
+  g.textContent='Hello, '+s.name+' !';
+  if(rec){
+    st.textContent='Clocked IN since '+new Date(rec.clock_in).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+    btn.textContent='Clock OUT';btn.className='btn btn-d btn-w';btn.style.fontSize='1rem';btn.style.padding='.85rem';btn.disabled=false;
+  } else {
+    st.textContent='Not clocked in yet today';
+    btn.textContent='Clock IN';btn.className='btn btn-p btn-w';btn.style.fontSize='1rem';btn.style.padding='.85rem';btn.disabled=false;
+  }
+}
+
+function clockBtnClick(){
+  if(!gpsOk&&cfg.clinicLat){toast('Must be at clinic to clock in/out.',false);return;}
+  var s=staffList.find(function(x){return x.name.toLowerCase()===CU.name.toLowerCase();});
+  if(!s){toast('Name not found.',false);return;}
+  var rec=records.find(function(r){return r.staff_id==s.id&&!r.clock_out;});
+  pinTarget={staff:s,action:rec?'out':'in',record:rec||null};
+  openPin(rec?'Clock OUT':'Clock IN',(rec?'Clocking out: ':'Clocking in: ')+s.name);
+}
+
+// ── LIVE PAGE (admin) ─────────────────────────────────────────────────────
+function buildLivePage(){
+  return [
+    '<div class="page active" id="page-live">',
+    '<div class="ph"><h2>Live Today</h2><p>Current attendance status.</p></div>',
+    '<div class="card">',
+    '<div class="ct">Click staff to clock in / out</div>',
+    '<div class="staff-grid" id="staffGrid"></div>',
+    '</div>',
+    '<div class="card">',
+    '<div class="ct">Today Records</div>',
+    '<div style="overflow-x:auto"><table><thead><tr>',
+    '<th>Name</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Arrival</th><th></th>',
+    '</tr></thead><tbody id="liveTable"></tbody></table></div>',
+    '</div></div>'
+  ].join('');
+}
+
+function renderLive(){
+  var grid=document.getElementById('staffGrid');
+  if(grid){
+    var active=staffList.filter(function(s){return s.active!==false;});
+    if(!active.length){grid.innerHTML='<div style="color:var(--txt2);font-size:.82rem">No staff added yet.</div>';}
+    else{
+      grid.innerHTML=active.map(function(s){
+        var rec=records.find(function(r){return r.staff_id==s.id&&!r.clock_out;});
+        return '<button class="staff-btn'+(rec?' in-now':'')+'" onclick="selectStaff('+s.id+')">'+
+          '<div class="sb-name">'+esc(s.name)+'</div>'+
+          '<div class="sb-status">'+(rec?'Clocked IN':'Not in')+'</div>'+
+        '</button>';
+      }).join('');
+    }
+  }
+  var tb=document.getElementById('liveTable');
+  if(tb){
+    if(!records.length){tb.innerHTML='<tr><td colspan="6" class="norec">No records today.</td></tr>';}
+    else{
+      tb.innerHTML=records.map(function(r){
+        return '<tr><td><strong>'+r.staff_name+'</strong></td>'+
+          '<td>'+fmtTime(r.clock_in)+'</td><td>'+fmtTime(r.clock_out)+'</td>'+
+          '<td>'+calcDur(r.clock_in,r.clock_out)+'</td>'+
+          '<td>'+arrBadge(calcArr(r.clock_in))+'</td>'+
+          '<td><button class="btn btn-d btn-sm" onclick="delRec('+r.id+')">Del</button></td>'+
+        '</tr>';
+      }).join('');
+    }
+  }
+}
+
+function selectStaff(id){
+  // Admin: NO GPS check — can always clock in/out staff from PC
+  var s=staffList.find(function(x){return x.id==id;});if(!s)return;
+  var rec=records.find(function(r){return r.staff_id==id&&!r.clock_out;});
+  pinTarget={staff:s,action:rec?'out':'in',record:rec||null};
+  openPin(rec?'Clock OUT':'Clock IN',(rec?'Clocking out: ':'Clocking in: ')+s.name);
+}
+
+// ── PIN ───────────────────────────────────────────────────────────────────
+function openPin(title,sub){
+  pinBuf='';updateDots();
+  document.getElementById('pinTitle').textContent=title;
+  document.getElementById('pinSub').textContent=sub;
+  document.getElementById('pinErr').textContent='';
+  document.getElementById('pinOverlay').classList.add('open');
+}
+function pinKey(k){if(pinBuf.length>=4)return;pinBuf+=k;updateDots();if(pinBuf.length===4)setTimeout(confirmPin,200);}
+function pinDel(){pinBuf=pinBuf.slice(0,-1);updateDots();}
+function updateDots(){for(var i=0;i<4;i++){var el=document.getElementById('pd'+i);if(el)el.className='pin-dot'+(i<pinBuf.length?' filled':'');}}
+function closePinModal(){document.getElementById('pinOverlay').classList.remove('open');pinBuf='';pinTarget=null;}
+
+async function confirmPin(){
+  if(!pinTarget)return;
+  var s=pinTarget.staff;
+  if(String(pinBuf)!==String(s.pin)){
+    document.getElementById('pinErr').textContent='Wrong PIN. Try again.';
+    pinBuf='';updateDots();return;
+  }
+  document.getElementById('pinErr').textContent='';
+  var action=pinTarget.action;
+  var rec=pinTarget.record;
+  closePinModal();
+  try{
+    if(action==='in'){
+      var nr=await sbPost('att_records',{staff_id:s.id,staff_name:s.name,date:todayStr(),
+        lat_in:userCoords?userCoords.lat:null,lng_in:userCoords?userCoords.lng:null});
+      records.push(nr[0]||{staff_id:s.id,staff_name:s.name,date:todayStr()});
+      toast(s.name+' clocked IN',true);showClockConfirm('in',s.name,new Date().toISOString());
+      // Stamp phone on first clock-in (staff only)
+      if(CU.role==='staff'&&!getStamp()){
+        setStamp(s.name);
+        if(!cfg.phoneStamps)cfg.phoneStamps=[];
+        if(!cfg.phoneStamps.find(function(p){return p.name.toLowerCase()===s.name.toLowerCase();})){
+          cfg.phoneStamps.push({name:s.name,stamped:Date.now()});
+          saveCfg();
+        }
+      }
+    } else {
+      await sbRpc('clock_out_record',{record_id:rec.id});
+      var idx=records.findIndex(function(r){return r.id==rec.id;});
+      if(idx>=0)records[idx].clock_out=new Date().toISOString();
+      toast(s.name+' clocked OUT',true);showClockConfirm('out',s.name,new Date().toISOString());
+    }
+    if(CU.role==='staff')renderClock();else renderLive();
+  }catch(e){toast('Error: '+e.message,false);}
+}
+
+// ── LOGS ──────────────────────────────────────────────────────────────────
+function fmtTime(iso){if(!iso)return '-';return new Date(iso).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});}
+function fmtDate(d){if(!d)return '-';var p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+function calcDur(cin,cout){if(!cin||!cout)return '-';var ms=new Date(cout)-new Date(cin);if(ms<0)return '-';return Math.floor(ms/3600000)+'h '+Math.floor((ms%3600000)/60000)+'m';}
+function calcArr(ci){
+  if(!cfg.workStart||!ci)return null;
+  var cin=new Date(ci),p=cfg.workStart.split(':'),ref=new Date(cin);
+  ref.setHours(+p[0],+p[1],0,0);
+  // Overnight shift: if workStart>=12 and clock-in hour<12 => previous day
+  if(+p[0]>=12&&cin.getHours()<12)ref.setDate(ref.getDate()-1);
+  return Math.round((ref-cin)/60000);
+}
+function calcDep(co){
+  if(!cfg.workEnd||!co)return null;
+  var cout=new Date(co),p=cfg.workEnd.split(':'),ref=new Date(cout);
+  ref.setHours(+p[0],+p[1],0,0);
+  if(cfg.workEnd<cfg.workStart&&cout.getHours()>=12)ref.setDate(ref.getDate()+1);
+  return Math.round((cout-ref)/60000);
+}
+function arrBadge(d){
+  if(d===null)return '<span style="color:var(--txt2)">-</span>';
+  var g=cfg.graceMin!=null?cfg.graceMin:10,m=Math.abs(d);
+  if(d<-g)return '<span class="badge-late">Late '+m+' min</span>';
+  if(d>g)return '<span class="badge-early">Early '+m+' min</span>';
+  return '<span class="badge-ontime">On Time</span>';
+}
+function depBadge(d){
+  if(d===null)return '<span style="color:var(--txt2)">-</span>';
+  var g=cfg.graceMin!=null?cfg.graceMin:10,m=Math.abs(d);
+  if(d<-g)return '<span class="badge-late">Left Early '+m+' min</span>';
+  if(d>g)return '<span class="badge-ontime">Stayed +'+m+' min</span>';
+  return '<span class="badge-ontime">On Time</span>';
+}
+
+function buildLogsPage(){
+  return [
+    '<div class="page" id="page-logs">',
+    '<div class="ph"><h2>Attendance Logs</h2><p>Full history with punctuality tracking.</p></div>',
+    '<div class="card">',
+    '<div class="filter-row">',
+    '<input type="date" id="logFrom" onchange="renderLogs()">',
+    '<input type="date" id="logTo" onchange="renderLogs()">',
+    '<select id="logStaff" onchange="filterLogs()"><option value="">All Staff</option></select>',
+    '<button class="btn btn-s btn-sm" onclick="exportXLS()">XLS</button>',
+    '<button class="btn btn-s btn-sm" onclick="exportCSV()">CSV</button>',
+    '</div>',
+    '<div style="overflow-x:auto"><table><thead><tr>',
+    '<th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Duration</th>',
+    '<th>Status</th><th>Arrival</th><th>Departure</th><th>Penalty</th><th></th>',
+    '</tr></thead><tbody id="logsTable"></tbody></table></div>',
+    '</div></div>'
+  ].join('');
+}
+
+var allLogs=[];
+async function renderLogs(){
+  var from=(document.getElementById('logFrom')||{}).value||'';
+  var to=(document.getElementById('logTo')||{}).value||'';
+  allLogs=await loadAllRecs(from||null,to||null);
+  var sf=document.getElementById('logStaff');
+  if(sf){
+    var cur=sf.value;
+    var names=[...new Set(allLogs.map(function(r){return r.staff_name;}))].sort();
+    sf.innerHTML='<option value="">All Staff</option>'+names.map(function(n){
+      return '<option'+(n===cur?' selected':'')+'>'+n+'</option>';
+    }).join('');
+  }
+  filterLogs();
+}
+function filterLogs(){
+  var staff=(document.getElementById('logStaff')||{}).value||'';
+  var list=staff?allLogs.filter(function(r){return r.staff_name===staff;}):allLogs;
+  var tb=document.getElementById('logsTable');if(!tb)return;
+  if(!list.length){tb.innerHTML='<tr><td colspan="10" class="norec">No records found.</td></tr>';return;}
+  var g=cfg.graceMin!=null?cfg.graceMin:10;
+  tb.innerHTML=list.map(function(r){
+    var arr=calcArr(r.clock_in),dep=calcDep(r.clock_out);
+    var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0,pen=lm+em;
+    var penStr=pen>0?'<span style="color:var(--red);font-weight:600">-'+pen+' min</span>':'<span style="color:var(--teal)">0</span>';
+    var status=r.clock_out?'<span class="badge-out">Done</span>':'<span class="badge-in">Active</span>';
+    return '<tr><td>'+fmtDate(r.date)+'</td><td><strong>'+r.staff_name+'</strong></td>'+
+      '<td>'+fmtTime(r.clock_in)+'</td><td>'+fmtTime(r.clock_out)+'</td>'+
+      '<td>'+calcDur(r.clock_in,r.clock_out)+'</td><td>'+status+'</td>'+
+      '<td>'+arrBadge(arr)+'</td><td>'+depBadge(dep)+'</td><td>'+penStr+'</td>'+
+      '<td><button class="btn btn-d btn-sm" onclick="delRec('+r.id+')">Del</button></td></tr>';
+  }).join('');
+}
+async function delRec(id){
+  showCModal({icon:'🗑️',title:'Delete Record?',msg:'Permanently delete this record?',okLabel:'Yes, Delete',okStyle:'var(--red)',onOk:async function(){try{await sbDel('att_records','id=eq.'+id);allLogs=allLogs.filter(function(r){return r.id!=id;});records=records.filter(function(r){return r.id!=id;});filterLogs();renderLive();toast('Deleted.',true);}catch(e){toast('Failed: '+e.message,false);}}});return;
+  try{
+    await sbDel('att_records','id=eq.'+id);
+    allLogs=allLogs.filter(function(r){return r.id!=id;});
+    records=records.filter(function(r){return r.id!=id;});
+    filterLogs();renderLive();toast('Deleted.',true);
+  }catch(e){toast('Failed: '+e.message,false);}
+}
+function exportCSV(){
+  var g=cfg.graceMin!=null?cfg.graceMin:10;
+  var staff=(document.getElementById('logStaff')||{}).value||'';
+  var list=staff?allLogs.filter(function(r){return r.staff_name===staff;}):allLogs;
+  var csv='Date,Name,Clock In,Clock Out,Duration,Status,Arrival,Departure,Penalty Min\n';
+  csv+=list.map(function(r){
+    var arr=calcArr(r.clock_in),dep=calcDep(r.clock_out);
+    var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0;
+    var al=arr===null?'':arr<-g?'Late '+Math.abs(arr)+' min':arr>g?'Early '+Math.abs(arr)+' min':'On Time';
+    var dl=dep===null?'':dep<-g?'Left Early '+Math.abs(dep)+' min':dep>g?'Stayed +'+Math.abs(dep)+' min':'On Time';
+    return [fmtDate(r.date),r.staff_name,fmtTime(r.clock_in),fmtTime(r.clock_out),
+      calcDur(r.clock_in,r.clock_out),r.clock_out?'Done':'Active',al,dl,
+      (lm+em>0?'-'+(lm+em)+' min':'0')].join(',');
+  }).join('\n');
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='attendance-'+todayStr()+'.csv';a.click();
+}
+function exportXLS(){
+  var g=cfg.graceMin!=null?cfg.graceMin:10;
+  var staff=(document.getElementById('logStaff')||{}).value||'';
+  var list=staff?allLogs.filter(function(r){return r.staff_name===staff;}):allLogs;
+  var rows=[['Date','Name','Clock In','Clock Out','Duration','Status','Arrival','Departure','Penalty Min']];
+  list.forEach(function(r){
+    var arr=calcArr(r.clock_in),dep=calcDep(r.clock_out);
+    var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0;
+    var al=arr===null?'':arr<-g?'Late '+Math.abs(arr)+' min':arr>g?'Early '+Math.abs(arr)+' min':'On Time';
+    var dl=dep===null?'':dep<-g?'Left Early '+Math.abs(dep)+' min':dep>g?'Stayed +'+Math.abs(dep)+' min':'On Time';
+    rows.push([fmtDate(r.date),r.staff_name,fmtTime(r.clock_in),fmtTime(r.clock_out),
+      calcDur(r.clock_in,r.clock_out),r.clock_out?'Done':'Active',al,dl,
+      (lm+em>0?'-'+(lm+em)+' min':'0')]);
+  });
+  var xml='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Attendance"><Table>';
+  rows.forEach(function(row){
+    xml+='<Row>'+row.map(function(c){
+      return '<Cell><Data ss:Type="String">'+String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</Data></Cell>';
+    }).join('')+'</Row>';
+  });
+  xml+='</Table></Worksheet></Workbook>';
+  var a=document.createElement('a');
+  a.href='data:application/vnd.ms-excel;charset=utf-8,'+encodeURIComponent(xml);
+  a.download='attendance-'+todayStr()+'.xls';a.click();
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────
+function buildSettingsPage(){
+  var h=[];
+  h.push('<div class="page" id="page-settings">');
+  h.push('<div class="ph"><h2>Settings</h2></div>');
+
+  // Staff
+  h.push('<div class="card" style="max-width:540px">');
+  h.push('<div class="ct">Staff Members</div>');
+  h.push('<div class="fgrid" style="margin-bottom:.9rem">');
+  h.push('<div><label>Name</label><input type="text" id="newStaffName" placeholder="Staff name"></div>');
+  h.push('<div><label>Login Password</label><input type="text" id="newStaffPassword" placeholder="e.g. mypass123"></div>');
+  h.push('<div><label>Clock-in PIN (4 digits)</label>');
+  h.push('<div class="pin-wrap"><input type="password" inputmode="numeric" id="newStaffPin" placeholder="1234" maxlength="4">');
+  h.push('<button class="pin-toggle" onclick="togglePinInput(\'newStaffPin\',this)">Show</button></div>');
+  h.push('</div></div>');
+  h.push('<button class="btn btn-p" onclick="addStaff()">+ Add Staff</button>');
+  h.push('<div id="staffListAdmin" style="margin-top:1.1rem"></div>');
+  h.push('</div>');
+
+  // Working hours
+  h.push('<div class="card" style="max-width:540px">');
+  h.push('<div class="ct">Working Hours</div>');
+  h.push('<div class="fgrid">');
+  h.push('<div><label>Work Start</label><input type="time" id="cfgWorkStart"></div>');
+  h.push('<div><label>Work End</label><input type="time" id="cfgWorkEnd"></div>');
+  h.push('<div><label>Grace Period (min)</label><input type="number" id="cfgGrace" min="0" max="60" placeholder="10"></div>');
+  h.push('</div>');
+  h.push('<button class="btn btn-p" onclick="saveWorkHours()">Save Working Hours</button>');
+  h.push('</div>');
+
+  // GPS
+  h.push('<div class="card" style="max-width:540px">');
+  h.push('<div class="ct">GPS Settings</div>');
+  h.push('<p style="font-size:.8rem;color:var(--txt2);margin-bottom:.9rem">Staff must be within radius to clock in. Admin is never GPS-blocked.</p>');
+  h.push('<div class="fgrid">');
+  h.push('<div><label>Clinic Latitude</label><input type="number" id="cfgLat" step="any"></div>');
+  h.push('<div><label>Clinic Longitude</label><input type="number" id="cfgLng" step="any"></div>');
+  h.push('<div class="fw"><label>Radius (meters)</label><input type="number" id="cfgRadius" placeholder="150"></div>');
+  h.push('</div>');
+  h.push('<div class="btn-row">');
+  h.push('<button class="btn btn-p" onclick="saveGPS()">Save GPS</button>');
+  h.push('<button class="btn btn-s" onclick="useMyLoc()">Use My Location</button>');
+  h.push('</div>');
+  h.push('<div id="gpsStatus" style="font-size:.76rem;color:var(--green);margin-top:.5rem"></div>');
+  h.push('</div>');
+
+  // Passwords
+  h.push('<div class="card" style="max-width:540px">');
+  h.push('<div class="ct">Admin Password</div>');
+  h.push('<div class="fgrid">');
+  h.push('<div><label>New Admin Password</label><input type="password" id="newAdminPass" placeholder="New password"></div>');
+  h.push('</div>');
+  h.push('<button class="btn btn-p" onclick="savePasswords()">Save Admin Password</button>');
+  h.push('</div>');
+
+  // Phone stamps
+  h.push('<div class="card" style="max-width:540px">');
+  h.push('<div class="ct">Phone Stamps</div>');
+  h.push('<p style="font-size:.8rem;color:var(--txt2);margin-bottom:.9rem">Each staff phone is stamped on first clock-in. Clear here if staff gets a new phone.</p>');
+  h.push('<div id="stampList"></div>');
+  h.push('</div>');
+
+  h.push('</div>');
+  return h.join('');
+}
+
+function renderSettings(){
+  var ws=document.getElementById('cfgWorkStart');if(ws&&cfg.workStart)ws.value=cfg.workStart;
+  var we=document.getElementById('cfgWorkEnd');if(we&&cfg.workEnd)we.value=cfg.workEnd;
+  var gp=document.getElementById('cfgGrace');if(gp)gp.value=cfg.graceMin!=null?cfg.graceMin:10;
+  var lat=document.getElementById('cfgLat');if(lat&&cfg.clinicLat)lat.value=cfg.clinicLat;
+  var lng=document.getElementById('cfgLng');if(lng&&cfg.clinicLng)lng.value=cfg.clinicLng;
+  var rad=document.getElementById('cfgRadius');if(rad)rad.value=cfg.radiusM||150;
+  renderStaffList();renderStampList();
+}
+
+function renderStaffList(){
+  var el=document.getElementById('staffListAdmin');if(!el)return;
+  if(!staffList.length){el.innerHTML='<div style="font-size:.8rem;color:var(--txt2)">No staff added yet.</div>';return;}
+  el.innerHTML=staffList.map(function(s,i){
+    return '<div class="staff-item">'+
+      '<div>'+
+        '<div class="si-name">'+s.name+'</div>'+
+        '<div class="si-role">PIN: <span id="pv'+i+'">&#9679;&#9679;&#9679;&#9679;</span> '+
+          '<button data-idx="'+i+'" onclick="toggleStaffPin(this)" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:.72rem;font-family:inherit">Show</button>'+
+        '</div>'+
+        '<div class="si-role" style="margin-top:.2rem">Password: <span id="pw'+i+'">&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;</span> '+
+          '<button data-idx="'+i+'" onclick="toggleStaffPwd(this)" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:.72rem;font-family:inherit">Show</button>'+
+        '</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:.4rem;flex-wrap:wrap">'+
+        '<button class="btn btn-s btn-sm" onclick="editStaffName('+i+')">✏️ Edit Name</button>'+
+        '<button class="btn btn-s btn-sm" onclick="resetPin('+i+')">Reset PIN</button>'+
+        '<button class="btn btn-s btn-sm" onclick="resetStaffPassword('+i+')">Reset Password</button>'+
+        '<button class="btn btn-d btn-sm" onclick="removeStaff('+i+')">Remove</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function toggleStaffPin(btn){
+  var i=parseInt(btn.dataset.idx);var s=staffList[i];if(!s)return;var pin=s.pin;
+  var el=document.getElementById('pv'+i);if(!el)return;
+  var nb=el.nextElementSibling;
+  if(nb.textContent==='Show'){el.textContent=pin;nb.textContent='Hide';}
+  else{el.innerHTML='&#9679;&#9679;&#9679;&#9679;';nb.textContent='Show';}
+}
+function togglePinInput(id,btn){
+  var inp=document.getElementById(id);if(!inp)return;
+  if(inp.type==='password'){inp.type='text';btn.textContent='Hide';}
+  else{inp.type='password';btn.textContent='Show';}
+}
+function toggleStaffPwd(btn){
+  var i=parseInt(btn.dataset.idx);var s=staffList[i];if(!s)return;
+  var el=document.getElementById('pw'+i);if(!el)return;
+  if(btn.textContent==='Show'){el.textContent=s.password||'staff123';btn.textContent='Hide';}
+  else{el.innerHTML='&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;';btn.textContent='Show';}
+}
+async function resetStaffPassword(i){
+  showCModal({icon:'🔑',title:'Reset Password',msg:'Enter new login password for '+staffList[i].name+':',inputLabel:'New Password',okLabel:'Save',okStyle:'var(--green)',onOk:async function(p){
+    if(!p||!p.trim()){toast('Enter a password',false);return;}
+    var old=staffList[i].password;staffList[i].password=p.trim();
+    try{await saveStaff();toast('Password updated!',true);renderStaffList();}
+    catch(e){staffList[i].password=old;toast('Failed.',false);}
+  }});
+}
+function renderStampList(){
+  var el=document.getElementById('stampList');if(!el)return;
+  var stamps=cfg.phoneStamps||[];
+  if(!stamps.length){el.innerHTML='<div style="font-size:.8rem;color:var(--txt2)">No phones stamped yet.</div>';return;}
+  el.innerHTML=stamps.map(function(s,i){
+    return '<div class="staff-item">'+
+      '<div>'+
+        '<div class="si-name">'+s.name+'</div>'+
+        '<div class="si-role">Stamped: '+new Date(s.stamped).toLocaleDateString()+'</div>'+
+      '</div>'+
+      '<button class="btn btn-d btn-sm" onclick="clearPhoneStamp('+i+')">Clear Stamp</button>'+
+    '</div>';
+  }).join('');
+}
+
+async function clearPhoneStamp(i){
+  var s=cfg.phoneStamps[i];
+  showCModal({icon:'📱',title:'Clear Phone Stamp?',msg:'Clear stamp for '+s.name+'? They will re-stamp on next clock-in.',okLabel:'Yes, Clear',okStyle:'var(--red)',onOk:async function(){cfg.phoneStamps.splice(i,1);try{await saveCfg();renderStampList();toast('Stamp cleared',true);}catch(e){cfg.phoneStamps.splice(i,0,s);toast('Failed.',false);}}});return;
+  cfg.phoneStamps.splice(i,1);
+  try{await saveCfg();renderStampList();toast('Stamp cleared for '+s.name,true);}
+  catch(e){cfg.phoneStamps.splice(i,0,s);toast('Failed.',false);}
+}
+async function addStaff(){
+  var name=document.getElementById('newStaffName').value.trim();
+  var pin=document.getElementById('newStaffPin').value.trim();
+  if(!name){toast('Enter staff name',false);return;}
+  if(!/^\d{4}$/.test(pin)){toast('PIN must be 4 digits',false);return;}
+  if(staffList.find(function(s){return s.name.toLowerCase()===name.toLowerCase();})){toast('Already exists',false);return;}
+  var pwd=document.getElementById('newStaffPassword').value.trim()||'staff123';
+  staffList.push({id:Date.now(),name:name,pin:pin,password:pwd,active:true});
+  try{await saveStaff();document.getElementById('newStaffName').value='';document.getElementById('newStaffPin').value='';document.getElementById('newStaffPassword').value='';toast(name+' added!',true);renderStaffList();}
+  catch(e){staffList.pop();toast('Failed: '+e.message,false);}
+}
+async function editStaffName(i){
+  showCModal({icon:'✏️',title:'Edit Staff Name',msg:'Current name: '+staffList[i].name,inputLabel:'New name',okLabel:'Save',okStyle:'var(--green)',onOk:async function(newName){
+    if(!newName||!newName.trim()){toast('Enter a name',false);return;}
+    newName=newName.trim();
+    if(staffList.find(function(s,idx){return idx!==i&&s.name.toLowerCase()===newName.toLowerCase();})){toast('Name already exists',false);return;}
+    var old=staffList[i].name;
+    staffList[i].name=newName;
+    // Update phone stamp if this person had one
+    var stamps=cfg.phoneStamps||[];
+    stamps.forEach(function(s){if(s.name.toLowerCase()===old.toLowerCase())s.name=newName;});
+    try{await saveStaff();await saveCfg();populateLoginDropdown();renderStaffList();toast('Name updated!',true);}
+    catch(e){staffList[i].name=old;toast('Failed: '+e.message,false);}
+  }});
+}
+async function removeStaff(i){
+  showCModal({icon:'👤',title:'Remove Staff?',msg:'Remove this staff member from the list?',okLabel:'Yes, Remove',okStyle:'var(--red)',onOk:async function(){var rem=staffList.splice(i,1);try{await saveStaff();renderStaffList();toast('Removed.',true);}catch(e){staffList.splice(i,0,rem[0]);toast('Failed.',false);}}});return;
+  var rem=staffList.splice(i,1);
+  try{await saveStaff();renderStaffList();toast('Removed.',true);}
+  catch(e){staffList.splice(i,0,rem[0]);toast('Failed.',false);}
+}
+async function resetPin(i){
+  showCModal({icon:'🔑',title:'Reset PIN',msg:'Enter new 4-digit PIN:',inputLabel:'New PIN',inputType:'pin',okLabel:'Save',okStyle:'var(--green)',onOk:async function(p){if(!p||!/^\d{4}$/.test(p)){toast('PIN must be 4 digits',false);return;}var old=staffList[i].pin;staffList[i].pin=p;try{await saveStaff();toast('PIN updated!',true);}catch(e){staffList[i].pin=old;toast('Failed.',false);}}});return;
+}
+async function saveWorkHours(){
+  cfg.workStart=document.getElementById('cfgWorkStart').value||'';
+  cfg.workEnd=document.getElementById('cfgWorkEnd').value||'';
+  cfg.graceMin=parseInt(document.getElementById('cfgGrace').value)||0;
+  try{await saveCfg();toast('Working hours saved!',true);}
+  catch(e){toast('Failed.',false);}
+}
+function useMyLoc(){
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      document.getElementById('cfgLat').value=pos.coords.latitude.toFixed(6);
+      document.getElementById('cfgLng').value=pos.coords.longitude.toFixed(6);
+      document.getElementById('gpsStatus').textContent='Location captured. Click Save GPS.';
+    },
+    function(){toast('Could not get location',false);}
+  );
+}
+async function saveGPS(){
+  var lat=parseFloat(document.getElementById('cfgLat').value);
+  var lng=parseFloat(document.getElementById('cfgLng').value);
+  var rad=parseInt(document.getElementById('cfgRadius').value)||150;
+  if(isNaN(lat)||isNaN(lng)){toast('Enter valid coordinates',false);return;}
+  cfg.clinicLat=lat;cfg.clinicLng=lng;cfg.radiusM=rad;
+  try{await saveCfg();toast('GPS saved!',true);document.getElementById('gpsStatus').textContent='Saved.';}
+  catch(e){toast('Failed.',false);}
+}
+async function savePasswords(){
+  var ap=document.getElementById('newAdminPass').value.trim();
+  if(!ap){toast('Enter a new admin password',false);return;}
+  cfg.adminPass=ap;
+  try{
+    await saveCfg();toast('Admin password updated!',true);
+    document.getElementById('newAdminPass').value='';
+  }catch(e){toast('Failed.',false);}
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+function withTimeout(p,ms){
+  return Promise.race([p,new Promise(function(_,r){setTimeout(function(){r(new Error('timeout'));},ms);})]);
+}
+
+async function init(){
+  // Fallback: show login after 7s if everything fails
+  var fb=setTimeout(function(){
+    document.getElementById('loadingScreen').style.display='none';
+    document.getElementById('loginScreen').style.display='flex';
+  },7000);
+
+  try{await withTimeout(loadCfg(),5000);}catch(e){}
+  try{await withTimeout(loadStaff(),5000);}catch(e){}
+  clearTimeout(fb);
+  document.getElementById('loadingScreen').style.display='none';
+  populateLoginDropdown();
+
+  // Validate staff stamp against Supabase — if admin cleared it, wipe locally too
+  var stamp=getStamp();
+  if(stamp){
+    var stampOK=(cfg.phoneStamps||[]).some(function(p){
+      return p.name.toLowerCase()===stamp.toLowerCase();
+    });
+    if(!stampOK){
+      clearStamp();
+      stamp=null;
+    }
+  }
+
+  // Restore session
+  loadSession();
+
+  // Admin: restore from sessionStorage (survives refresh, clears on tab close)
+  if(CU&&CU.role==='admin'){
+    document.getElementById('loginScreen').style.display='none';
+    bootApp();
+    return;
+  }
+
+  // Staff: restore from localStorage (survives navigation from index)
+  if(CU&&CU.role==='staff'){
+    var sessionInvalid=stamp&&stamp.toLowerCase()!==CU.name.toLowerCase();
+    if(sessionInvalid){clearSession();CU=null;}
+    else{
+      document.getElementById('loginScreen').style.display='none';
+      bootApp();
+      return;
+    }
+  }
+
+  // No valid session — show login
+  CU=null;
+
+  // If stamp exists, pre-fill and lock the name dropdown
+  if(stamp){
+    var sn=document.getElementById('stampNotice');
+    if(sn){sn.style.display='block';sn.textContent='This phone belongs to: '+stamp;}
+    var ne=document.getElementById('loginName');
+    if(ne){ne.value=stamp;ne.disabled=true;ne.style.opacity='.65';}
+  }
+
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+init();
+
+</script>
+
+<!-- CLOCK CONFIRM FLASH -->
+<div class="clock-confirm" id="clockConfirm">
+  <div class="cc-check">✓</div>
+  <div class="cc-title" id="ccTitle">Clocked IN</div>
+  <div class="cc-sub" id="ccSub"></div>
+  <div class="cc-badge" id="ccBadge" style="display:none"></div>
+</div>
+
+<!-- CUSTOM CONFIRM MODAL -->
+<div style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:6000;display:none;align-items:center;justify-content:center;padding:1rem" id="cModal">
+  <div style="background:#fff;border:1px solid var(--border);border-radius:16px;padding:1.8rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.18);text-align:center">
+    <div style="font-size:2rem;margin-bottom:.5rem" id="cModalIcon">⚠️</div>
+    <div style="font-size:1rem;font-weight:700;color:var(--sl);margin-bottom:.3rem" id="cModalTitle">Are you sure?</div>
+    <div style="font-size:.85rem;color:var(--sm);margin-bottom:1.2rem;line-height:1.55" id="cModalMsg"></div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.65rem .9rem;font-size:.82rem;color:var(--sm);margin-bottom:1.1rem;text-align:left;display:none" id="cModalDetail"></div>
+    <input style="width:100%;padding:.6rem .85rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.95rem;margin-bottom:1rem;outline:none;display:none" id="cModalInput" type="text" placeholder="">
+    <div style="display:flex;gap:.6rem;justify-content:center">
+      <button class="btn btn-s" onclick="closeCModal()">Cancel</button>
+      <button class="btn btn-d" id="cModalOkBtn" onclick="doCModal()">Confirm</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newderma1 — Service Reports</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap&family=Noto+Sans+Arabic:wght@400;600;700" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#f8fafc;--navy2:#ffffff;--navy3:#f1f5f9;--navy4:#e2e8f0;
+  --teal:#6abf4b;--teal2:rgba(106,191,75,.08);--teal3:#5aaf3b;
+  --gbg:rgba(106,191,75,.08);--gborder:rgba(106,191,75,.25);
+  --amber:#d97706;--red:#ef4444;--green:#16a34a;
+  --txt:#1e293b;--txt2:#475569;--txt3:#94a3b8;
+  --border:#e2e8f0;
+  --sh:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.06);
+  --shl:0 8px 32px rgba(0,0,0,.1);
+  --rs:9px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--txt);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;background:linear-gradient(160deg,#f0fdf4 0%,#f8fafc 50%,#f0f9ff 100%);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem}
+#loginScreen.hidden{display:none}
+.lbox{background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:2rem 1.8rem;width:100%;max-width:400px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.lbox .logo{text-align:center;margin-bottom:2rem}
+.lbox .logo img{max-width:150px;max-height:70px;object-fit:contain;margin-bottom:.7rem}
+.lbox .logo h2{font-size:1.25rem;font-weight:700;color:var(--teal);margin:0 0 .2rem;font-family:'DM Sans',sans-serif}
+.lbox .logo p{font-size:1rem;color:#475569;margin:0;font-family:'Noto Sans Arabic',sans-serif;direction:rtl}
+.login-hint{background:rgba(0,201,177,.07);border:1px solid rgba(0,201,177,.2);border-radius:10px;padding:.85rem 1rem;margin-top:1.2rem;font-size:.78rem;color:var(--txt2);line-height:1.6}
+.login-hint b{color:var(--txt)}
+.login-hint .hint-title{font-size:.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem}
+.lf label{display:block;font-size:.75rem;font-weight:600;color:var(--txt2);margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.05em}
+.lf label{display:block;font-size:.75rem;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.32rem;font-family:'DM Sans',sans-serif}
+.lf input,.lf select{width:100%;padding:.65rem .9rem;background:var(--navy3);border:1.5px solid var(--border);border-radius:var(--rs);color:var(--txt);font-family:inherit;font-size:.9rem;margin-bottom:1rem;outline:none;transition:border-color .2s}
+.lf input:focus,.lf select:focus{border-color:#6abf4b;box-shadow:0 0 0 3px rgba(106,191,75,.1)}
+.lf select option{background:var(--navy2)}
+.lerr{background:#3d1515;color:#fca5a5;border-radius:var(--rs);padding:.6rem .9rem;font-size:.83rem;margin-bottom:.8rem;display:none}
+.lerr.show{display:block}
+.btnL{width:100%;padding:.75rem;background:#6abf4b;border:none;border-radius:var(--rs);color:#0b1623;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer}
+.btnL:hover{background:#5aaf3b}
+
+/* TOPBAR */
+#appShell{display:none;min-height:100vh;flex-direction:column}
+#appShell.visible{display:flex}
+.topbar{background:var(--navy2);border-bottom:1px solid var(--border);padding:.7rem 1.5rem;display:flex;align-items:center;gap:.8rem;position:sticky;top:0;z-index:100}
+.topbar .brand{display:flex;align-items:center;gap:.6rem;margin-right:auto}
+.topbar .brand .icon{width:34px;height:34px;background:#6abf4b;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.topbar .brand .name{font-weight:700;font-size:.95rem}.topbar .brand .sub{font-size:.68rem;color:var(--txt2)}
+.ntabs{display:flex;gap:.15rem}
+.ntab{background:none;border:none;color:var(--txt2);padding:.4rem .8rem;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.82rem;font-weight:500;white-space:nowrap;transition:all .15s}
+.ntab:hover{color:var(--txt);background:var(--navy3)}
+.ntab.active{color:var(--teal);background:rgba(106,191,75,.12)}
+.user-badge{background:var(--navy3);border:1px solid var(--border);border-radius:99px;padding:.3rem .8rem;font-size:.78rem;color:var(--txt2);white-space:nowrap}
+.user-badge span{color:var(--teal);font-weight:700}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.sync-dot.off{background:var(--txt3)}.sync-dot.syncing{background:var(--amber);animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.signout{background:none;border:1px solid var(--border);color:var(--txt2);padding:.32rem .75rem;border-radius:6px;cursor:pointer;font-size:.78rem;font-family:inherit}
+.signout:hover{border-color:var(--red);color:var(--red)}
+
+/* MAIN */
+.main{flex:1;padding:1.5rem;max-width:1300px;margin:0 auto;width:100%}
+.page{display:none}.page.active{display:block}
+.ph{margin-bottom:1.5rem}
+.ph h2{font-size:1.35rem;font-weight:700;margin-bottom:.2rem}
+.ph p{font-size:.84rem;color:var(--txt2)}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem;margin-bottom:1.2rem}
+.ct{font-size:.7rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+
+/* FORM */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.9rem}
+.fgrid .fw{grid-column:1/-1}
+label{display:block;font-size:.73rem;font-weight:600;color:var(--txt2);margin-bottom:.32rem;text-transform:uppercase;letter-spacing:.04em}
+input,select,textarea{width:100%;padding:.6rem .85rem;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);color:var(--txt);font-family:inherit;font-size:.87rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+input:read-only{opacity:.6;cursor:default}
+select option{background:var(--navy2)}
+textarea{resize:vertical;min-height:80px}
+
+/* BUTTONS */
+.btn{padding:.5rem 1rem;border-radius:var(--rs);border:none;font-family:inherit;font-size:.84rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-p{background:#6abf4b;color:#fff}.btn-p:hover{opacity:.88}
+.btn-s{background:var(--navy3);color:var(--txt2);border:1px solid var(--border)}.btn-s:hover{border-color:var(--teal);color:var(--teal)}
+.btn-d{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}.btn-d:hover{background:rgba(239,68,68,.22)}
+.btn-sm{padding:.28rem .65rem;font-size:.76rem}
+.btn-row{display:flex;gap:.6rem;margin-top:1.3rem;flex-wrap:wrap;align-items:center}
+
+/* SIGNATURE PAD */
+.sig-wrap{border:1.5px solid var(--border);border-radius:var(--rs);background:var(--navy);overflow:hidden}
+.sig-wrap canvas{display:block;width:100%;touch-action:none;cursor:crosshair}
+.sig-actions{display:flex;justify-content:flex-end;padding:.4rem .6rem;border-top:1px solid var(--border);gap:.5rem}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+thead tr{border-bottom:2px solid var(--border)}
+th{padding:.6rem .8rem;text-align:left;font-size:.7rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+tbody tr{border-bottom:1px solid rgba(30,58,74,.5);transition:background .12s}
+tbody tr:hover{background:var(--navy3)}
+td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
+.norec{text-align:center;color:var(--txt3);padding:2.5rem;font-style:italic}
+
+/* BADGES */
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:99px;font-size:.7rem;font-weight:700;white-space:nowrap}
+.b-ppm{background:rgba(0,201,177,.15);color:var(--teal)}
+.b-svc{background:rgba(239,68,68,.15);color:var(--red)}
+.b-upd{background:rgba(99,102,241,.15);color:#818cf8}
+.b-cal{background:rgba(245,158,11,.15);color:var(--amber)}
+.b-ins{background:rgba(34,197,94,.15);color:var(--green)}
+.b-oth{background:rgba(100,116,139,.15);color:var(--txt2)}
+
+/* SEARCH BAR */
+.sbar{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:1.1rem}
+.sbar input,.sbar select{margin:0;max-width:220px}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto}
+.modal-bg.hidden{display:none}
+.modal{background:var(--navy2);border:1px solid var(--border);border-radius:16px;padding:1.8rem;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:var(--sh)}
+.modal h3{font-size:1.05rem;font-weight:700;margin-bottom:1.1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.modal-footer{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.3rem;padding-top:1rem;border-top:1px solid var(--border)}
+
+/* TOAST */
+#toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
+.ti{padding:.65rem 1rem;border-radius:var(--rs);font-size:.84rem;font-weight:600;animation:tslide .3s ease;box-shadow:var(--sh)}
+.ti.ok{background:#064e3b;color:#6ee7b7;border:1px solid #059669}
+.ti.err{background:#7f1d1d;color:#fca5a5;border:1px solid #dc2626}
+@keyframes tslide{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:rgba(10,22,40,.85);z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
+.loading-overlay.hidden{display:none}
+.spinner{width:46px;height:46px;border:4px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SEARCHABLE DROPDOWN */
+.si-wrap{position:relative}
+.si-input{width:100%;padding:.6rem .85rem;background:var(--navy3);border:1.5px solid var(--border);border-radius:var(--rs);color:var(--txt);font-family:inherit;font-size:.87rem;outline:none;cursor:pointer;transition:border-color .2s;text-align:left}
+.si-input.open{border-color:var(--teal)}
+.si-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--navy2);border:1.5px solid var(--teal);border-radius:var(--rs);box-shadow:var(--sh);z-index:300;max-height:230px;overflow:hidden;display:none;flex-direction:column}
+.si-drop.open{display:flex}
+.si-search{padding:.5rem .75rem;border:none;border-bottom:1px solid var(--border);background:var(--navy3);color:var(--txt);font-family:inherit;font-size:.84rem;outline:none;width:100%}
+.si-list{overflow-y:auto;flex:1}
+.si-item{padding:.55rem .85rem;cursor:pointer;font-size:.86rem;color:var(--txt);transition:background .1s}
+.si-item:hover,.si-item.ssel{background:rgba(0,201,177,.12);color:var(--teal)}
+.si-empty{padding:.8rem;font-size:.82rem;color:var(--txt3);text-align:center;font-style:italic}
+.si-sub{font-size:.7rem;color:var(--txt3);margin-top:.1rem}
+/* DEVICE LIST */
+.dli{display:flex;align-items:center;justify-content:space-between;padding:.7rem .9rem;background:var(--navy3);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:.5rem}
+.dli .dli-name{font-weight:600;font-size:.9rem}
+.dli .dli-sn{font-size:.75rem;color:var(--txt2);margin-top:.1rem}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem;text-align:center}
+.scard .sv{font-size:1.9rem;font-weight:800;color:var(--teal);margin-bottom:.25rem}
+.scard .sl{font-size:.72rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+
+/* ── PRINT STYLES ── */
+@media print{
+  body > *{display:none!important}
+  #printArea{display:block!important;position:fixed;inset:0;z-index:9999;background:#fff;overflow:hidden!important}
+  * {-webkit-print-color-adjust:exact;print-color-adjust:exact;scrollbar-width:none}
+  ::-webkit-scrollbar{display:none!important}
+}
+#printArea{display:none;position:fixed;inset:0;z-index:-1;background:#fff;overflow:hidden}
+
+/* PRINT REPORT */
+.report-page{font-family:'Segoe UI',sans-serif;max-width:820px;margin:0 auto;padding:0;color:#111;background:#fff}
+/* ── BIONICS HEADER ── */
+.rpt-header{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1.4rem;border-bottom:2px solid #b8962e}
+.rpt-header .logo-side{display:flex;flex-direction:column;gap:.15rem}
+.rpt-header .logo-side img{max-height:56px;max-width:200px;object-fit:contain}
+.rpt-header .logo-side .logo-placeholder{display:flex;align-items:center;gap:.5rem}
+.rpt-header .logo-placeholder .lp-icon{width:52px;height:52px;border:2px solid #b8962e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#b8962e}
+.rpt-header .logo-placeholder .lp-text{font-size:1rem;font-weight:800;color:#b8962e;letter-spacing:.05em;line-height:1.2}
+.rpt-header .logo-placeholder .lp-sub{font-size:.65rem;color:#888;text-transform:uppercase;letter-spacing:.08em}
+.rpt-header .arabic-side{text-align:right}
+.rpt-header .arabic-side .arabic-name{font-size:1.3rem;font-weight:700;color:#b8962e;font-family:'Arial',sans-serif;direction:rtl;letter-spacing:.02em}
+/* ── REPORT TITLE BAR ── */
+.rpt-titlebar{display:flex;justify-content:space-between;align-items:center;background:#f5f0e8;border-top:1px solid #e8dfc8;border-bottom:1px solid #e8dfc8;padding:.55rem 1.4rem}
+.rpt-titlebar .rt-title{font-size:1rem;font-weight:800;color:#1a1a1a;letter-spacing:.03em}
+.rpt-titlebar .rt-num{font-size:1.1rem;font-weight:900;color:#b8962e;letter-spacing:.05em;background:#fff;border:1.5px solid #b8962e;padding:.2rem .8rem;border-radius:4px}
+/* ── BODY ── */
+.rpt-body{padding:.9rem 1.4rem}
+.report-section{margin-bottom:.9rem}
+.report-section .rs-title{font-size:.72rem;font-weight:800;color:#b8962e;text-transform:uppercase;letter-spacing:.09em;border-bottom:1.5px solid #e8dfc8;padding-bottom:.3rem;margin-bottom:.6rem}
+.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem}
+.report-grid.thirds{grid-template-columns:1fr 1fr 1fr}
+.report-field{display:flex;gap:.3rem;font-size:.82rem;align-items:baseline}
+.report-field .rk{color:#555;min-width:110px;flex-shrink:0;font-weight:600}
+.report-field .rv{color:#111;font-weight:500;word-break:break-word;border-bottom:1px solid #ddd;flex:1;padding-bottom:1px}
+.report-field.full{grid-column:1/-1}
+.report-text{font-size:.83rem;color:#111;line-height:1.65;padding:.5rem .7rem;background:#fafaf8;border:1px solid #e8dfc8;border-radius:3px;white-space:pre-wrap;word-break:break-word;min-height:50px}
+.report-sigs{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:.8rem}
+.report-sig .sig-label{font-size:.72rem;font-weight:700;color:#b8962e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem}
+.report-sig img{border:1px solid #ddd;border-radius:3px;width:100%;max-height:85px;object-fit:contain;background:#fff}
+.report-sig .sig-line{height:55px;border-bottom:1.5px solid #999;margin-bottom:.25rem}
+.report-sig .sig-name{font-size:.73rem;color:#555;text-align:center;margin-top:.2rem}
+/* ── BIONICS FOOTER ── */
+.rpt-footer{border-top:2px solid #b8962e;padding:.7rem 1.4rem;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1rem;background:#fafaf8}
+.rpt-footer .ft-left{font-size:.68rem;color:#555;line-height:1.6}
+.rpt-footer .ft-left strong{display:block;color:#b8962e;font-size:.72rem;margin-bottom:.1rem}
+.rpt-footer .ft-center{text-align:center}
+.rpt-footer .ft-center .website{font-size:.75rem;font-weight:700;color:#b8962e;letter-spacing:.04em}
+.rpt-footer .ft-right{font-size:.68rem;color:#555;line-height:1.6;text-align:right}
+.rpt-footer .ft-right strong{display:block;color:#b8962e;font-size:.72rem;margin-bottom:.1rem}
+
+@media(max-width:600px){
+  .fgrid{grid-template-columns:1fr}
+  .ntabs{display:none}
+  .topbar{padding:.6rem 1rem}
+  .main{padding:1rem}
+  .sbar input,.sbar select{max-width:100%}
+}
+
+.llogo{text-align:center;margin-bottom:1.5rem;display:flex;flex-direction:column;align-items:center}
+.llogo img{max-height:90px;max-width:180px;object-fit:contain;filter:drop-shadow(0 4px 16px rgba(106,191,75,.2)) contrast(1.05) saturate(1.1)}
+.llogo-title{font-size:1.1rem;font-weight:700;color:#1e293b;margin:.45rem 0 .1rem;font-family:'DM Sans',sans-serif;text-align:center}
+.llogo-arabic{font-size:1rem;color:#475569;font-family:'Noto Sans Arabic',sans-serif;direction:rtl;text-align:center;font-weight:400}
+.lhint{margin-top:.85rem;background:rgba(106,191,75,.08);border:1px solid rgba(106,191,75,.25);border-radius:8px;padding:.5rem .8rem;font-size:.72rem;color:#5aaf3b;line-height:1.55;font-family:'DM Sans',sans-serif}
+.lhint strong{font-size:.72rem;font-weight:700}
+.lback{text-align:center;margin-top:.85rem;font-size:.74rem;font-family:'DM Sans',sans-serif}
+.lback a{color:#94a3b8;text-decoration:none}
+.lback a:hover{color:#6abf4b}
+.lbox .lf input,.lbox .lf select{width:100%!important;padding:.62rem .88rem!important;background:#f8fafc!important;border:1.5px solid #e2e8f0!important;border-radius:8px!important;color:#1e293b!important;font-family:'DM Sans',sans-serif!important;font-size:.9rem!important;outline:none!important;transition:border-color .2s,box-shadow .2s!important}
+.lbox .lf input:focus,.lbox .lf select:focus{border-color:#6abf4b!important;box-shadow:0 0 0 3px rgba(106,191,75,.1)!important;background:#fff!important}
+.lbox .lf select option{background:#fff!important;color:#1e293b!important}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay hidden" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div style="color:var(--txt2);font-size:.84rem">Loading…</div>
+</div>
+<div id="toast"></div>
+
+<!-- PRINT AREA -->
+<div id="printArea"></div>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="hidden">
+  <div class="lbox">
+    <div class="llogo">
+      <img src="data:image/png;base64,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" alt="Newderma1" style="max-height:62px;max-width:145px;object-fit:contain;filter:drop-shadow(0 0 10px rgba(106,191,75,.35)) brightness(1.1)">
+      <div class="llogo-title">Service Reports</div>
+      <div class="llogo-arabic">&#1578;&#1602;&#1575;&#1585;&#1610;&#1585; &#1575;&#1604;&#1589;&#1610;&#1575;&#1606;&#1577;</div>
+    </div>
+    <div class="lf">
+      <label>Role</label>
+      <select id="lRole">
+        <option value="admin">Admin</option>
+        <option value="engineer">Engineer</option>
+      </select>
+    </div>
+    <div class="lf">
+      <label>Your Name</label>
+      <input type="text" id="lUser" placeholder="Enter your name" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="lf">
+      <label>Password</label>
+      <input type="password" id="lPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="lerr" id="lerr"></div>
+    <button class="btnL" onclick="doLogin()">Sign In</button>
+    <div class="lhint"><strong>Admin/Engineer:</strong> select role, enter name &rarr; password &nbsp;|&nbsp; <strong>Forgot?</strong> Use recovery key to reset</div>
+    <div class="lback"><a href="index.html">&larr; Back to Portal</a></div>
+  </div>
+</div>
+
+<div id="appShell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="icon">🛠️</div>
+      <div><div class="name">Newderma1</div><div class="sub">Service Reports</div></div>
+    </div>
+    <div class="ntabs" id="navTabs"></div>
+    <div class="user-badge" id="userBadge"></div>
+    <div class="sync-dot" id="syncDot"></div>
+    <button class="signout" onclick="doLogout()">Sign Out</button>
+  </div>
+
+  <div class="main">
+
+    <!-- NEW SERVICE REPORT (Engineer) -->
+    <div class="page" id="page-new">
+      <div class="ph"><h2>📋 New Service Report</h2><p>Fill in all details and sign before submitting.</p></div>
+
+      <div class="card">
+        <div class="ct">Service Info</div>
+        <div class="fgrid">
+          <div><label>Report No.</label><input type="text" id="rNum" placeholder="Auto-generated" readonly></div>
+          <div><label>Date of Service</label><input type="date" id="rDate"></div>
+          <div><label>Customer Name</label><input type="text" id="rCustomer" value="Newderma1 Medical Center" readonly></div>
+          <div><label>Service Type</label>
+            <select id="rType">
+              <option>PPM (Planned Preventive Maintenance)</option>
+              <option>Service Call</option>
+              <option>Update Call</option>
+              <option>Calibration</option>
+              <option>Installation</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div style="position:relative;z-index:10"><label>Machine / Device Name</label>
+            <div class="si-wrap" id="si-machine">
+              <button type="button" class="si-input" id="si-machine-btn" onclick="toggleSI('si-machine')">— Select Device —</button>
+              <div class="si-drop" id="si-machine-drop">
+                <input class="si-search" type="text" placeholder="Search devices…" oninput="filterSI('si-machine')" onclick="event.stopPropagation()">
+                <div class="si-list" id="si-machine-list"></div>
+              </div>
+            </div>
+            <input type="hidden" id="rMachine">
+          </div>
+          <div><label>Serial Number (S/N)</label><input type="text" id="rSN" placeholder="Auto-filled or enter manually"></div>
+          <div><label>Device Model</label><input type="text" id="rModel" placeholder="Model number"></div>
+          <div><label>Engineer Name</label><input type="text" id="rEngineer" readonly></div>
+          <div><label>Company (Service Provider)</label><input type="text" id="rCompany" placeholder="Your company name"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ct">Diagnosis & Work Done</div>
+        <div class="fgrid">
+          <div class="fw">
+            <label>Diagnosis / Problem Found</label>
+            <div id="tplPick-diag" style="display:none;margin-bottom:.4rem"></div>
+            <textarea id="rDiagnosis" placeholder="Describe the issue or findings…" style="min-height:90px"></textarea>
+          </div>
+          <div class="fw">
+            <label>Action Done by Engineer</label>
+            <div id="tplPick-action" style="display:none;margin-bottom:.4rem"></div>
+            <textarea id="rAction" placeholder="What was done during this visit…" style="min-height:90px"></textarea>
+          </div>
+          <div>
+            <label>Parts Needed</label>
+            <div id="tplPick-partsNeeded" style="display:none;margin-bottom:.4rem"></div>
+            <textarea id="rPartsNeeded" placeholder="Parts that need to be ordered…" style="min-height:70px"></textarea>
+          </div>
+          <div>
+            <label>Parts Replaced</label>
+            <div id="tplPick-partsReplaced" style="display:none;margin-bottom:.4rem"></div>
+            <textarea id="rPartsReplaced" placeholder="Parts replaced during this visit…" style="min-height:70px"></textarea>
+          </div>
+          <div class="fw"><label>Notes / Recommendations</label><textarea id="rNotes" placeholder="Any additional notes…" style="min-height:70px"></textarea></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ct">Signatures</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+          <div>
+            <label style="margin-bottom:.5rem">Customer Signature</label>
+            <div class="sig-wrap">
+              <canvas id="sigCustomer" height="130"></canvas>
+              <div class="sig-actions">
+                <button class="btn btn-s btn-sm" onclick="clearSig('sigCustomer')">Clear</button>
+              </div>
+            </div>
+            <div style="margin-top:.6rem"><label>Customer Representative Name</label><input type="text" id="rCustomerRep" placeholder="Name of customer representative"></div>
+          </div>
+          <div>
+            <label style="margin-bottom:.5rem">Engineer Signature</label>
+            <div class="sig-wrap">
+              <canvas id="sigEngineer" height="130"></canvas>
+              <div class="sig-actions">
+                <button class="btn btn-s btn-sm" onclick="clearSig('sigEngineer')">Clear</button>
+              </div>
+            </div>
+            <div style="margin-top:.6rem"><label>Engineer Name (printed)</label><input type="text" id="rEngineerPrint" placeholder="Full name for print"></div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-p" onclick="submitReport()">✅ Submit Report</button>
+          <button class="btn btn-s" onclick="resetForm()">🔄 Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MY REPORTS (Engineer) -->
+    <div class="page" id="page-my">
+      <div class="ph"><h2>📁 My Reports</h2><p>Service reports submitted by you.</p></div>
+      <div class="sbar">
+        <input type="text" id="mySearch" placeholder="🔍 Search…" oninput="renderMyReports()">
+        <select id="myTypeFilter" onchange="renderMyReports()">
+          <option value="">All Types</option>
+          <option>PPM (Planned Preventive Maintenance)</option>
+          <option>Service Call</option><option>Update Call</option>
+          <option>Calibration</option><option>Installation</option><option>Other</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Report #</th><th>Date</th><th>Machine</th><th>S/N</th><th>Type</th><th>Company</th><th></th></tr></thead>
+            <tbody id="myTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALL REPORTS (Admin) -->
+    <div class="page" id="page-reports">
+      <div class="ph"><h2>📊 All Service Reports</h2><p>View, edit, print and export all submitted reports.</p></div>
+      <div class="stats" id="adminStats"></div>
+      <div class="sbar">
+        <input type="text" id="allSearch" placeholder="🔍 Search…" oninput="renderAllReports()">
+        <select id="allTypeFilter" onchange="renderAllReports()">
+          <option value="">All Types</option>
+          <option>PPM (Planned Preventive Maintenance)</option>
+          <option>Service Call</option><option>Update Call</option>
+          <option>Calibration</option><option>Installation</option><option>Other</option>
+        </select>
+        <select id="allEngFilter" onchange="renderAllReports()"><option value="">All Engineers</option></select>
+        <button class="btn btn-s btn-sm" onclick="exportXLS()" style="margin-left:auto">📥 Export XLS</button>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Report #</th><th>Date</th><th>Machine</th><th>Model</th><th>S/N</th><th>Type</th><th>Engineer</th><th></th></tr></thead>
+            <tbody id="allTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEVICES (Admin) -->
+    <div class="page" id="page-devices">
+      <div class="ph"><h2>🏥 Device List</h2><p>Manage devices available for engineers to select when submitting reports.</p></div>
+      <div class="card" style="max-width:600px">
+        <div class="ct">Add New Device</div>
+        <div class="fgrid">
+          <div><label>Device / Machine Name *</label><input type="text" id="devName" placeholder="e.g. Laser 755nm Alexandrite"></div>
+          <div><label>Serial Number (S/N)</label><input type="text" id="devSN" placeholder="Serial number"></div>
+          <div><label>Model</label><input type="text" id="devModel" placeholder="Model number"></div>
+          <div><label>Notes</label><input type="text" id="devNotes" placeholder="Optional notes"></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-p" onclick="addDevice()">+ Add Device</button></div>
+      </div>
+      <div class="card" style="max-width:600px">
+        <div class="ct">Registered Devices</div>
+        <div id="deviceListEl"><p class="norec">No devices yet.</p></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS (Admin) -->
+    <div class="page" id="page-settings">
+      <div class="ph"><h2>⚙️ Settings</h2><p>Manage passwords and engineer accounts.</p></div>
+      <div class="card" style="max-width:500px">
+        <div class="ct">Admin Password</div>
+        <div class="fgrid">
+          <div><label>New Admin Password</label><input type="password" id="newAdminPass" placeholder="New password"></div>
+          <div><label>Confirm</label><input type="password" id="newAdminPass2" placeholder="Confirm password"></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-p" onclick="saveAdminPassword()">💾 Save</button></div>
+      </div>
+      <div class="card" style="max-width:500px">
+        <div class="ct">Engineers</div>
+        <p style="font-size:.82rem;color:var(--txt2);margin-bottom:1rem">Add engineer names. All engineers share one password set below.</p>
+        <div class="fgrid" style="margin-bottom:.8rem">
+          <div class="ff"><label>Engineer Name</label>
+            <div style="display:flex;gap:.5rem">
+              <input type="text" id="newEngName" placeholder="e.g. Ahmed" onkeydown="if(event.key==='Enter')addEngineer()">
+              <button class="btn btn-p" onclick="addEngineer()">+ Add</button>
+            </div>
+          </div>
+        </div>
+        <div id="engineersList" style="margin-bottom:1rem"></div>
+        <div class="ct" style="margin-top:.5rem">Engineer Password</div>
+        <p style="font-size:.82rem;color:var(--txt2);margin-bottom:.8rem">All engineers share this password.</p>
+        <div class="fgrid">
+          <div><label>New Engineer Password</label><input type="password" id="newEngPass" placeholder="New password"></div>
+          <div><label>Confirm</label><input type="password" id="newEngPass2" placeholder="Confirm password"></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-p" onclick="saveEngPassword()">💾 Save</button></div>
+      </div>
+      <div class="card" style="max-width:500px">
+        <div class="ct">Company Logo (shown on printed reports)</div>
+        <p style="font-size:.82rem;color:var(--txt2);margin-bottom:1rem">Upload a PNG or JPG logo. It will be stored and shown on all printed service reports.</p>
+        <div class="fgrid">
+          <div class="fw"><label>Upload Logo</label><input type="file" id="logoFile" accept="image/*" onchange="previewLogo(event)" style="padding:.4rem"></div>
+        </div>
+        <div id="logoPreview" style="margin-top:.8rem"></div>
+        <div class="btn-row">
+          <button class="btn btn-p" onclick="saveLogo()">💾 Save Logo</button>
+          <button class="btn btn-d" onclick="removeLogo()">🗑 Remove</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct">📋 Report Templates</div>
+        <p style="font-size:.82rem;color:var(--txt2);margin-bottom:1.2rem">Add pre-filled options for engineers to pick from when writing diagnosis, action, and parts. Engineers can still type freely — templates just speed things up.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.2rem">
+          <div>
+            <div style="font-size:.78rem;font-weight:700;color:var(--teal);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.06em">🔍 Diagnosis Templates</div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+              <input type="text" id="tplDiagInput" placeholder="e.g. Routine check — no issues found" style="flex:1">
+              <button class="btn btn-p btn-sm" onclick="addTemplate('diagnosis')">+</button>
+            </div>
+            <div id="tplDiagList"></div>
+          </div>
+          <div>
+            <div style="font-size:.78rem;font-weight:700;color:var(--teal);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.06em">⚙️ Action Templates</div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+              <input type="text" id="tplActionInput" placeholder="e.g. Cleaned filters and lubricated moving parts" style="flex:1">
+              <button class="btn btn-p btn-sm" onclick="addTemplate('action')">+</button>
+            </div>
+            <div id="tplActionList"></div>
+          </div>
+          <div>
+            <div style="font-size:.78rem;font-weight:700;color:var(--teal);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.06em">🔩 Parts Templates</div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+              <input type="text" id="tplPartsInput" placeholder="e.g. Handpiece, Power cable, Filter" style="flex:1">
+              <button class="btn btn-p btn-sm" onclick="addTemplate('parts')">+</button>
+            </div>
+            <div id="tplPartsList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /appShell -->
+
+<!-- VIEW / EDIT REPORT MODAL -->
+<div class="modal-bg hidden" id="reportModal">
+  <div class="modal" style="max-width:750px">
+    <h3 id="reportModalTitle">Service Report</h3>
+    <div id="reportModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeReportModal()">Close</button>
+      <button class="btn btn-s no-print" id="btnEditReport" onclick="startEditReport()">✏️ Edit</button>
+      <button class="btn btn-s no-print" onclick="printReport()">🖨 Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div class="modal-bg hidden" id="deleteModal">
+  <div class="modal" style="max-width:400px">
+    <h3>🗑 Confirm Delete</h3>
+    <p style="color:var(--txt2);font-size:.9rem;margin-bottom:1rem">Delete report <strong id="deleteReportNum"></strong>? This cannot be undone.</p>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="document.getElementById('deleteModal').classList.add('hidden')">Cancel</button>
+      <button class="btn btn-d" onclick="confirmDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════
+// CONFIG
+// ══════════════════════════
+var SB_URL='https://pdlhcgdjrqzjanonevqx.supabase.co';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkbGhjZ2RqcnF6amFub25ldnF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MDQ1OTIsImV4cCI6MjA4ODQ4MDU5Mn0.902WRLQAChto_Rw3QMegm2i_saVyRTpAF5vdpwFoUkU';
+var DEFAULT_ADMIN_PASS='admin123';
+var DEFAULT_ENG_PASS='engineer123';
+var RECOVERY_KEY='NEWDERMA1-SVC-RESET';
+
+// ══════════════════════════
+// STATE
+// ══════════════════════════
+var CU=null; // {role, name}
+var reports=[];
+var appConfig={adminPassword:DEFAULT_ADMIN_PASS, engineerPassword:DEFAULT_ENG_PASS, logo:'', engineers:[]};
+var deleteTargetId=null;
+var editingReportId=null;
+
+// ══════════════════════════
+// SUPABASE
+// ══════════════════════════
+function sbH(ex){return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},ex||{});}
+async function sbGet(t,q){var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+(q||''),{headers:sbH({'Prefer':'return=representation'})});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbInsert(t,d){var r=await fetch(SB_URL+'/rest/v1/'+t,{method:'POST',headers:sbH({'Prefer':'return=representation'}),body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbUpdate(t,q,d){var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+q,{method:'PATCH',headers:sbH({'Prefer':'return=representation'}),body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbDelete(t,q){var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+q,{method:'DELETE',headers:sbH()});if(!r.ok)throw new Error(await r.text());}
+async function cfgGet(){var r=await sbGet('md_svc_config','key=eq.svcAppConfig');return(r&&r[0])?JSON.parse(r[0].value):null;}
+async function cfgSet(data){await fetch(SB_URL+'/rest/v1/md_svc_config',{method:'POST',headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),body:JSON.stringify({key:'svcAppConfig',value:JSON.stringify(data)})});}
+
+// ══════════════════════════
+// UI HELPERS
+// ══════════════════════════
+function toast(msg,ok){var el=document.createElement('div');el.className='ti '+(ok?'ok':'err');el.textContent=msg;document.getElementById('toast').appendChild(el);setTimeout(function(){el.remove();},3500);}
+function setLoading(on){document.getElementById('loadingOverlay').classList.toggle('hidden',!on);}
+function setSyncDot(s){var d=document.getElementById('syncDot');d.className='sync-dot'+(s==='off'?' off':s==='syncing'?' syncing':'');}
+function fmtD(d){if(!d)return'—';var p=d.slice(0,10).split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+function badgeClass(t){return t==='PPM (Planned Preventive Maintenance)'?'b-ppm':t==='Service Call'?'b-svc':t==='Update Call'?'b-upd':t==='Calibration'?'b-cal':t==='Installation'?'b-ins':'b-oth';}
+function shortType(t){return t==='PPM (Planned Preventive Maintenance)'?'PPM':t;}
+
+// ══════════════════════════
+// AUTH
+// ══════════════════════════
+async function doLogin(){
+  var role=document.getElementById('lRole').value;
+  var name=document.getElementById('lUser').value.trim();
+  var pass=document.getElementById('lPass').value;
+  if(!name){document.getElementById('lerr').textContent='Please enter your name.';document.getElementById('lerr').classList.add('show');return;}
+  if(pass===RECOVERY_KEY){
+    appConfig.adminPassword=DEFAULT_ADMIN_PASS;appConfig.engineerPassword=DEFAULT_ENG_PASS;
+    try{await cfgSet(appConfig);}catch(e){}
+    alert('Passwords reset to defaults.\nAdmin: '+DEFAULT_ADMIN_PASS+'\nEngineer: '+DEFAULT_ENG_PASS);
+    document.getElementById('lPass').value='';return;
+  }
+  // Check if engineer name is in approved list (if list exists)
+  if(role==='engineer' && appConfig.engineers && appConfig.engineers.length>0){
+    var engFound=appConfig.engineers.some(function(e){return e.toLowerCase()===name.toLowerCase();});
+    if(!engFound){document.getElementById('lerr').textContent='Engineer name not found. Contact admin.';document.getElementById('lerr').classList.add('show');return;}
+  }
+  var ok=(role==='admin'&&pass===appConfig.adminPassword)||(role==='engineer'&&pass===appConfig.engineerPassword);
+  if(!ok){document.getElementById('lerr').textContent='Incorrect password.';document.getElementById('lerr').classList.add('show');return;}
+  document.getElementById('lerr').classList.remove('show');
+  CU={role:role,name:name};
+  try{sessionStorage.setItem('svc_cu',JSON.stringify(CU));}catch(e){}
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.add('visible');
+  bootApp();
+}
+
+function doLogout(){
+  try{sessionStorage.removeItem('svc_cu');sessionStorage.removeItem('svc_page');}catch(e){}
+  CU=null;reports=[];
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('appShell').classList.remove('visible');
+  document.getElementById('lPass').value='';
+}
+
+// ══════════════════════════
+// BOOT
+// ══════════════════════════
+// init moved to bottom
+
+function bootApp(){
+  var tabs=CU.role==='admin'
+    ?[['reports','Reports'],['devices','Devices'],['settings','Settings']]
+    :[['new','New Report'],['my','My Reports']];
+  document.getElementById('navTabs').innerHTML=tabs.map(function(t){
+    return '<button class="ntab" onclick="showPage(\''+t[0]+'\',this)">'+t[1]+'</button>';
+  }).join('');
+  document.getElementById('userBadge').innerHTML='<span>'+CU.name+'</span> · '+CU.role;
+  if(CU.role==='engineer'){
+    document.getElementById('rEngineer').value=CU.name;
+    var ep2=document.getElementById('rEngineerPrint');if(ep2)ep2.value=CU.name;
+    document.getElementById('rDate').value=new Date().toISOString().slice(0,10);
+    document.getElementById('rNum').value='SVC-'+Date.now().toString().slice(-6);
+    initSigPad('sigCustomer');initSigPad('sigEngineer');
+  }
+  loadReports().then(function(){
+    if(CU.role==='engineer'){ buildDeviceSI(); renderQuickPicks(); }
+    var firstTab=document.querySelector('.ntab');
+    var firstPage=CU.role==='admin'?'reports':'new';
+    showPage(firstPage,firstTab);
+  });
+}
+
+async function loadReports(){
+  setSyncDot('syncing');
+  try{
+    var q=CU.role==='admin'?'order=service_date.desc':'engineer=eq.'+encodeURIComponent(CU.name)+'&order=service_date.desc';
+    reports=await sbGet('md_service_reports',q);
+    setSyncDot('on');
+  }catch(e){setSyncDot('off');toast('Could not load reports: '+e.message,false);}
+}
+
+function showPage(id,btn){
+  try{sessionStorage.setItem('svc_page',id);}catch(e){}
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.ntab').forEach(function(t){t.classList.remove('active');});
+  var pg=document.getElementById('page-'+id);if(pg)pg.classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(id==='reports'){renderAdminStats();populateEngFilter();renderAllReports();}
+  if(id==='my')renderMyReports();
+  if(id==='settings'){
+    renderEngineersList(); renderLogoPreview(); renderAllTemplateLists(); }
+  if(id==='devices')renderDeviceList();
+}
+
+// ══════════════════════════
+// SIGNATURE PADS
+// ══════════════════════════
+var sigStates={};
+function initSigPad(canvasId){
+  var c=document.getElementById(canvasId);
+  if(!c)return;
+  c.width=c.offsetWidth||400;
+  sigStates[canvasId]={drawing:false,empty:true};
+  var ctx=c.getContext('2d');
+  ctx.strokeStyle='#00c9b1';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+  function pos(e){
+    var r=c.getBoundingClientRect(),src=e.touches?e.touches[0]:e;
+    return{x:(src.clientX-r.left)*(c.width/r.width),y:(src.clientY-r.top)*(c.height/r.height)};
+  }
+  function start(e){e.preventDefault();sigStates[canvasId].drawing=true;sigStates[canvasId].empty=false;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}
+  function move(e){e.preventDefault();if(!sigStates[canvasId].drawing)return;var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();}
+  function end(e){e.preventDefault();sigStates[canvasId].drawing=false;}
+  c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);c.addEventListener('mouseup',end);c.addEventListener('mouseleave',end);
+  c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});c.addEventListener('touchend',end,{passive:false});
+}
+function clearSig(canvasId){
+  var c=document.getElementById(canvasId);if(!c)return;
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+  sigStates[canvasId]={drawing:false,empty:true};
+}
+function getSig(canvasId){
+  var c=document.getElementById(canvasId);if(!c)return'';
+  if(sigStates[canvasId]&&sigStates[canvasId].empty)return'';
+  return c.toDataURL('image/png');
+}
+
+// ══════════════════════════
+// SUBMIT REPORT
+// ══════════════════════════
+async function submitReport(){
+  var machine=document.getElementById('rMachine').value.trim();
+  var date=document.getElementById('rDate').value;
+  var diagnosis=document.getElementById('rDiagnosis').value.trim();
+  var action=document.getElementById('rAction').value.trim();
+  if(!machine||!date||!diagnosis||!action){toast('Machine, date, diagnosis and action are required.',false);return;}
+  var data={
+    report_num:   document.getElementById('rNum').value,
+    service_date: date,
+    customer:     'Newderma1 Medical Center',
+    service_type: document.getElementById('rType').value,
+    machine:      machine,
+    model:        document.getElementById('rModel').value.trim(),
+    serial_number:document.getElementById('rSN').value.trim(),
+    engineer:     CU.name,
+    company:      document.getElementById('rCompany').value.trim(),
+    diagnosis:    diagnosis,
+    action_done:  action,
+    parts_needed: document.getElementById('rPartsNeeded').value.trim(),
+    parts_replaced:document.getElementById('rPartsReplaced').value.trim(),
+    notes:        document.getElementById('rNotes').value.trim(),
+    sig_customer:   getSig('sigCustomer'),
+    sig_engineer:   getSig('sigEngineer'),
+    customer_rep:   document.getElementById('rCustomerRep').value.trim(),
+    engineer_print: document.getElementById('rEngineerPrint').value.trim()
+  };
+  if(editingReportId){
+    setSyncDot('syncing');
+    try{
+      await sbUpdate('md_service_reports','id=eq.'+editingReportId,data);
+      var idx=reports.findIndex(function(r){return r.id==editingReportId;});
+      if(idx>=0)reports[idx]=Object.assign(reports[idx],data);
+      toast('Report updated!',true);setSyncDot('on');
+      editingReportId=null;
+      resetForm();
+      if(CU.role==='admin'){showPage('reports',document.querySelector('.ntab[onclick*="reports"]'));}
+      else{showPage('my',document.querySelectorAll('.ntab')[1]);}
+    }catch(e){setSyncDot('off');toast('Update failed: '+e.message,false);}
+    return;
+  }
+  data.id=crypto.randomUUID();
+  setSyncDot('syncing');
+  try{
+    var res=await sbInsert('md_service_reports',data);
+    reports.unshift(res[0]||data);
+    toast('Report submitted!',true);setSyncDot('on');
+    resetForm();
+  }catch(e){setSyncDot('off');toast('Submit failed: '+e.message,false);}
+}
+
+function resetForm(){
+  editingReportId=null;
+  document.getElementById('rNum').value='SVC-'+Date.now().toString().slice(-6);
+  document.getElementById('rDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('rType').value='PPM (Planned Preventive Maintenance)';
+  document.getElementById('rMachine').value='';
+  document.getElementById('rSN').value='';
+  var mf=document.getElementById('rModel');if(mf)mf.value='';
+  var btn=document.getElementById('si-machine-btn'); if(btn) btn.textContent='— Select Device —';
+  document.getElementById('rCompany').value='';
+  document.getElementById('rDiagnosis').value='';
+  document.getElementById('rAction').value='';
+  document.getElementById('rPartsNeeded').value='';
+  document.getElementById('rPartsReplaced').value='';
+  document.getElementById('rNotes').value='';
+  clearSig('sigCustomer');clearSig('sigEngineer');
+  var cr=document.getElementById('rCustomerRep');if(cr)cr.value='';
+  var ep=document.getElementById('rEngineerPrint');if(ep)ep.value=CU?CU.name:'';
+}
+
+// ══════════════════════════
+// RENDER TABLES
+// ══════════════════════════
+function renderMyReports(){
+  var q=(document.getElementById('mySearch').value||'').toLowerCase();
+  var ty=document.getElementById('myTypeFilter').value;
+  var tb=document.getElementById('myTable');
+  var list=reports.filter(function(r){
+    return(!q||(r.machine||'').toLowerCase().indexOf(q)>=0||(r.serial_number||'').toLowerCase().indexOf(q)>=0||(r.report_num||'').toLowerCase().indexOf(q)>=0)
+      &&(!ty||r.service_type===ty);
+  });
+  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="norec">No reports found.</td></tr>';return;}
+  tb.innerHTML=list.map(function(r){
+    return '<tr>'+
+      '<td><strong>'+r.report_num+'</strong></td>'+
+      '<td>'+fmtD(r.service_date)+'</td>'+
+      '<td>'+r.machine+'</td>'+
+      '<td style="color:var(--txt2)">'+(r.serial_number||'—')+'</td>'+
+      '<td><span class="badge '+badgeClass(r.service_type)+'">'+shortType(r.service_type)+'</span></td>'+
+      '<td style="color:var(--txt2)">'+(r.company||'—')+'</td>'+
+      '<td><button class="btn btn-s btn-sm" onclick="viewReport('+r.id+')">👁 View</button> '+
+          '<button class="btn btn-s btn-sm" onclick="printReportById('+r.id+')">🖨</button></td>'+
+      '</tr>';
+  }).join('');
+}
+
+function renderAdminStats(){
+  var total=reports.length;
+  var byType={};
+  reports.forEach(function(r){byType[r.service_type]=(byType[r.service_type]||0)+1;});
+  var topType=Object.keys(byType).sort(function(a,b){return byType[b]-byType[a];})[0]||'—';
+  var engineers=[...new Set(reports.map(function(r){return r.engineer;}))].length;
+  document.getElementById('adminStats').innerHTML=
+    '<div class="scard"><div class="sv">'+total+'</div><div class="sl">Total Reports</div></div>'+
+    '<div class="scard"><div class="sv">'+engineers+'</div><div class="sl">Engineers</div></div>'+
+    '<div class="scard"><div class="sv" style="font-size:1.1rem;padding-top:.4rem">'+shortType(topType)+'</div><div class="sl">Top Service Type</div></div>';
+}
+
+function populateEngFilter(){
+  var engs=[...new Set(reports.map(function(r){return r.engineer;}))];
+  var sel=document.getElementById('allEngFilter');
+  sel.innerHTML='<option value="">All Engineers</option>'+engs.map(function(e){return'<option>'+e+'</option>';}).join('');
+}
+
+function renderAllReports(){
+  var q=(document.getElementById('allSearch').value||'').toLowerCase();
+  var ty=document.getElementById('allTypeFilter').value;
+  var eng=document.getElementById('allEngFilter').value;
+  var tb=document.getElementById('allTable');
+  var list=reports.filter(function(r){
+    return(!q||(r.machine||'').toLowerCase().indexOf(q)>=0||(r.serial_number||'').toLowerCase().indexOf(q)>=0||(r.report_num||'').toLowerCase().indexOf(q)>=0||(r.engineer||'').toLowerCase().indexOf(q)>=0)
+      &&(!ty||r.service_type===ty)&&(!eng||r.engineer===eng);
+  });
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="norec">No reports found.</td></tr>';return;}
+  tb.innerHTML=list.map(function(r){
+    return '<tr>'+
+      '<td><strong>'+r.report_num+'</strong></td>'+
+      '<td>'+fmtD(r.service_date)+'</td>'+
+      '<td>'+r.machine+'</td>'+
+      '<td style="color:var(--txt2)">'+(r.model||'—')+'</td>'+
+      '<td style="color:var(--txt2)">'+(r.serial_number||'—')+'</td>'+
+      '<td><span class="badge '+badgeClass(r.service_type)+'">'+shortType(r.service_type)+'</span></td>'+
+      '<td>'+r.engineer+'</td>'+
+      '<td style="white-space:nowrap">'+
+        '<button class="btn btn-s btn-sm" onclick="viewReport('+r.id+')" style="margin-right:.3rem">👁</button>'+
+        '<button class="btn btn-s btn-sm" onclick="printReportById('+r.id+')" style="margin-right:.3rem">🖨</button>'+
+        '<button class="btn btn-s btn-sm" onclick="editReport('+r.id+')" style="margin-right:.3rem">✏️</button>'+
+        '<button class="btn btn-d btn-sm" onclick="promptDelete('+r.id+')">🗑</button>'+
+      '</td>'+
+      '</tr>';
+  }).join('');
+}
+
+// ══════════════════════════
+// VIEW REPORT MODAL
+// ══════════════════════════
+function viewReport(id){
+  var r=reports.find(function(x){return x.id==id;});if(!r)return;
+  document.getElementById('reportModalTitle').textContent='Report '+r.report_num;
+  document.getElementById('btnEditReport').style.display=CU.role==='admin'?'':'none';
+  document.getElementById('reportModal').setAttribute('data-id',id);
+
+  function row(k,v){
+    return '<div style="display:flex;gap:.5rem;margin-bottom:.5rem;font-size:.85rem">'+
+      '<span style="color:var(--txt2);min-width:140px;flex-shrink:0;font-weight:600">'+k+'</span>'+
+      '<span style="color:var(--txt)">'+v+'</span></div>';
+  }
+  function blk(k,v){
+    if(!v) return '';
+    return '<div style="margin-bottom:.9rem">'+
+      '<div style="font-size:.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.35rem;border-bottom:1px solid var(--border);padding-bottom:.3rem">'+k+'</div>'+
+      '<div style="background:var(--navy3);border:1px solid var(--border);border-radius:var(--rs);padding:.6rem .85rem;font-size:.85rem;white-space:pre-wrap;color:var(--txt)">'+v+'</div></div>';
+  }
+
+  var html =
+    '<div style="background:var(--navy3);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem;margin-bottom:1rem">'+
+      row('Report #', r.report_num)+
+      row('Date', fmtD(r.service_date))+
+      row('Customer', r.customer)+
+      row('Service Type', '<span class="badge '+badgeClass(r.service_type)+'">'+r.service_type+'</span>')+
+      row('Machine', r.machine)+
+      row('S/N', r.serial_number||'—')+
+      row('Engineer', r.engineer)+
+      (r.company?row('Company', r.company):'')+
+    '</div>'+
+    blk('Diagnosis / Problem Found', r.diagnosis)+
+    blk('Action Done by Engineer', r.action_done)+
+    blk('Parts Needed', r.parts_needed)+
+    blk('Parts Replaced', r.parts_replaced)+
+    blk('Notes', r.notes)+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.5rem">'+
+      '<div>'+
+        '<div style="font-size:.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem">Customer Signature</div>'+
+        (r.sig_customer
+          ?'<img src="'+r.sig_customer+'" style="border:1px solid var(--border);border-radius:var(--rs);width:100%;max-height:100px;object-fit:contain;background:var(--navy)">'
+          :'<div style="height:80px;border:1px dashed var(--border);border-radius:var(--rs);display:flex;align-items:center;justify-content:center;color:var(--txt3);font-size:.8rem">No signature</div>')+
+        (r.customer_rep?'<div style="font-size:.78rem;color:var(--txt2);margin-top:.3rem;text-align:center">'+r.customer_rep+'</div>':'')+
+      '</div>'+
+      '<div>'+
+        '<div style="font-size:.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem">Engineer Signature</div>'+
+        (r.sig_engineer
+          ?'<img src="'+r.sig_engineer+'" style="border:1px solid var(--border);border-radius:var(--rs);width:100%;max-height:100px;object-fit:contain;background:var(--navy)">'
+          :'<div style="height:80px;border:1px dashed var(--border);border-radius:var(--rs);display:flex;align-items:center;justify-content:center;color:var(--txt3);font-size:.8rem">No signature</div>')+
+        (r.engineer_print?'<div style="font-size:.78rem;color:var(--txt2);margin-top:.3rem;text-align:center">'+(r.engineer_print||r.engineer)+'</div>':'')+
+      '</div>'+
+    '</div>';
+
+  document.getElementById('reportModalBody').innerHTML = html;
+  document.getElementById('reportModal').classList.remove('hidden');
+}
+function closeReportModal(){document.getElementById('reportModal').classList.add('hidden');}
+
+// ══════════════════════════
+// EDIT REPORT
+// ══════════════════════════
+function editReport(id){
+  var r=reports.find(function(x){return x.id==id;});if(!r)return;
+  editingReportId=id;
+  document.getElementById('rNum').value=r.report_num;
+  document.getElementById('rDate').value=r.service_date;
+  document.getElementById('rType').value=r.service_type;
+  document.getElementById('rMachine').value=r.machine||'';
+  document.getElementById('rSN').value=r.serial_number||'';
+  var mf2=document.getElementById('rModel');if(mf2)mf2.value=r.model||'';
+  var btn=document.getElementById('si-machine-btn'); if(btn) btn.textContent=r.machine||'— Select Device —';
+  document.getElementById('rEngineer').value=r.engineer||'';
+  document.getElementById('rCompany').value=r.company||'';
+  document.getElementById('rDiagnosis').value=r.diagnosis||'';
+  document.getElementById('rAction').value=r.action_done||'';
+  document.getElementById('rPartsNeeded').value=r.parts_needed||'';
+  document.getElementById('rPartsReplaced').value=r.parts_replaced||'';
+  document.getElementById('rNotes').value=r.notes||'';
+  clearSig('sigCustomer');clearSig('sigEngineer');
+  var cr=document.getElementById('rCustomerRep');if(cr)cr.value='';
+  var ep=document.getElementById('rEngineerPrint');if(ep)ep.value=CU?CU.name:'';
+  if(r.sig_customer){loadSigFromUrl('sigCustomer',r.sig_customer);}
+  if(r.sig_engineer){loadSigFromUrl('sigEngineer',r.sig_engineer);}
+  closeReportModal();
+  showPage('new',document.querySelector('.ntab'));
+  toast('Editing report '+r.report_num+'. Save to update.',true);
+}
+function startEditReport(){
+  var id=document.getElementById('reportModal').getAttribute('data-id');
+  editReport(id);
+}
+function loadSigFromUrl(canvasId,url){
+  var c=document.getElementById(canvasId);if(!c)return;
+  var img=new Image();
+  img.onload=function(){c.getContext('2d').drawImage(img,0,0,c.width,c.height);sigStates[canvasId]={drawing:false,empty:false};};
+  img.src=url;
+}
+
+// ══════════════════════════
+// DELETE
+// ══════════════════════════
+function promptDelete(id){
+  var r=reports.find(function(x){return x.id==id;});
+  deleteTargetId=id;
+  document.getElementById('deleteReportNum').textContent=r?r.report_num:'';
+  document.getElementById('deleteModal').classList.remove('hidden');
+}
+async function confirmDelete(){
+  document.getElementById('deleteModal').classList.add('hidden');
+  setSyncDot('syncing');
+  try{
+    await sbDelete('md_service_reports','id=eq.'+deleteTargetId);
+    reports=reports.filter(function(r){return r.id!=deleteTargetId;});
+    toast('Report deleted.',true);setSyncDot('on');
+    renderAllReports();renderAdminStats();
+  }catch(e){setSyncDot('off');toast('Delete failed: '+e.message,false);}
+}
+
+// ══════════════════════════
+// PRINT
+// ══════════════════════════
+function printReportById(id){
+  var r=reports.find(function(x){return x.id==id;});if(!r)return;
+  var logo=appConfig.logo;
+
+  // ── HEADER ──
+  var logoHtml = logo
+    ? '<img src="'+logo+'" alt="Bionics Medical Logo" style="max-height:62px;max-width:210px;object-fit:contain">'
+    : '<div class="logo-placeholder">'+
+        '<div class="lp-icon" style="width:54px;height:54px;border:2.5px solid #b8962e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;color:#b8962e;font-family:Georgia,serif">B</div>'+
+        '<div style="margin-left:.6rem">'+
+          '<div class="lp-sub" style="color:#b8962e;font-size:.6rem;letter-spacing:.12em;margin-bottom:.1rem">THE ENDLESS PURSUIT OF PERFECTION</div>'+
+          '<div class="lp-text" style="font-size:1.05rem;font-weight:900;color:#b8962e;letter-spacing:.06em">BIONICS MEDICAL</div>'+
+        '</div>'+
+      '</div>';
+
+  var header =
+    '<div class="rpt-header">'+
+      '<div class="logo-side">'+logoHtml+'</div>'+
+      '<div class="arabic-side">'+
+        '<div class="arabic-name">قمة الجمال الطبية</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="rpt-titlebar">'+
+      '<div class="rt-title">Field Service Report &nbsp;|&nbsp; تقرير الخدمة الميدانية</div>'+
+      '<div class="rt-num">'+r.report_num+'</div>'+
+    '</div>';
+
+  // ── BODY ──
+  var body =
+    '<div class="rpt-body">'+
+      '<div class="report-section"><div class="rs-title">Service Information</div>'+
+        '<div class="report-grid thirds">'+
+          rfield('Customer / العميل', r.customer)+
+          rfield('Service Type / نوع الخدمة', r.service_type)+
+          rfield('Date / التاريخ', fmtD(r.service_date))+
+          rfield('Machine / الجهاز', r.machine)+
+          rfield('Model / الموديل', r.model||'—')+
+          rfield('Serial No / الرقم التسلسلي', r.serial_number||'—')+
+          rfield('Engineer / المهندس', r.engineer)+
+          (r.company?rfield('Company / الشركة', r.company):'')+
+        '</div>'+
+      '</div>'+
+      '<div class="report-section"><div class="rs-title">Diagnosis / التشخيص</div>'+
+        '<div class="report-text">'+(r.diagnosis||'—')+'</div>'+
+      '</div>'+
+      '<div class="report-section"><div class="rs-title">Action Done / الإجراء المتخذ</div>'+
+        '<div class="report-text">'+(r.action_done||'—')+'</div>'+
+      '</div>'+
+      (r.parts_needed||r.parts_replaced ?
+        '<div class="report-section"><div class="rs-title">Parts / قطع الغيار</div>'+
+          '<div class="report-grid">'+
+            '<div>'+
+              '<div style="font-size:.72rem;font-weight:700;color:#888;margin-bottom:.3rem">PARTS NEEDED / مطلوبة</div>'+
+              '<div class="report-text" style="min-height:40px">'+(r.parts_needed||'—')+'</div>'+
+            '</div>'+
+            '<div>'+
+              '<div style="font-size:.72rem;font-weight:700;color:#888;margin-bottom:.3rem">PARTS REPLACED / تم استبدالها</div>'+
+              '<div class="report-text" style="min-height:40px">'+(r.parts_replaced||'—')+'</div>'+
+            '</div>'+
+          '</div>'+
+        '</div>' : '')+
+      (r.notes?
+        '<div class="report-section"><div class="rs-title">Notes / ملاحظات</div>'+
+          '<div class="report-text">'+(r.notes)+'</div>'+
+        '</div>' : '')+
+      '<div class="report-section"><div class="rs-title">Signatures / التوقيعات</div>'+
+        '<div class="report-sigs">'+
+          '<div class="report-sig">'+
+            '<div class="sig-label">Customer Signature / توقيع العميل</div>'+
+            (r.sig_customer?'<img src="'+r.sig_customer+'" alt="Customer Sig">':'<div class="sig-line"></div>')+
+            '<div class="sig-name">'+(r.customer_rep||'_____________________')+'</div>'+
+            '<div style="font-size:.68rem;color:#888;text-align:center">Customer Representative / ممثل العميل</div>'+
+          '</div>'+
+          '<div class="report-sig">'+
+            '<div class="sig-label">Engineer Signature / توقيع المهندس</div>'+
+            (r.sig_engineer?'<img src="'+r.sig_engineer+'" alt="Engineer Sig">':'<div class="sig-line"></div>')+
+            '<div class="sig-name">'+(r.engineer_print||r.engineer)+(r.company?' — '+r.company:'')+'</div>'+
+            '<div style="font-size:.68rem;color:#888;text-align:center">Service Engineer / مهندس الصيانة</div>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+
+  // ── FOOTER ──
+  var footer =
+    '<div class="rpt-footer">'+
+      '<div class="ft-left">'+
+        '<strong>🇸🇦 Saudi Arabia</strong>'+
+        'Office 17, Abed Al-Ellah Al Qasem Building<br>'+
+        'Ar Remal Street, Wadi District, 12565, Riyadh<br>'+
+        'P.O Box 3775, Riyadh, 13784<br>'+
+        '📞 +966 59 404 4323 &nbsp; +966 59 404 4323'+
+      '</div>'+
+      '<div class="ft-center">'+
+        '<div class="website">www.bionicsgroup.com</div>'+
+      '</div>'+
+      '<div class="ft-right">'+
+        '<strong>🇦🇪 UAE</strong>'+
+        'Office 3202, Citadel Tower<br>'+
+        'Business Bay, Dubai<br>'+
+        '📞 +971 521 244 440<br>'+
+        '📞 +971 505 003 895'+
+      '</div>'+
+    '</div>';
+
+  var html = '<div class="report-page">'+header+body+footer+'</div>';
+  var pa=document.getElementById('printArea');
+  pa.innerHTML=html;
+  pa.style.display='block';
+  setTimeout(function(){
+    window.print();
+    setTimeout(function(){ pa.style.display='none'; pa.innerHTML=''; }, 800);
+  },200);
+}
+function rfield(k,v){return'<div class="report-field"><span class="rk">'+k+'</span><span class="rv">'+(v||'—')+'</span></div>';}
+function printReport(){
+  var id=document.getElementById('reportModal').getAttribute('data-id');
+  closeReportModal();
+  printReportById(id);
+}
+
+// ══════════════════════════
+// EXPORT XLS
+// ══════════════════════════
+function exportXLS(){
+  var q=(document.getElementById('allSearch').value||'').toLowerCase();
+  var ty=document.getElementById('allTypeFilter').value;
+  var eng=document.getElementById('allEngFilter').value;
+  var list=reports.filter(function(r){
+    return(!q||(r.machine||'').toLowerCase().indexOf(q)>=0||(r.serial_number||'').toLowerCase().indexOf(q)>=0||(r.report_num||'').toLowerCase().indexOf(q)>=0||(r.engineer||'').toLowerCase().indexOf(q)>=0)
+      &&(!ty||r.service_type===ty)&&(!eng||r.engineer===eng);
+  });
+  var rows=[['Report #','Date','Customer','Service Type','Machine','S/N','Engineer','Company','Diagnosis','Action Done','Parts Needed','Parts Replaced','Notes']];
+  list.forEach(function(r){rows.push([r.report_num,r.service_date,r.customer,r.service_type,r.machine,r.serial_number||'',r.engineer,r.company||'',r.diagnosis||'',r.action_done||'',r.parts_needed||'',r.parts_replaced||'',r.notes||'']);});
+  var csv=rows.map(function(r){return r.map(function(c){return'"'+(c||'').toString().replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='service-reports-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+// ══════════════════════════
+// SETTINGS
+// ══════════════════════════
+async function saveAdminPassword(){
+  var p1=document.getElementById('newAdminPass').value;
+  var p2=document.getElementById('newAdminPass2').value;
+  if(!p1){toast('Enter a password.',false);return;}
+  if(p1!==p2){toast('Passwords do not match.',false);return;}
+  appConfig.adminPassword=p1;
+  try{await cfgSet(appConfig);toast('Admin password saved!',true);document.getElementById('newAdminPass').value='';document.getElementById('newAdminPass2').value='';}
+  catch(e){toast('Save failed: '+e.message,false);}
+}
+function renderEngineersList(){
+  var el=document.getElementById('engineersList'); if(!el) return;
+  var engs=appConfig.engineers||[];
+  if(!engs.length){el.innerHTML='<div style="font-size:.82rem;color:var(--txt2);font-style:italic">No engineers added yet.</div>';return;}
+  el.innerHTML=engs.map(function(name,i){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 0;border-bottom:1px solid var(--border)">'+
+      '<div style="font-weight:600;font-size:.88rem">'+name+'</div>'+
+      '<button class="btn btn-d btn-sm" onclick="removeEngineer('+i+')">Remove</button>'+
+    '</div>';
+  }).join('');
+}
+
+async function addEngineer(){
+  var name=document.getElementById('newEngName').value.trim();
+  if(!name){toast('Enter engineer name',false);return;}
+  if(!appConfig.engineers) appConfig.engineers=[];
+  if(appConfig.engineers.some(function(e){return e.toLowerCase()===name.toLowerCase();})){toast('Already exists',false);return;}
+  appConfig.engineers.push(name);
+  try{
+    await cfgSet(appConfig);
+    document.getElementById('newEngName').value='';
+    toast(name+' added!',true);
+    renderEngineersList();
+  }catch(e){appConfig.engineers.pop();toast('Failed: '+e.message,false);}
+}
+
+async function removeEngineer(i){
+  var name=appConfig.engineers[i];
+  if(!confirm('Remove engineer: '+name+'?'))return;
+  var removed=appConfig.engineers.splice(i,1);
+  try{await cfgSet(appConfig);renderEngineersList();toast('Removed.',true);}
+  catch(e){appConfig.engineers.splice(i,0,removed[0]);toast('Failed.',false);}
+}
+
+async function saveEngPassword(){
+  var p1=document.getElementById('newEngPass').value;
+  var p2=document.getElementById('newEngPass2').value;
+  if(!p1){toast('Enter a password.',false);return;}
+  if(p1!==p2){toast('Passwords do not match.',false);return;}
+  appConfig.engineerPassword=p1;
+  try{await cfgSet(appConfig);toast('Engineer password saved!',true);document.getElementById('newEngPass').value='';document.getElementById('newEngPass2').value='';}
+  catch(e){toast('Save failed: '+e.message,false);}
+}
+
+function previewLogo(e){
+  var file=e.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    document.getElementById('logoPreview').innerHTML='<img src="'+ev.target.result+'" style="max-height:80px;border-radius:8px;border:1px solid var(--border)">';
+    appConfig._pendingLogo=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function saveLogo(){
+  if(!appConfig._pendingLogo){toast('Select a logo first.',false);return;}
+  appConfig.logo=appConfig._pendingLogo;
+  delete appConfig._pendingLogo;
+  try{await cfgSet(appConfig);toast('Logo saved!',true);}
+  catch(e){toast('Save failed: '+e.message,false);}
+}
+async function removeLogo(){
+  appConfig.logo='';
+  try{await cfgSet(appConfig);document.getElementById('logoPreview').innerHTML='';toast('Logo removed.',true);}
+  catch(e){toast('Failed: '+e.message,false);}
+}
+function renderLogoPreview(){
+  if(appConfig.logo)document.getElementById('logoPreview').innerHTML='<img src="'+appConfig.logo+'" style="max-height:80px;border-radius:8px;border:1px solid var(--border)">';
+}
+
+// ══════════════════════════
+// DEVICES (admin manages, engineer selects)
+// ══════════════════════════
+var deviceList = []; // [{name, sn, model, notes}]
+
+async function loadDevices(){
+  try{
+    var r = await sbGet('md_svc_config','key=eq.svcDeviceList');
+    deviceList = (r && r[0]) ? JSON.parse(r[0].value) : [];
+  }catch(e){ deviceList=[]; }
+}
+
+async function saveDeviceList(){
+  await fetch(SB_URL+'/rest/v1/md_svc_config',{
+    method:'POST',
+    headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),
+    body:JSON.stringify({key:'svcDeviceList', value:JSON.stringify(deviceList)})
+  });
+}
+
+async function addDevice(){
+  var name = document.getElementById('devName').value.trim();
+  if(!name){toast('Device name is required.',false);return;}
+  var dev = {
+    id: crypto.randomUUID(),
+    name: name,
+    sn:    document.getElementById('devSN').value.trim(),
+    model: document.getElementById('devModel').value.trim(),
+    notes: document.getElementById('devNotes').value.trim()
+  };
+  deviceList.push(dev);
+  try{
+    await saveDeviceList();
+    toast('Device added!', true);
+    document.getElementById('devName').value='';
+    document.getElementById('devSN').value='';
+    document.getElementById('devModel').value='';
+    document.getElementById('devNotes').value='';
+    renderDeviceList();
+  }catch(e){ deviceList.pop(); toast('Save failed: '+e.message,false); }
+}
+
+async function removeDevice(id){
+  if(!confirm('Remove this device from the list?'))return;
+  deviceList = deviceList.filter(function(d){return d.id!=id;});
+  try{ await saveDeviceList(); toast('Device removed.',true); renderDeviceList(); }
+  catch(e){ toast('Failed: '+e.message,false); }
+}
+
+function renderDeviceList(){
+  var el = document.getElementById('deviceListEl');
+  if(!deviceList.length){ el.innerHTML='<p class="norec">No devices registered yet.</p>'; return; }
+  el.innerHTML = deviceList.map(function(d){
+    return '<div class="dli">'+
+      '<div>'+
+        '<div class="dli-name">'+d.name+'</div>'+
+        '<div class="dli-sn">'+
+          (d.model?'<span style="color:var(--txt2)">Model: '+d.model+'</span>  ':'') +
+          (d.sn?'<span style="color:var(--teal)">S/N: '+d.sn+'</span>':'') +
+        '</div>'+
+      '</div>'+
+      '<button class="btn btn-d btn-sm" onclick="removeDevice('+d.id+')">🗑</button>'+
+      '</div>';
+  }).join('');
+}
+
+// ══════════════════════════
+// SEARCHABLE DROPDOWN ENGINE
+// ══════════════════════════
+var siSelected = {}; // id -> {name, sn}
+
+function buildDeviceSI(){
+  var list = document.getElementById('si-machine-list');
+  if(!list) return;
+  renderSIList('');
+}
+
+function toggleSI(wrapId){
+  var drop = document.getElementById(wrapId+'-drop');
+  var btn  = document.getElementById(wrapId+'-btn');
+  var isOpen = drop.classList.contains('open');
+  // Close all dropdowns first
+  document.querySelectorAll('.si-drop.open').forEach(function(d){ d.classList.remove('open'); });
+  document.querySelectorAll('.si-input.open').forEach(function(b){ b.classList.remove('open'); });
+  if(!isOpen){
+    drop.classList.add('open');
+    btn.classList.add('open');
+    var search = drop.querySelector('.si-search');
+    if(search){ search.value=''; search.focus(); renderSIList(''); }
+  }
+}
+
+function filterSI(wrapId){
+  var search = document.getElementById(wrapId+'-drop').querySelector('.si-search');
+  renderSIList(search ? search.value : '');
+}
+
+function renderSIList(q){
+  var list = document.getElementById('si-machine-list');
+  if(!list) return;
+  var filtered = deviceList.filter(function(d){
+    return !q || d.name.toLowerCase().indexOf(q.toLowerCase())>=0 || (d.sn||'').toLowerCase().indexOf(q.toLowerCase())>=0;
+  });
+  if(!filtered.length){
+    list.innerHTML='<div class="si-empty">No devices found</div>';
+    return;
+  }
+  var cur = document.getElementById('rMachine').value;
+  list.innerHTML = filtered.map(function(d){
+    var sel = cur===d.name ? ' ssel' : '';
+    return '<div class="si-item'+sel+'" onclick="selectDevice('+d.id+')">'+
+      '<div>'+d.name+'</div>'+
+      '<div class="si-sub">'+(d.sn?'S/N: '+d.sn:'')+(d.model?' · '+d.model:'')+'</div>'+
+      '</div>';
+  }).join('');
+}
+
+function selectDevice(id){
+  var dev = deviceList.find(function(d){return d.id==id;});
+  if(!dev) return;
+  document.getElementById('rMachine').value = dev.name;
+  document.getElementById('rSN').value = dev.sn || '';
+  var mf3=document.getElementById('rModel');if(mf3)mf3.value=dev.model||'';
+  document.getElementById('si-machine-btn').textContent = dev.name;
+  // Close dropdown
+  document.getElementById('si-machine-drop').classList.remove('open');
+  document.getElementById('si-machine-btn').classList.remove('open');
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.si-wrap')){
+    document.querySelectorAll('.si-drop.open').forEach(function(d){ d.classList.remove('open'); });
+    document.querySelectorAll('.si-input.open').forEach(function(b){ b.classList.remove('open'); });
+  }
+});
+
+
+// ══════════════════════════
+// TEMPLATES
+// ══════════════════════════
+var templates = {diagnosis:[],action:[],parts:[]};
+
+async function loadTemplates(){
+  try{
+    var res = await sbGet('md_svc_config','key=eq.svcTemplates');
+    if(res && res[0]){
+      var t = JSON.parse(res[0].value);
+      templates.diagnosis = t.diagnosis||[];
+      templates.action    = t.action||[];
+      templates.parts     = t.parts||[];
+    }
+  }catch(e){ console.warn('loadTemplates:',e); }
+}
+
+async function saveTemplates(){
+  var res = await fetch(SB_URL+'/rest/v1/md_svc_config',{
+    method:'POST',
+    headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),
+    body:JSON.stringify({key:'svcTemplates', value:JSON.stringify(templates)})
+  });
+  if(!res.ok) throw new Error(await res.text());
+}
+
+async function addTemplate(type){
+  var inputId = type==='diagnosis'?'tplDiagInput':type==='action'?'tplActionInput':'tplPartsInput';
+  var el = document.getElementById(inputId);
+  var val = el.value.trim();
+  if(!val){ toast('Enter a template text first.',false); return; }
+  templates[type].push(val);
+  try{
+    await saveTemplates();
+    el.value='';
+    toast('Template saved!',true);
+    renderTemplateList(type);
+    renderQuickPicks();
+  }catch(e){
+    templates[type].pop();
+    toast('Save failed: '+e.message,false);
+  }
+}
+
+async function removeTemplate(type,idx){
+  var removed = templates[type].splice(idx,1);
+  try{
+    await saveTemplates();
+    renderTemplateList(type);
+    renderQuickPicks();
+    toast('Removed.',true);
+  }catch(e){
+    templates[type].splice(idx,0,removed[0]);
+    toast('Failed to remove.',false);
+  }
+}
+
+function renderTemplateList(type){
+  var listId = type==='diagnosis'?'tplDiagList':type==='action'?'tplActionList':'tplPartsList';
+  var el = document.getElementById(listId);
+  if(!el) return;
+  var list = templates[type];
+  if(!list.length){
+    el.innerHTML='<div style="font-size:.78rem;color:var(--txt3);font-style:italic;padding:.3rem 0">No templates yet.</div>';
+    return;
+  }
+  el.innerHTML = list.map(function(t,i){
+    return '<div style="display:flex;align-items:center;gap:.4rem;padding:.35rem .5rem;background:var(--navy3);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:.35rem">'+
+      '<span style="flex:1;font-size:.8rem;color:var(--txt)">'+t+'</span>'+
+      '<button class="btn btn-d btn-sm" onclick="removeTemplate(&quot;'+type+'&quot;,'+i+')">✕</button>'+
+    '</div>';
+  }).join('');
+}
+
+function renderAllTemplateLists(){
+  renderTemplateList('diagnosis');
+  renderTemplateList('action');
+  renderTemplateList('parts');
+}
+
+function renderQuickPicks(){
+  buildQuickPick('tplPick-diag',         'diagnosis', 'rDiagnosis');
+  buildQuickPick('tplPick-action',       'action',    'rAction');
+  buildQuickPick('tplPick-partsNeeded',  'parts',     'rPartsNeeded');
+  buildQuickPick('tplPick-partsReplaced','parts',     'rPartsReplaced');
+}
+
+function buildQuickPick(containerId, type, targetId){
+  var el = document.getElementById(containerId);
+  if(!el) return;
+  var list = templates[type];
+  if(!list || !list.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  var wrap = document.createElement('div');
+  var lbl = document.createElement('div');
+  lbl.style.cssText='font-size:.7rem;color:var(--txt3);margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em';
+  lbl.textContent='Quick pick — click to append:';
+  wrap.appendChild(lbl);
+  var row = document.createElement('div');
+  row.style.cssText='display:flex;flex-wrap:wrap;gap:.35rem';
+  list.forEach(function(text){
+    var btn = document.createElement('span');
+    btn.textContent = text;
+    btn.style.cssText='padding:.25rem .65rem;background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);border-radius:99px;color:var(--teal);font-size:.75rem;cursor:pointer;display:inline-block;margin-bottom:.2rem;user-select:none';
+    btn.addEventListener('click', function(){ appendTemplate(targetId, text); });
+    row.appendChild(btn);
+  });
+  wrap.appendChild(row);
+  el.innerHTML='';
+  el.appendChild(wrap);
+}
+
+function appendTemplate(targetId, text){
+  var ta = document.getElementById(targetId);
+  if(!ta) return;
+  var cur = ta.value.trim();
+  ta.value = cur ? cur + '\n' + text : text;
+  ta.focus();
+  ta.scrollTop = ta.scrollHeight;
+}
+
+// ══════════════════════════
+// INIT
+// ══════════════════════════
+function withTimeout(p,ms){return Promise.race([p,new Promise(function(_,r){setTimeout(function(){r(new Error('timeout'));},ms);})]);}
+
+async function init(){
+  setLoading(true);
+  try{ var cfg=await withTimeout(cfgGet(),5000); if(cfg) appConfig=Object.assign(appConfig,cfg); }catch(e){}
+  try{ await withTimeout(loadDevices(),5000); }catch(e){}
+  try{ await withTimeout(loadTemplates(),5000); }catch(e){}
+  setLoading(false);
+  // Try to restore session from refresh
+  try{
+    var savedCU=sessionStorage.getItem('svc_cu');
+    if(savedCU){
+      CU=JSON.parse(savedCU);
+      document.getElementById('appShell').classList.add('visible');
+      bootApp();
+      // Restore last page
+      var lastPage=sessionStorage.getItem('svc_page');
+      if(lastPage) setTimeout(function(){showPage(lastPage,null);},100);
+      return;
+    }
+  }catch(e){}
+  // No session — show login
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+
+init();
+</script>
+</body>
+</html>
