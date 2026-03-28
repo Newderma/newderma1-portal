@@ -1187,7 +1187,7 @@ async function loadConfig(){
     // Load all config in parallel — much faster than sequential
     var results = await Promise.all([
       cfgGet('lists'), cfgGet('itemCosts'), cfgGet('annualDays'),
-      cfgGet('staffPasswords'), cfgGet('adminPassword'), cfgGet('empProfiles'), cfgGet('shiftHours'), cfgGet('staffPrivileges')
+      cfgGet('staffPasswords'), cfgGet('adminPassword'), cfgGet('empProfiles'), cfgGet('shiftHours'), cfgGet('staffPrivileges'), cfgGet('emailjsConfig')
     ]);
     if(results[0]) lists            = results[0];
     if(results[1]) itemCosts        = results[1];
@@ -1197,6 +1197,7 @@ async function loadConfig(){
     if(results[5]) empProfiles      = results[5];
     if(results[6]) shiftHours       = parseFloat(results[6])||8;
     if(results[7]) staffPrivileges  = results[7];
+    if(results[8]){ emailjsCfg = results[8]; try{ localStorage.setItem('ct_emailjs',JSON.stringify(emailjsCfg)); }catch(e){} }
   }catch(e){ console.warn('Config load failed',e); }
   // Cache lists AND staffPrivileges for instant load next time
   try{
@@ -3099,6 +3100,8 @@ function loadEmailjsConfig(){
     if(s){ emailjsCfg=JSON.parse(s); }
     if(emailjsCfg.key && window.emailjs) emailjs.init(emailjsCfg.key);
   }catch(e){}
+  // emailjsCfg may already be loaded from Supabase via loadConfig — init if key present
+  if(emailjsCfg.key && window.emailjs){ try{ emailjs.init(emailjsCfg.key); }catch(e){} }
   // Populate fields if in manage page
   var sf=document.getElementById('emailjsService');
   var tf=document.getElementById('emailjsTemplate');
