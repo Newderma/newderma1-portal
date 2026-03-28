@@ -550,25 +550,29 @@ tr:hover td{background:#f8fafc}
     <!-- NEW ENTRY -->
     <div class="page" id="page-entry">
       <div id="staffBalCard" style="display:none;margin-bottom:1.2rem"></div>
+      <div id="entryErrBanner" style="display:none;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1rem;display:none;align-items:center;gap:.7rem">
+        <span style="font-size:1.3rem">⚠️</span>
+        <span id="entryErrMsg" style="font-weight:600;color:#991b1b;font-size:.9rem"></span>
+      </div>
       <div class="ph"><h2>Log a Procedure</h2><p>Select items, enter quantity and selling price per ml.</p></div>
       <div class="card">
         <div class="ct">👤 Patient & Procedure</div>
         <div class="fg">
           <!-- Session Type -->
 
-          <div><label>Patient Name</label><input type="text" id="ptName" placeholder="Full name"></div>
-          <div><label>File Number</label><input type="text" id="ptId" placeholder="e.g. 00123"></div>
-          <div><label>Doctor</label><select id="docSel"><option value="">— Select —</option></select></div>
-          <div><label>Nurse (logged by)</label><select id="nurSel"><option value="">— Select —</option></select></div>
-          <div><label>Procedure</label><select id="prcSel"><option value="">— Select —</option></select></div>
+          <div><label>Patient Name <span style="color:var(--red)">*</span></label><input type="text" id="ptName" placeholder="Full name"></div>
+          <div><label>File Number <span style="color:var(--red)">*</span></label><input type="text" id="ptId" placeholder="e.g. 00123"></div>
+          <div><label>Doctor <span style="color:var(--red)">*</span></label><select id="docSel"><option value="">— Select —</option></select></div>
+          <div><label>Nurse (logged by) <span style="color:var(--red)">*</span></label><select id="nurSel"><option value="">— Select —</option></select></div>
+          <div><label>Procedure <span style="color:var(--red)">*</span></label><select id="prcSel"><option value="">— Select —</option></select></div>
 
-          <div><label>Area Treated</label>
+          <div><label>Area Treated <span style="color:var(--red)">*</span></label>
             <select id="areaSel">
               <option value="">— Select area —</option>
             </select>
           </div>
 
-          <div><label>Date</label><input type="date" id="procDate"></div>
+          <div><label>Date <span style="color:var(--red)">*</span></label><input type="date" id="procDate"></div>
           <div>
             <label>Time Spent (min) <span style="color:var(--red)">*</span></label>
             <input type="number" id="procDuration" placeholder="e.g. 45" min="1" max="480" style="border-color:#fde68a">
@@ -909,7 +913,7 @@ tr:hover td{background:#f8fafc}
     <h3>Edit Procedure Record</h3>
     <input type="hidden" id="editId">
     <div class="fg">
-      <div><label>Patient Name</label><input type="text" id="ePtName"></div>
+      <div><label>Patient Name <span style="color:var(--red)">*</span></label><input type="text" id="ePtName"></div>
       <div><label>File Number</label><input type="text" id="ePtId"></div>
       <div><label>Doctor</label><select id="eDocSel"></select></div>
       <div><label>Nurse</label><select id="eNurSel"></select></div>
@@ -1732,8 +1736,12 @@ async function saveRecord(){
   var date   =document.getElementById('procDate').value;
   var nurse  =document.getElementById('nurSel').value;
   var durMin = parseInt(document.getElementById('procDuration').value)||0;
-  if(!patient||!doctor||!proc||!date||!nurse){ toast('Fill in patient, doctor, nurse, procedure and date.',false); return; }
-  if(!durMin||durMin<1){ toast('Please enter time spent on this procedure (in minutes).',false); return; }
+  var area = getAreaValue();
+  var fileNo = document.getElementById('ptId').value.trim();
+  if(!patient||!doctor||!proc||!date||!nurse){ showEntryError('Please fill in: patient, doctor, nurse, procedure and date.'); return; }
+  if(!fileNo){ showEntryError('File number is required.'); return; }
+  if(!area){ showEntryError('Please select the area treated.'); return; }
+  if(!durMin||durMin<1){ showEntryError('Please enter time spent on this procedure (in minutes).'); return; }
   // Step 2: show confirmation — nothing saved yet
   showConfirm({
     icon: '💾',
@@ -1756,7 +1764,7 @@ async function saveRecord(){
       }
       var rec={id:Date.now()*1000+Math.floor(Math.random()*1000), date:date, patient:patient,
         patient_id:document.getElementById('ptId').value.trim(),
-        doctor:doctor, procedure:proc, nurse:nurse, area:getAreaValue(),
+        doctor:doctor, procedure:proc, nurse:nurse, area:area,
         notes:document.getElementById('procNotes').value.trim(),
         duration_min:durMin,
         items:items, total_sell:+ts.toFixed(2), total_cost:+tc.toFixed(2),
@@ -1768,6 +1776,7 @@ async function saveRecord(){
         setSyncDot('on');
         updateFilters(); renderRecords();
         resetForm();
+        clearEntryError();
         toast('Procedure saved!',true);
       }catch(e){
         setSyncDot('off'); toast('Save failed: '+e.message,false);
@@ -1777,6 +1786,21 @@ async function saveRecord(){
   });
 }
 
+function showEntryError(msg){
+  var banner=document.getElementById('entryErrBanner');
+  var msgEl=document.getElementById('entryErrMsg');
+  if(banner&&msgEl){
+    msgEl.textContent=msg;
+    banner.style.display='flex';
+    banner.scrollIntoView({behavior:'smooth',block:'center'});
+    setTimeout(function(){ banner.style.display='none'; },5000);
+  }
+  toast(msg,false);
+}
+function clearEntryError(){
+  var banner=document.getElementById('entryErrBanner');
+  if(banner) banner.style.display='none';
+}
 function resetForm(){
   ['ptName','ptId','procNotes','customArea','procDuration'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   var sb=document.getElementById('stype-session');if(sb)sb.classList.add('active');
