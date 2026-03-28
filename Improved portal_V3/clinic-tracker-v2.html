@@ -746,6 +746,42 @@ tr:hover td{background:#f8fafc}
       <div class="vsec" id="vs-pending"><div class="card"><div class="ct">Awaiting Approval</div><div id="pendList"></div></div></div>
       <div class="vsec" id="vs-balances">
         <div class="balgrid" id="balGrid"></div>
+
+        <!-- Leave Summary (GM only) -->
+        <div class="card" id="leaveSummaryCard" style="margin-top:1.4rem;display:none">
+          <div style="margin-bottom:1rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.75rem">
+              <div class="ct" style="margin:0">📊 Leave Summary by Staff</div>
+              <button class="btn bx" style="font-size:.78rem" onclick="exportLeaveSummaryXLS()">📥 Export XLS</button>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+              <button class="btn bs" style="font-size:.78rem" onclick="setLeavePeriod('month')">This Month</button>
+              <button class="btn bs" style="font-size:.78rem" onclick="setLeavePeriod('year')">This Year</button>
+              <button class="btn bs" style="font-size:.78rem" onclick="setLeavePeriod('all')">All Time</button>
+              <div style="display:flex;align-items:center;gap:.4rem;margin-left:.3rem">
+                <input type="date" id="lsFrom" onchange="renderLeaveSummary()" style="font-size:.78rem;padding:.3rem .6rem;max-width:140px">
+                <span style="font-size:.78rem;color:var(--ss)">→</span>
+                <input type="date" id="lsTo" onchange="renderLeaveSummary()" style="font-size:.78rem;padding:.3rem .6rem;max-width:140px">
+              </div>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table id="leaveSummaryTable">
+              <thead><tr>
+                <th>Employee</th>
+                <th>Role</th>
+                <th style="color:#166534">Annual</th>
+                <th style="color:#1d4ed8">Sick</th>
+                <th style="color:#92400e">Emergency</th>
+                <th style="color:#7e22ce">Unpaid</th>
+                <th style="color:#be185d">Maternity</th>
+                <th style="color:#374151">Other</th>
+                <th style="font-weight:800">Total Days</th>
+              </tr></thead>
+              <tbody id="leaveSummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
       <div class="vsec" id="vs-history">
         <div class="card" style="padding:1rem .8rem">
@@ -1510,7 +1546,16 @@ function showPage(id,btn){
   }
   if(id==='dashboard') { populateDashMonths(); renderDash(); }
   if(id==='utilization') { renderUtilization(); }
-  if(id==='vacation')  { populateVacEmp(); showVTab(isGM()?'pending':'submit',document.querySelector('.vtab')); renderBalances(); renderStaffBalCard(); checkVacStatusAlerts(); }
+  if(id==='vacation'){
+    populateVacEmp();
+    showVTab(isGM()?'pending':'submit',document.querySelector('.vtab'));
+    renderBalances(); renderStaffBalCard(); checkVacStatusAlerts();
+    // Show leave summary card for GM (it will render when they click Balances tab)
+    if(isGM()){
+      var lsc=document.getElementById('leaveSummaryCard');
+      if(lsc) lsc.style.display='';
+    }
+  }
   if(id==='entry'){
     renderStaffBalCard();
     setTimeout(function(){ buildSearchSelect('areaSI', lists.areas||[], '', null); }, 30);
@@ -2595,7 +2640,14 @@ function showVTab(id,btn){
   if(btn)btn.classList.add('active');
   if(id==='submit')   { setTimeout(initSigPad, 50); setTimeout(initNamePad, 50); }
   if(id==='pending')  { renderPending(); }
-  if(id==='balances') { renderBalances(); }
+  if(id==='balances'){
+    renderBalances();
+    if(isGM()){
+      var lsc=document.getElementById('leaveSummaryCard');
+      if(lsc) lsc.style.display='';
+      setLeavePeriod('year'); // default to this year
+    }
+  }
   if(id==='history')  { populateVacFilter(); renderVacH(); }
 }
 function calcVacDays(){
@@ -3290,6 +3342,130 @@ function dismissVacAlert(key){
   seen[key]=true;
   try{ localStorage.setItem('ct_vac_seen',JSON.stringify(seen)); }catch(e){}
   checkVacStatusAlerts();
+}
+
+// ══════════════════════════════════════════
+//  LEAVE SUMMARY
+// ══════════════════════════════════════════
+function exportLeaveSummaryXLS(){
+  var rows=[['Employee','Role','Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Other','Total Days']];
+  var tb=document.getElementById('leaveSummaryBody');
+  if(!tb||!tb.rows.length){toast('No data to export.',false);return;}
+  var from=document.getElementById('lsFrom').value||'All';
+  var to=document.getElementById('lsTo').value||'Time';
+  var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
+  var types=['Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Other'];
+  var lsFrom=document.getElementById('lsFrom').value||'';
+  var lsTo=document.getElementById('lsTo').value||'';
+  all.forEach(function(emp){
+    var counts={}; types.forEach(function(t){counts[t]=0;}); var total=0;
+    vacReqs.forEach(function(r){
+      if(r.employee!==emp||r.status!=='Approved') return;
+      if(lsFrom&&r.from<lsFrom) return;
+      if(lsTo&&r.from>lsTo) return;
+      var t=r.type||'Other'; if(!counts[t])counts[t]=0;
+      counts[t]+=r.days; total+=r.days;
+    });
+    var role=lists.doctors.indexOf(emp)>=0?'Doctor':lists.nurses.indexOf(emp)>=0?'Nurse':'Staff';
+    rows.push([emp,role,counts['Annual Leave'],counts['Sick Leave'],counts['Emergency Leave'],counts['Unpaid Leave'],counts['Maternity Leave'],counts['Other'],total]);
+  });
+  var xml='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
+  xml+='<Styles><Style ss:ID="h"><Font ss:Bold="1"/><Interior ss:Color="#6abf4b" ss:Pattern="Solid"/></Style></Styles>';
+  xml+='<Worksheet ss:Name="Leave Summary"><Table>';
+  rows.forEach(function(row,i){
+    xml+='<Row>'+row.map(function(c){
+      return '<Cell'+(i===0?' ss:StyleID="h"':'')+'><Data ss:Type="String">'+String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</Data></Cell>';
+    }).join('')+'</Row>';
+  });
+  xml+='</Table></Worksheet></Workbook>';
+  var a=document.createElement('a');
+  a.href='data:application/vnd.ms-excel;charset=utf-8,'+encodeURIComponent(xml);
+  a.download='leave-summary-'+new Date().toISOString().slice(0,10)+'.xls';
+  a.click();
+  toast('Exported!',true);
+}
+
+function setLeavePeriod(period){
+  var now=new Date();
+  var from,to;
+  if(period==='month'){
+    from=new Date(now.getFullYear(),now.getMonth(),1);
+    to=new Date(now.getFullYear(),now.getMonth()+1,0);
+  } else if(period==='year'){
+    from=new Date(now.getFullYear(),0,1);
+    to=new Date(now.getFullYear(),11,31);
+  } else {
+    document.getElementById('lsFrom').value='';
+    document.getElementById('lsTo').value='';
+    renderLeaveSummary(); return;
+  }
+  document.getElementById('lsFrom').value=from.toISOString().slice(0,10);
+  document.getElementById('lsTo').value=to.toISOString().slice(0,10);
+  renderLeaveSummary();
+}
+
+function renderLeaveSummary(){
+  var tb=document.getElementById('leaveSummaryBody'); if(!tb)return;
+  var from=document.getElementById('lsFrom').value||'';
+  var to=document.getElementById('lsTo').value||'';
+  var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
+  var types=['Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Other'];
+  var rows=[];
+  all.forEach(function(emp){
+    var counts={};
+    types.forEach(function(t){ counts[t]=0; });
+    var total=0;
+    vacReqs.forEach(function(r){
+      if(r.employee!==emp||r.status!=='Approved') return;
+      if(from&&r.from<from) return;
+      if(to&&r.from>to) return;
+      var t=r.type||'Other';
+      if(!counts[t]) counts[t]=0;
+      counts[t]+=r.days;
+      total+=r.days;
+    });
+    if(total>0) rows.push({emp:emp,counts:counts,total:total});
+  });
+  // Also include employees with 0 leave in period
+  all.forEach(function(emp){
+    if(!rows.find(function(r){return r.emp===emp;})){
+      var counts={}; 
+      types.forEach(function(t){ counts[t]=0; });
+      rows.push({emp:emp,counts:counts,total:0});
+    }
+  });
+  if(!rows.length){
+    tb.innerHTML='<tr><td colspan="9" class="norec">No employees found.</td></tr>';
+    return;
+  }
+  // Group by role in Manage list order: Doctors → Nurses → Staff
+  var groups=[
+    {label:'Doctors',emoji:'👨‍⚕️',members:lists.doctors},
+    {label:'Nurses',emoji:'👩‍⚕️',members:lists.nurses},
+    {label:'Other Staff',emoji:'👤',members:lists.staff||[]}
+  ];
+  var html='';
+  groups.forEach(function(group){
+    var groupRows=rows.filter(function(r){return group.members.indexOf(r.emp)>=0;});
+    if(!groupRows.length) return;
+    html+='<tr style="background:#f1f5f9"><td colspan="9" style="font-weight:700;color:var(--td);font-size:.78rem;padding:.45rem .75rem;letter-spacing:.04em;text-transform:uppercase">'+group.emoji+' '+group.label+'</td></tr>';
+    groupRows.forEach(function(row){
+      var role=lists.doctors.indexOf(row.emp)>=0?'Doctor':lists.nurses.indexOf(row.emp)>=0?'Nurse':'Staff';
+      var rc=role==='Doctor'?'color:#1e40af;background:#dbeafe':role==='Nurse'?'color:#166534;background:#dcfce7':'color:#92400e;background:#fef9c3';
+      html+='<tr>'+
+        '<td style="font-weight:600">'+esc(row.emp)+'</td>'+
+        '<td><span style="font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;'+rc+'">'+role+'</span></td>'+
+        '<td style="text-align:center;color:#166534;font-weight:600">'+(row.counts['Annual Leave']||0)+'</td>'+
+        '<td style="text-align:center;color:#1d4ed8;font-weight:600">'+(row.counts['Sick Leave']||0)+'</td>'+
+        '<td style="text-align:center;color:#92400e;font-weight:600">'+(row.counts['Emergency Leave']||0)+'</td>'+
+        '<td style="text-align:center;color:#7e22ce;font-weight:600">'+(row.counts['Unpaid Leave']||0)+'</td>'+
+        '<td style="text-align:center;color:#be185d;font-weight:600">'+(row.counts['Maternity Leave']||0)+'</td>'+
+        '<td style="text-align:center;color:#374151;font-weight:600">'+(row.counts['Other']||0)+'</td>'+
+        '<td style="text-align:center;font-weight:800;font-size:1rem">'+row.total+'</td>'+
+      '</tr>';
+    });
+  });
+  tb.innerHTML=html||'<tr><td colspan="9" class="norec">No employees found.</td></tr>';
 }
 
 // ══════════════════════════════════════════
