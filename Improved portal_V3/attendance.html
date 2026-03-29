@@ -517,8 +517,48 @@ function buildClockPage(){
     '<div class="clock-greeting" id="clockGreeting">Welcome</div>',
     '<div class="clock-status" id="clockStatus"></div>',
     '<button id="clockBtn" class="btn btn-p btn-w" style="font-size:1rem;padding:.85rem" onclick="clockBtnClick()">Clock IN</button>',
+    '<button onclick="showLocationHelp()" style="margin-top:.8rem;background:none;border:none;color:#64748b;font-size:.78rem;cursor:pointer;text-decoration:underline">📍 Location not working? · مشكلة في الموقع؟</button>',
+    '</div></div></div>',
+    // Location help modal
+    '<div id="locHelpModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;overflow-y:auto;padding:1rem">',
+    '<div style="background:#fff;border-radius:16px;max-width:520px;margin:2rem auto;padding:1.5rem">',
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">',
+    '<h3 style="margin:0;font-size:1rem;color:#0f172a">📍 How to Allow Location · كيفية السماح بالموقع</h3>',
+    '<button onclick="closeLocHelp()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b">✕</button>',
+    '</div>',
+    '<div style="font-size:.85rem;line-height:1.8;color:#334155">',
+
+    '<div style="background:#f0fdf4;border-radius:10px;padding:1rem;margin-bottom:1rem">',
+    '<strong style="color:#166534">🤖 Android (Chrome)</strong><br>',
+    '1. Tap the <strong>lock icon 🔒</strong> in the address bar<br>',
+    '<span style="color:#64748b">اضغط على <strong>أيقونة القفل 🔒</strong> في شريط العنوان</span><br><br>',
+    '2. Tap <strong>Permissions → Location → Allow</strong><br>',
+    '<span style="color:#64748b">اضغط <strong>الأذونات ← الموقع ← السماح</strong></span><br><br>',
+    '<em style="color:#64748b;font-size:.78rem">If not shown: Settings → Apps → Chrome → Permissions → Location → Allow<br>',
+    'إذا لم تظهر: الإعدادات ← التطبيقات ← Chrome ← الأذونات ← الموقع ← السماح</em>',
+    '</div>',
+
+    '<div style="background:#eff6ff;border-radius:10px;padding:1rem;margin-bottom:1rem">',
+    '<strong style="color:#1d4ed8">🍎 iPhone (Safari)</strong><br>',
+    '1. Go to <strong>Settings → Safari → Location → Allow</strong><br>',
+    '<span style="color:#64748b">اذهب إلى <strong>الإعدادات ← Safari ← الموقع ← السماح</strong></span><br><br>',
+    '2. Or tap <strong>AA</strong> in address bar → <strong>Website Settings → Location → Allow</strong><br>',
+    '<span style="color:#64748b">أو اضغط <strong>AA</strong> في شريط العنوان ← <strong>إعدادات الموقع ← الموقع ← السماح</strong></span>',
+    '</div>',
+
+    '<div style="background:#fef9c3;border-radius:10px;padding:1rem">',
+    '<strong style="color:#92400e">⚠️ Important · مهم</strong><br>',
+    'Choose <strong>Always Allow</strong>, not <strong>Allow Once</strong> — otherwise it resets every time you close the browser.<br>',
+    '<span style="color:#64748b">اختر <strong>السماح دائماً</strong> وليس <strong>السماح مرة واحدة</strong> — وإلا سيتم إعادة تعيينه في كل مرة تغلق فيها المتصفح.</span>',
+    '</div>',
+
     '</div></div></div>'
   ].join('');
+}
+
+function closeLocHelp(){ document.getElementById('locHelpModal').style.display='none'; }
+function showLocationHelp(){
+  document.getElementById('locHelpModal').style.display='block';
 }
 
 function startClock(){
