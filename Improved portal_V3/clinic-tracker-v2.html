@@ -3077,23 +3077,33 @@ function renderVacH(){
     return true;
   }).sort(function(a,b){return b.reqDate.localeCompare(a.reqDate);});
   if(!list.length){tb.innerHTML='<tr><td colspan="8" class="norec">No records found.</td></tr>';return;}
-  tb.innerHTML=list.map(function(r){
-    var stCls=r.status==='Approved'?'stbadge sta':r.status==='Rejected'?'stbadge str':'stbadge stp';
+  tb.innerHTML=''; // build using DOM to avoid quoting issues
+  list.forEach(function(r){
+    var tr=document.createElement('tr');
     var pdfBtn=r.status==='Approved'?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem" data-vid="'+r.id+'" onclick="generateVacPDF(this.dataset.vid)">📄 PDF</button>':'';
     var attBtn=r.attachmentUrl?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem" data-aid="'+r.id+'" onclick="openAttachment(this.dataset.aid)">📎</button>':'';
-    return '<tr>'+
+    var delBtn=isGM()?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem;color:var(--red);border-color:rgba(239,68,68,.3)" data-vid="'+r.id+'" data-vemp="'+esc(r.employee)+'" data-vstatus="'+r.status+'" onclick="confirmDeleteVacH(this)">🗑</button>':'';
+    tr.innerHTML=
       '<td>'+esc(r.employee)+'</td>'+
       '<td>'+esc(r.type)+'</td>'+
       '<td>'+fmtD(r.from)+'</td>'+
       '<td>'+fmtD(r.to)+'</td>'+
       '<td style="text-align:center">'+r.days+'</td>'+
-      '<td><span class="'+stCls+'">'+r.status+'</span></td>'+
+      '<td>'+statusCell(r)+'</td>'+
       '<td style="font-size:.78rem;color:var(--ss)">'+fmtD(r.reqDate)+(r.contact?'<br><span style="color:var(--sm)">📞 '+esc(r.contact)+'</span>':'')+'</td>'+
-      '<td style="display:flex;gap:.3rem;flex-wrap:wrap">'+pdfBtn+attBtn+(isGM()?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem;color:var(--red);border-color:rgba(239,68,68,.3)" data-vid="'+r.id+'" data-vemp="'+esc(r.employee)+'" data-vstatus="'+r.status+'" onclick="confirmDeleteVacH(this)">🗑</button>':'')+'</td>'+
-    '</tr>';
-  }).join('');
+      '<td style="display:flex;gap:.3rem;flex-wrap:wrap">'+pdfBtn+attBtn+delBtn+'</td>';
+    tb.appendChild(tr);
+  });
 }
 
+function statusCell(r){
+  var cls=r.status==='Approved'?'stbadge sta':r.status==='Rejected'?'stbadge str':'stbadge stp';
+  var html='<span class="'+cls+'">'+r.status+'</span>';
+  if(r.status==='Rejected'&&r.rejectReason){
+    html+='<br><span style="font-size:.72rem;color:#991b1b;display:block;margin-top:.25rem">❌ '+esc(r.rejectReason)+'</span>';
+  }
+  return html;
+}
 function toggleSickFields(){
   // Future: show/hide sick-specific fields if needed
 }
