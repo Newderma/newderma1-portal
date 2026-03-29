@@ -630,14 +630,17 @@ function pinDel(){pinBuf=pinBuf.slice(0,-1);updateDots();}
 function updateDots(){for(var i=0;i<4;i++){var el=document.getElementById('pd'+i);if(el)el.className='pin-dot'+(i<pinBuf.length?' filled':'');}}
 function closePinModal(){document.getElementById('pinOverlay').classList.remove('open');pinBuf='';pinTarget=null;}
 
+var _clocking=false;
 async function confirmPin(){
   if(!pinTarget)return;
+  if(_clocking){return;} // prevent double tap
   var s=pinTarget.staff;
   if(String(pinBuf)!==String(s.pin)){
     document.getElementById('pinErr').textContent='Wrong PIN. Try again.';
     pinBuf='';updateDots();return;
   }
   document.getElementById('pinErr').textContent='';
+  _clocking=true;
   var action=pinTarget.action;
   var rec=pinTarget.record;
   closePinModal();
@@ -646,6 +649,7 @@ async function confirmPin(){
       var nr=await sbPost('att_records',{staff_id:s.id,staff_name:s.name,date:todayStr(),
         lat_in:userCoords?userCoords.lat:null,lng_in:userCoords?userCoords.lng:null});
       records.push(nr[0]||{staff_id:s.id,staff_name:s.name,date:todayStr()});
+      _clocking=false;
       toast(s.name+' clocked IN',true);showClockConfirm('in',s.name,new Date().toISOString());
       // Stamp phone on first clock-in (staff only)
       if(CU.role==='staff'&&!getStamp()){
@@ -660,10 +664,11 @@ async function confirmPin(){
       await sbRpc('clock_out_record',{record_id:rec.id});
       var idx=records.findIndex(function(r){return r.id==rec.id;});
       if(idx>=0)records[idx].clock_out=new Date().toISOString();
+      _clocking=false;
       toast(s.name+' clocked OUT',true);showClockConfirm('out',s.name,new Date().toISOString());
     }
     if(CU.role==='staff')renderClock();else renderLive();
-  }catch(e){toast('Error: '+e.message,false);}
+  }catch(e){_clocking=false;toast('Error: '+e.message,false);}
 }
 
 // ── LOGS ──────────────────────────────────────────────────────────────────

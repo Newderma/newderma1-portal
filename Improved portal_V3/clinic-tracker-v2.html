@@ -883,7 +883,9 @@ tr:hover td{background:#f8fafc}
         <p style="font-size:.83rem;color:var(--sm);margin-bottom:1rem">Uses <strong>EmailJS</strong> (free at emailjs.com). Leave blank to disable.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;max-width:600px">
           <div><label>EmailJS Service ID</label><input type="text" id="emailjsService" placeholder="service_xxxxxxx"></div>
-          <div><label>EmailJS Template ID</label><input type="text" id="emailjsTemplate" placeholder="template_xxxxxxx"></div>
+          <div><label>EmailJS Template ID (staff notification)</label><input type="text" id="emailjsTemplate" placeholder="template_xxxxxxx"></div>
+          <div><label>EmailJS Template ID (GM notification)</label><input type="text" id="emailjsTemplateGM" placeholder="template_xxxxxxx"></div>
+          <div><label>GM Email Address</label><input type="email" id="emailjsGMEmail" placeholder="admin@clinic.com"></div>
           <div class="ff"><label>EmailJS Public Key</label><input type="text" id="emailjsKey" placeholder="your_public_key"></div>
         </div>
         <div class="brow" style="justify-content:flex-start;padding-top:.8rem;margin-top:.8rem">
@@ -1457,7 +1459,12 @@ function bootApp(){
     : getStaffTabs();
   var h='', bh='';
   for(var i=0;i<tabs.length;i++){
-    h+='<button class="ntab" onclick="showPage(\''+tabs[i][0]+'\',this)">'+tabs[i][1]+'</button>';
+    var tabLabel=tabs[i][1];
+    if(isGM()&&tabs[i][0]==='vacation'){
+      var pendCount=vacReqs.filter(function(r){return r.status==='Pending';}).length;
+      if(pendCount>0) tabLabel+=' <span style="background:#ef4444;color:#fff;border-radius:99px;font-size:.65rem;font-weight:800;padding:.1rem .45rem;vertical-align:middle">'+pendCount+'</span>';
+    }
+    h+='<button class="ntab" onclick="showPage(\''+tabs[i][0]+'\',this)">'+tabLabel+'</button>';
     bh+='<button class="btab" onclick="showPage(\''+tabs[i][0]+'\',this)" data-page="'+tabs[i][0]+'"><span class="btico">'+tabs[i][2]+'</span>'+tabs[i][1]+'</button>';
   }
   document.getElementById('navTabs').innerHTML=h;
@@ -1550,10 +1557,18 @@ function showPage(id,btn){
     populateVacEmp();
     showVTab(isGM()?'pending':'submit',document.querySelector('.vtab'));
     renderBalances(); renderStaffBalCard(); checkVacStatusAlerts();
-    // Show leave summary card for GM (it will render when they click Balances tab)
     if(isGM()){
       var lsc=document.getElementById('leaveSummaryCard');
       if(lsc) lsc.style.display='';
+      // Show pending alert for GM
+      var pendCount=vacReqs.filter(function(r){return r.status==='Pending';}).length;
+      var vacAlert=document.getElementById('vacStatusAlert');
+      if(vacAlert&&pendCount>0){
+        var d=document.createElement('div');
+        d.style.cssText='background:#fef9c3;border:1.5px solid #fde68a;border-radius:10px;padding:.85rem 1.1rem;margin-bottom:.6rem;display:flex;align-items:center;gap:.7rem';
+        d.innerHTML='<span style="font-size:1.2rem">🔔</span><span style="font-weight:700;color:#92400e;font-size:.9rem">You have <strong>'+pendCount+' pending</strong> vacation request'+(pendCount>1?'s':'')+' awaiting your approval.</span>';
+        vacAlert.innerHTML=''; vacAlert.appendChild(d); vacAlert.style.display='block';
+      }
     }
   }
   if(id==='entry'){
@@ -2849,6 +2864,8 @@ async function doSubmitVac(){
     vacReqs.unshift(normVac(vr));
     setSyncDot('on');
     clearVac(); clearNamePad(); renderPending();
+    // Notify GM by email
+    sendGMNotification(emp, type, from, to, days, document.getElementById('vacNote').value.trim());
     // Show fullscreen success flash
     var flash=document.getElementById('vacSubmitFlash');
     var flashName=document.getElementById('vacFlashName');
@@ -2995,6 +3012,16 @@ async function decideVac(id,status,reason){
     for(var i=0;i<vacReqs.length;i++){ if(vacReqs[i].id===id){ vacReqs[i].status=status; if(reason)vacReqs[i].rejectReason=reason; break; } }
     setSyncDot('on'); renderPending(); renderBalances();
     toast((status==='Approved'?'Approved: ':'Rejected: ')+emp,status==='Approved');
+    // Refresh nav badge
+    var navTabs=document.getElementById('navTabs');
+    if(navTabs&&isGM()){
+      var pendLeft=vacReqs.filter(function(r){return r.status==='Pending';}).length;
+      var vacBtn=Array.from(navTabs.querySelectorAll('.ntab')).find(function(b){return b.textContent.indexOf('Vacation')>=0||b.textContent.indexOf('🏖️')>=0;});
+      if(vacBtn){
+        var span=vacBtn.querySelector('span');if(span)span.remove();
+        if(pendLeft>0){var ns=document.createElement('span');ns.style.cssText='background:#ef4444;color:#fff;border-radius:99px;font-size:.65rem;font-weight:800;padding:.1rem .45rem;vertical-align:middle;margin-left:.3rem';ns.textContent=pendLeft;vacBtn.appendChild(ns);}
+      }
+    }
     // Send email notification if configured
     var vr=null; for(var j=0;j<vacReqs.length;j++){if(vacReqs[j].id===id){vr=vacReqs[j];break;}}
     if(vr) sendVacNotification(emp,status,vr.type,vr.from,vr.to,vr.days,reason||'');
@@ -3209,7 +3236,7 @@ function exportEmpProfiles(){
 // ══════════════════════════════════════════
 //  VACATION NOTIFICATIONS
 // ══════════════════════════════════════════
-var emailjsCfg = {service:'', template:'', key:''};
+var emailjsCfg = {service:'', template:'', templateGM:'', key:'', gmEmail:''};
 
 function loadEmailjsConfig(){
   try{
@@ -3226,13 +3253,21 @@ function loadEmailjsConfig(){
   if(sf) sf.value=emailjsCfg.service||'';
   if(tf) tf.value=emailjsCfg.template||'';
   if(kf) kf.value=emailjsCfg.key||'';
+  var tgf=document.getElementById('emailjsTemplateGM');
+  var gef=document.getElementById('emailjsGMEmail');
+  if(tgf) tgf.value=emailjsCfg.templateGM||'';
+  if(gef) gef.value=emailjsCfg.gmEmail||'';
 }
 
 async function saveEmailjsConfig(){
   var s=document.getElementById('emailjsService').value.trim();
   var t=document.getElementById('emailjsTemplate').value.trim();
   var k=document.getElementById('emailjsKey').value.trim();
-  emailjsCfg={service:s,template:t,key:k};
+  var tgm=document.getElementById('emailjsTemplateGM');
+  var gem=document.getElementById('emailjsGMEmail');
+  emailjsCfg={service:s,template:t,key:k,
+    templateGM:(tgm&&tgm.value.trim())||'',
+    gmEmail:(gem&&gem.value.trim())||''};
   try{ localStorage.setItem('ct_emailjs',JSON.stringify(emailjsCfg)); }catch(e){}
   if(k && window.emailjs) emailjs.init(k);
   await saveConfig('emailjsConfig',emailjsCfg);
@@ -3269,6 +3304,26 @@ async function testEmailjs(){
     stat.textContent='❌ Failed: '+e.text||e.message;
     toast('Email failed: '+(e.text||e.message),false);
   }
+}
+
+async function sendGMNotification(emp, leaveType, fromDate, toDate, days, note){
+  if(!emailjsCfg.service||!emailjsCfg.templateGM||!emailjsCfg.key||!emailjsCfg.gmEmail) return;
+  var cn=''; try{cn=localStorage.getItem('clinicName')||'Newderma1';}catch(e){}
+  try{
+    await emailjs.send(emailjsCfg.service, emailjsCfg.templateGM, {
+      to_name: 'Admin',
+      to_email: emailjsCfg.gmEmail,
+      employee_name: emp,
+      leave_type: leaveType,
+      from_date: fmtD(fromDate),
+      to_date: fmtD(toDate),
+      days: String(days),
+      status: 'Pending — Awaiting Approval',
+      reason: note||'',
+      clinic_name: cn
+    });
+    console.log('GM notified at '+emailjsCfg.gmEmail);
+  }catch(e){ console.warn('GM notification failed:',e); }
 }
 
 async function sendVacNotification(emp, status, leaveType, fromDate, toDate, days, reason){
