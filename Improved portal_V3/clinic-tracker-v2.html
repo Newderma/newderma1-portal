@@ -2863,9 +2863,10 @@ async function doSubmitVac(){
     await sbUpsert('ct_vacation',[vr]);
     vacReqs.unshift(normVac(vr));
     setSyncDot('on');
+    var noteForGM=document.getElementById('vacNote').value.trim();
     clearVac(); clearNamePad(); renderPending();
     // Notify GM by email
-    sendGMNotification(emp, type, from, to, days, document.getElementById('vacNote').value.trim());
+    sendGMNotification(emp, type, from, to, days, noteForGM);
     // Show fullscreen success flash
     var flash=document.getElementById('vacSubmitFlash');
     var flashName=document.getElementById('vacFlashName');
