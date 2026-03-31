@@ -132,9 +132,9 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
 @keyframes tslide{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
 
 /* LOADING */
-.loading-overlay{position:fixed;inset:0;background:rgba(10,22,40,.85);z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
+.loading-overlay{position:fixed;inset:0;background:linear-gradient(160deg,#f0fdf4 0%,#f8fafc 50%,#f0f9ff 100%);z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
 .loading-overlay.hidden{display:none}
-.spinner{width:46px;height:46px;border:4px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+.spinner{width:46px;height:46px;border:4px solid #e2e8f0;border-top-color:#6abf4b;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* SEARCHABLE DROPDOWN */
@@ -197,7 +197,7 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
 .report-text{font-size:.83rem;color:#111;line-height:1.65;padding:.5rem .7rem;background:#fafaf8;border:1px solid #e8dfc8;border-radius:3px;white-space:pre-wrap;word-break:break-word;min-height:50px}
 .report-sigs{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:.8rem}
 .report-sig .sig-label{font-size:.72rem;font-weight:700;color:#b8962e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem}
-.report-sig img{border:1px solid #ddd;border-radius:3px;width:100%;max-height:85px;object-fit:contain;background:#fff}
+.report-sig img{border:1px solid #ddd;border-radius:3px;width:100%;max-height:85px;object-fit:contain;background:#fff}.report-sig .stamp-img{border:none;background:transparent;width:180px;max-height:180px;height:auto}
 .report-sig .sig-line{height:55px;border-bottom:1.5px solid #999;margin-bottom:.25rem}
 .report-sig .sig-name{font-size:.73rem;color:#555;text-align:center;margin-top:.2rem}
 /* ── BIONICS FOOTER ── */
@@ -235,7 +235,7 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
 
 <div class="loading-overlay hidden" id="loadingOverlay">
   <div class="spinner"></div>
-  <div style="color:var(--txt2);font-size:.84rem">Loading…</div>
+  <div style="color:#475569;font-size:.84rem">Loading…</div>
 </div>
 <div id="toast"></div>
 
@@ -251,23 +251,19 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
       <div class="llogo-arabic">&#1578;&#1602;&#1575;&#1585;&#1610;&#1585; &#1575;&#1604;&#1589;&#1610;&#1575;&#1606;&#1577;</div>
     </div>
     <div class="lf">
-      <label>Role</label>
-      <select id="lRole">
-        <option value="admin">Admin</option>
-        <option value="engineer">Engineer</option>
+      <label>Who are you? · من أنت؟</label>
+      <select id="lUser" onkeydown="if(event.key==='Enter')doLogin()">
+        <option value="">— Select —</option>
+        <option value="__admin__">Admin</option>
       </select>
     </div>
     <div class="lf">
-      <label>Your Name</label>
-      <input type="text" id="lUser" placeholder="Enter your name" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
-    <div class="lf">
-      <label>Password</label>
+      <label>Password · كلمة المرور</label>
       <input type="password" id="lPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div class="lerr" id="lerr"></div>
-    <button class="btnL" onclick="doLogin()">Sign In</button>
-    <div class="lhint"><strong>Admin/Engineer:</strong> select role, enter name &rarr; password &nbsp;|&nbsp; <strong>Forgot?</strong> Use recovery key to reset</div>
+    <button class="btnL" onclick="doLogin()">Sign In · تسجيل الدخول</button>
+    <div class="lhint"><strong>Forgot? · نسيت؟</strong> Use recovery key as password to reset</div>
     <div class="lback"><a href="index.html">&larr; Back to Portal</a></div>
   </div>
 </div>
@@ -306,6 +302,8 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
               <option>Other</option>
             </select>
           </div>
+          <div><label>Company (Service Provider)</label><input type="text" id="rCompany" placeholder="Your company name"></div>
+          <div><label>Engineer Name</label><input type="text" id="rEngineer" readonly></div>
           <div style="position:relative;z-index:10"><label>Machine / Device Name</label>
             <div class="si-wrap" id="si-machine">
               <button type="button" class="si-input" id="si-machine-btn" onclick="toggleSI('si-machine')">— Select Device —</button>
@@ -318,8 +316,6 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
           </div>
           <div><label>Serial Number (S/N)</label><input type="text" id="rSN" placeholder="Auto-filled or enter manually"></div>
           <div><label>Device Model</label><input type="text" id="rModel" placeholder="Model number"></div>
-          <div><label>Engineer Name</label><input type="text" id="rEngineer" readonly></div>
-          <div><label>Company (Service Provider)</label><input type="text" id="rCompany" placeholder="Your company name"></div>
         </div>
       </div>
 
@@ -416,6 +412,9 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
           <option>Calibration</option><option>Installation</option><option>Other</option>
         </select>
         <select id="allEngFilter" onchange="renderAllReports()"><option value="">All Engineers</option></select>
+        <input type="date" id="allDateFrom" onchange="renderAllReports()" title="From date" style="max-width:145px">
+        <input type="date" id="allDateTo" onchange="renderAllReports()" title="To date" style="max-width:145px">
+        <button class="btn btn-s btn-sm" onclick="clearDateFilter()" title="Clear dates">✕</button>
         <button class="btn btn-s btn-sm" onclick="exportXLS()" style="margin-left:auto">📥 Export XLS</button>
       </div>
       <div class="card">
@@ -430,7 +429,9 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
 
     <!-- DEVICES (Admin) -->
     <div class="page" id="page-devices">
-      <div class="ph"><h2>🏥 Device List</h2><p>Manage devices available for engineers to select when submitting reports.</p></div>
+      <div class="ph">
+        <h2>🏥 Device List</h2><p>Manage devices available for engineers to select when submitting reports.</p>
+      </div>
       <div class="card" style="max-width:600px">
         <div class="ct">Add New Device</div>
         <div class="fgrid">
@@ -442,7 +443,10 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
         <div class="btn-row"><button class="btn btn-p" onclick="addDevice()">+ Add Device</button></div>
       </div>
       <div class="card" style="max-width:600px">
-        <div class="ct">Registered Devices</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem">
+          <div class="ct" style="margin:0">Registered Devices</div>
+          <button class="btn btn-s btn-sm" onclick="exportDevicesXLS()">📥 Export</button>
+        </div>
         <div id="deviceListEl"><p class="norec">No devices yet.</p></div>
       </div>
     </div>
@@ -470,13 +474,8 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
           </div>
         </div>
         <div id="engineersList" style="margin-bottom:1rem"></div>
-        <div class="ct" style="margin-top:.5rem">Engineer Password</div>
-        <p style="font-size:.82rem;color:var(--txt2);margin-bottom:.8rem">All engineers share this password.</p>
-        <div class="fgrid">
-          <div><label>New Engineer Password</label><input type="password" id="newEngPass" placeholder="New password"></div>
-          <div><label>Confirm</label><input type="password" id="newEngPass2" placeholder="Confirm password"></div>
-        </div>
-        <div class="btn-row"><button class="btn btn-p" onclick="saveEngPassword()">💾 Save</button></div>
+        <div class="ct" style="margin-top:.5rem">Engineer Passwords</div>
+        <p style="font-size:.82rem;color:var(--txt2);margin-bottom:.8rem">Set a password for each engineer individually.</p>
       </div>
       <div class="card" style="max-width:500px">
         <div class="ct">Company Logo (shown on printed reports)</div>
@@ -488,6 +487,18 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
         <div class="btn-row">
           <button class="btn btn-p" onclick="saveLogo()">💾 Save Logo</button>
           <button class="btn btn-d" onclick="removeLogo()">🗑 Remove</button>
+        </div>
+      </div>
+      <div class="card" style="max-width:500px">
+        <div class="ct">Company Stamp (shown on customer side of printed reports)</div>
+        <p style="font-size:.82rem;color:var(--txt2);margin-bottom:1rem">Upload a PNG stamp image (transparent background recommended). It will appear on the customer signature side.</p>
+        <div class="fgrid">
+          <div class="fw"><label>Upload Stamp</label><input type="file" id="stampFile" accept="image/*" onchange="previewStamp(event)" style="padding:.4rem"></div>
+        </div>
+        <div id="stampPreview" style="margin-top:.8rem"></div>
+        <div class="btn-row">
+          <button class="btn btn-p" onclick="saveStamp()">💾 Save Stamp</button>
+          <button class="btn btn-d" onclick="removeStamp()">🗑 Remove</button>
         </div>
       </div>
       <div class="card">
@@ -555,6 +566,7 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
 // CONFIG
 // ══════════════════════════
 var SB_URL='https://pdlhcgdjrqzjanonevqx.supabase.co';
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkbGhjZ2RqcnF6amFub25ldnF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MDQ1OTIsImV4cCI6MjA4ODQ4MDU5Mn0.902WRLQAChto_Rw3QMegm2i_saVyRTpAF5vdpwFoUkU';
 var DEFAULT_ADMIN_PASS='admin123';
 var DEFAULT_ENG_PASS='engineer123';
@@ -565,7 +577,7 @@ var RECOVERY_KEY='NEWDERMA1-SVC-RESET';
 // ══════════════════════════
 var CU=null; // {role, name}
 var reports=[];
-var appConfig={adminPassword:DEFAULT_ADMIN_PASS, engineerPassword:DEFAULT_ENG_PASS, logo:'', engineers:[]};
+var appConfig={adminPassword:DEFAULT_ADMIN_PASS, engineerPasswords:{}, logo:'', stamp:'', engineers:[]};
 var deleteTargetId=null;
 var editingReportId=null;
 
@@ -593,25 +605,41 @@ function shortType(t){return t==='PPM (Planned Preventive Maintenance)'?'PPM':t;
 // ══════════════════════════
 // AUTH
 // ══════════════════════════
+function populateLoginDropdown(){
+  var sel=document.getElementById('lUser'); if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">— Select —</option><option value="__admin__">Admin</option>';
+  (appConfig.engineers||[]).forEach(function(e){
+    var opt=document.createElement('option');
+    opt.value=e; opt.textContent=e;
+    sel.appendChild(opt);
+  });
+  if(cur) sel.value=cur;
+}
+
 async function doLogin(){
-  var role=document.getElementById('lRole').value;
-  var name=document.getElementById('lUser').value.trim();
+  var selected=document.getElementById('lUser').value;
   var pass=document.getElementById('lPass').value;
-  if(!name){document.getElementById('lerr').textContent='Please enter your name.';document.getElementById('lerr').classList.add('show');return;}
+  var errEl=document.getElementById('lerr');
+  errEl.classList.remove('show');
+  if(!selected){errEl.textContent='Please select your name.';errEl.classList.add('show');return;}
+  // Recovery key
   if(pass===RECOVERY_KEY){
-    appConfig.adminPassword=DEFAULT_ADMIN_PASS;appConfig.engineerPassword=DEFAULT_ENG_PASS;
+    appConfig.adminPassword=DEFAULT_ADMIN_PASS;appConfig.engineerPasswords={};
     try{await cfgSet(appConfig);}catch(e){}
-    alert('Passwords reset to defaults.\nAdmin: '+DEFAULT_ADMIN_PASS+'\nEngineer: '+DEFAULT_ENG_PASS);
+    alert('Passwords reset.\nAdmin: '+DEFAULT_ADMIN_PASS+'\nEngineer: '+DEFAULT_ENG_PASS);
     document.getElementById('lPass').value='';return;
   }
-  // Check if engineer name is in approved list (if list exists)
-  if(role==='engineer' && appConfig.engineers && appConfig.engineers.length>0){
-    var engFound=appConfig.engineers.some(function(e){return e.toLowerCase()===name.toLowerCase();});
-    if(!engFound){document.getElementById('lerr').textContent='Engineer name not found. Contact admin.';document.getElementById('lerr').classList.add('show');return;}
+  var role, name;
+  if(selected==='__admin__'){
+    role='admin'; name='Admin';
+    if(pass!==appConfig.adminPassword){errEl.textContent='Incorrect password.';errEl.classList.add('show');return;}
+  } else {
+    role='engineer'; name=selected;
+    var engPass=(appConfig.engineerPasswords&&appConfig.engineerPasswords[name])||DEFAULT_ENG_PASS;
+    if(pass!==engPass){errEl.textContent='Incorrect password.';errEl.classList.add('show');return;}
   }
-  var ok=(role==='admin'&&pass===appConfig.adminPassword)||(role==='engineer'&&pass===appConfig.engineerPassword);
-  if(!ok){document.getElementById('lerr').textContent='Incorrect password.';document.getElementById('lerr').classList.add('show');return;}
-  document.getElementById('lerr').classList.remove('show');
+  errEl.classList.remove('show');
   CU={role:role,name:name};
   try{sessionStorage.setItem('svc_cu',JSON.stringify(CU));}catch(e){}
   document.getElementById('loginScreen').classList.add('hidden');
@@ -625,6 +653,8 @@ function doLogout(){
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('appShell').classList.remove('visible');
   document.getElementById('lPass').value='';
+  var sel=document.getElementById('lUser'); if(sel) sel.value='';
+  populateLoginDropdown();
 }
 
 // ══════════════════════════
@@ -673,7 +703,7 @@ function showPage(id,btn){
   if(id==='reports'){renderAdminStats();populateEngFilter();renderAllReports();}
   if(id==='my')renderMyReports();
   if(id==='settings'){
-    renderEngineersList(); renderLogoPreview(); renderAllTemplateLists(); }
+    renderEngineersList(); renderLogoPreview(); renderAllTemplateLists(); renderStampPreview(); }
   if(id==='devices')renderDeviceList();
 }
 
@@ -752,7 +782,8 @@ async function submitReport(){
     }catch(e){setSyncDot('off');toast('Update failed: '+e.message,false);}
     return;
   }
-  data.id=crypto.randomUUID();
+  // Use timestamp-based numeric id since column is bigint not-null
+  data.id = Date.now();
   setSyncDot('syncing');
   try{
     var res=await sbInsert('md_service_reports',data);
@@ -826,14 +857,44 @@ function populateEngFilter(){
   sel.innerHTML='<option value="">All Engineers</option>'+engs.map(function(e){return'<option>'+e+'</option>';}).join('');
 }
 
+function exportDevicesXLS(){
+  if(!deviceList.length){toast('No devices to export.',false);return;}
+  var rows=[['Device Name','Serial Number','Model','Notes']];
+  deviceList.forEach(function(d){
+    rows.push([d.name||'',d.sn||'',d.model||'',d.notes||'']);
+  });
+  var xml='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
+  xml+='<Styles><Style ss:ID="h"><Font ss:Bold="1"/><Interior ss:Color="#6abf4b" ss:Pattern="Solid"/></Style></Styles>';
+  xml+='<Worksheet ss:Name="Devices"><Table>';
+  rows.forEach(function(row,i){
+    xml+='<Row>'+row.map(function(c){
+      return '<Cell'+(i===0?' ss:StyleID="h"':'')+'><Data ss:Type="String">'+String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</Data></Cell>';
+    }).join('')+'</Row>';
+  });
+  xml+='</Table></Worksheet></Workbook>';
+  var a=document.createElement('a');
+  a.href='data:application/vnd.ms-excel;charset=utf-8,'+encodeURIComponent(xml);
+  a.download='device-list-'+new Date().toISOString().slice(0,10)+'.xls';
+  a.click();
+  toast('Device list exported!',true);
+}
+
+function clearDateFilter(){
+  var f=document.getElementById('allDateFrom');var t=document.getElementById('allDateTo');
+  if(f)f.value=''; if(t)t.value='';
+  renderAllReports();
+}
 function renderAllReports(){
   var q=(document.getElementById('allSearch').value||'').toLowerCase();
   var ty=document.getElementById('allTypeFilter').value;
   var eng=document.getElementById('allEngFilter').value;
   var tb=document.getElementById('allTable');
+  var dateFrom=(document.getElementById('allDateFrom')||{}).value||'';
+  var dateTo=(document.getElementById('allDateTo')||{}).value||'';
   var list=reports.filter(function(r){
     return(!q||(r.machine||'').toLowerCase().indexOf(q)>=0||(r.serial_number||'').toLowerCase().indexOf(q)>=0||(r.report_num||'').toLowerCase().indexOf(q)>=0||(r.engineer||'').toLowerCase().indexOf(q)>=0)
-      &&(!ty||r.service_type===ty)&&(!eng||r.engineer===eng);
+      &&(!ty||r.service_type===ty)&&(!eng||r.engineer===eng)
+      &&(!dateFrom||r.service_date>=dateFrom)&&(!dateTo||r.service_date<=dateTo);
   });
   if(!list.length){tb.innerHTML='<tr><td colspan="8" class="norec">No reports found.</td></tr>';return;}
   tb.innerHTML=list.map(function(r){
@@ -1049,6 +1110,7 @@ function printReportById(id){
             (r.sig_customer?'<img src="'+r.sig_customer+'" alt="Customer Sig">':'<div class="sig-line"></div>')+
             '<div class="sig-name">'+(r.customer_rep||'_____________________')+'</div>'+
             '<div style="font-size:.68rem;color:#888;text-align:center">Customer Representative / ممثل العميل</div>'+
+            (appConfig.stamp?'<div style="text-align:center;margin-top:.8rem"><img src="'+appConfig.stamp+'" class="stamp-img" alt="Company Stamp"></div>':'')+
           '</div>'+
           '<div class="report-sig">'+
             '<div class="sig-label">Engineer Signature / توقيع المهندس</div>'+
@@ -1105,9 +1167,12 @@ function exportXLS(){
   var q=(document.getElementById('allSearch').value||'').toLowerCase();
   var ty=document.getElementById('allTypeFilter').value;
   var eng=document.getElementById('allEngFilter').value;
+  var dateFrom=(document.getElementById('allDateFrom')||{}).value||'';
+  var dateTo=(document.getElementById('allDateTo')||{}).value||'';
   var list=reports.filter(function(r){
     return(!q||(r.machine||'').toLowerCase().indexOf(q)>=0||(r.serial_number||'').toLowerCase().indexOf(q)>=0||(r.report_num||'').toLowerCase().indexOf(q)>=0||(r.engineer||'').toLowerCase().indexOf(q)>=0)
-      &&(!ty||r.service_type===ty)&&(!eng||r.engineer===eng);
+      &&(!ty||r.service_type===ty)&&(!eng||r.engineer===eng)
+      &&(!dateFrom||r.service_date>=dateFrom)&&(!dateTo||r.service_date<=dateTo);
   });
   var rows=[['Report #','Date','Customer','Service Type','Machine','S/N','Engineer','Company','Diagnosis','Action Done','Parts Needed','Parts Replaced','Notes']];
   list.forEach(function(r){rows.push([r.report_num,r.service_date,r.customer,r.service_type,r.machine,r.serial_number||'',r.engineer,r.company||'',r.diagnosis||'',r.action_done||'',r.parts_needed||'',r.parts_replaced||'',r.notes||'']);});
@@ -1132,12 +1197,62 @@ function renderEngineersList(){
   var el=document.getElementById('engineersList'); if(!el) return;
   var engs=appConfig.engineers||[];
   if(!engs.length){el.innerHTML='<div style="font-size:.82rem;color:var(--txt2);font-style:italic">No engineers added yet.</div>';return;}
-  el.innerHTML=engs.map(function(name,i){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 0;border-bottom:1px solid var(--border)">'+
-      '<div style="font-weight:600;font-size:.88rem">'+name+'</div>'+
-      '<button class="btn btn-d btn-sm" onclick="removeEngineer('+i+')">Remove</button>'+
-    '</div>';
-  }).join('');
+  el.innerHTML='';
+  engs.forEach(function(name,i){
+    var hasPass=appConfig.engineerPasswords&&appConfig.engineerPasswords[name];
+    var row=document.createElement('div');
+    row.style.cssText='padding:.8rem 0;border-bottom:1px solid var(--border)';
+    // Name row
+    var nameRow=document.createElement('div');
+    nameRow.style.cssText='display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem';
+    var nameInp=document.createElement('input');
+    nameInp.type='text'; nameInp.value=name; nameInp.id='ename-'+i;
+    nameInp.style.cssText='flex:1;font-size:.88rem;font-weight:600;padding:.3rem .6rem';
+    var saveNameBtn=document.createElement('button');
+    saveNameBtn.className='btn btn-p btn-sm'; saveNameBtn.textContent='✏️ Rename';
+    saveNameBtn.dataset.eidx=i; saveNameBtn.dataset.eng=name;
+    saveNameBtn.onclick=function(){ renameEngineer(parseInt(this.dataset.eidx), this.dataset.eng); };
+    var removeBtn=document.createElement('button');
+    removeBtn.className='btn btn-d btn-sm'; removeBtn.textContent='Remove';
+    removeBtn.dataset.eidx=i;
+    removeBtn.onclick=function(){ removeEngineer(parseInt(this.dataset.eidx)); };
+    nameRow.appendChild(nameInp); nameRow.appendChild(saveNameBtn); nameRow.appendChild(removeBtn);
+    // Password row
+    var passRow=document.createElement('div');
+    passRow.style.cssText='display:flex;gap:.5rem;align-items:center';
+    var passInp=document.createElement('input');
+    passInp.type='password'; passInp.id='epw-'+i;
+    passInp.placeholder=hasPass?'Change password':'Set password';
+    passInp.style.cssText='flex:1;font-size:.82rem;padding:.35rem .6rem';
+    var savePassBtn=document.createElement('button');
+    savePassBtn.className='btn btn-p btn-sm'; savePassBtn.textContent='💾 Save';
+    savePassBtn.dataset.eidx=i; savePassBtn.dataset.eng=name;
+    savePassBtn.onclick=function(){ saveEngPassword(parseInt(this.dataset.eidx), this.dataset.eng); };
+    passRow.appendChild(passInp); passRow.appendChild(savePassBtn);
+    row.appendChild(nameRow); row.appendChild(passRow);
+    el.appendChild(row);
+  });
+}
+
+async function renameEngineer(i, oldName){
+  var inp=document.getElementById('ename-'+i);
+  var newName=inp?inp.value.trim():'';
+  if(!newName){toast('Name cannot be empty.',false);return;}
+  if(newName===oldName){toast('Name unchanged.',false);return;}
+  if(appConfig.engineers.some(function(e,idx){return idx!==i&&e.toLowerCase()===newName.toLowerCase();})){
+    toast('Name already exists.',false);return;
+  }
+  appConfig.engineers[i]=newName;
+  // Move password to new name
+  if(appConfig.engineerPasswords&&appConfig.engineerPasswords[oldName]){
+    appConfig.engineerPasswords[newName]=appConfig.engineerPasswords[oldName];
+    delete appConfig.engineerPasswords[oldName];
+  }
+  try{
+    await cfgSet(appConfig);
+    renderEngineersList(); populateLoginDropdown();
+    toast(oldName+' renamed to '+newName,true);
+  }catch(e){ appConfig.engineers[i]=oldName; toast('Failed: '+e.message,false); }
 }
 
 async function addEngineer(){
@@ -1150,26 +1265,33 @@ async function addEngineer(){
     await cfgSet(appConfig);
     document.getElementById('newEngName').value='';
     toast(name+' added!',true);
-    renderEngineersList();
-  }catch(e){appConfig.engineers.pop();toast('Failed: '+e.message,false);}
+    renderEngineersList(); populateLoginDropdown();
+  }catch(e){
+    appConfig.engineers.pop();
+    toast('Failed to save: '+e.message+' — check Supabase table md_svc_config exists.',false);
+  }
 }
 
 async function removeEngineer(i){
   var name=appConfig.engineers[i];
   if(!confirm('Remove engineer: '+name+'?'))return;
   var removed=appConfig.engineers.splice(i,1);
-  try{await cfgSet(appConfig);renderEngineersList();toast('Removed.',true);}
+  if(appConfig.engineerPasswords&&removed[0]) delete appConfig.engineerPasswords[removed[0]];
+  try{await cfgSet(appConfig);renderEngineersList();populateLoginDropdown();toast('Removed.',true);}
   catch(e){appConfig.engineers.splice(i,0,removed[0]);toast('Failed.',false);}
 }
 
-async function saveEngPassword(){
-  var p1=document.getElementById('newEngPass').value;
-  var p2=document.getElementById('newEngPass2').value;
-  if(!p1){toast('Enter a password.',false);return;}
-  if(p1!==p2){toast('Passwords do not match.',false);return;}
-  appConfig.engineerPassword=p1;
-  try{await cfgSet(appConfig);toast('Engineer password saved!',true);document.getElementById('newEngPass').value='';document.getElementById('newEngPass2').value='';}
-  catch(e){toast('Save failed: '+e.message,false);}
+function saveEngPwBtn(btn){ saveEngPassword(parseInt(btn.dataset.eidx), btn.dataset.eng); }
+async function saveEngPassword(idx, name){
+  var inp=document.getElementById('epw-'+idx);
+  if(!inp||!inp.value.trim()){toast('Enter a password for '+name,false);return;}
+  if(!appConfig.engineerPasswords) appConfig.engineerPasswords={};
+  appConfig.engineerPasswords[name]=inp.value.trim();
+  try{
+    await cfgSet(appConfig);
+    inp.value=''; inp.placeholder='Password set ✅';
+    toast(name+' password saved!',true);
+  }catch(e){toast('Save failed: '+e.message,false);}
 }
 
 function previewLogo(e){
@@ -1180,6 +1302,34 @@ function previewLogo(e){
     appConfig._pendingLogo=ev.target.result;
   };
   reader.readAsDataURL(file);
+}
+function previewStamp(e){
+  var file=e.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    document.getElementById('stampPreview').innerHTML='<img src="'+ev.target.result+'" style="max-height:100px;border-radius:8px;border:1px solid var(--border);background:#f8f8f8">';
+    appConfig._pendingStamp=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function saveStamp(){
+  if(!appConfig._pendingStamp){toast('Choose a stamp image first.',false);return;}
+  appConfig.stamp=appConfig._pendingStamp;
+  delete appConfig._pendingStamp;
+  try{
+    await cfgSet(appConfig);
+    toast('Stamp saved! Re-open a report to see the update.',true);
+    renderStampPreview();
+    document.getElementById('stampFile').value='';
+  }catch(e){toast('Save failed: '+e.message,false);}
+}
+async function removeStamp(){
+  appConfig.stamp='';
+  try{await cfgSet(appConfig);document.getElementById('stampPreview').innerHTML='';toast('Stamp removed.',true);}
+  catch(e){toast('Failed.',false);}
+}
+function renderStampPreview(){
+  if(appConfig.stamp)document.getElementById('stampPreview').innerHTML='<img src="'+appConfig.stamp+'" style="max-height:100px;border-radius:8px;border:1px solid var(--border);background:#f8f8f8">';
 }
 async function saveLogo(){
   if(!appConfig._pendingLogo){toast('Select a logo first.',false);return;}
@@ -1241,7 +1391,7 @@ async function addDevice(){
 
 async function removeDevice(id){
   if(!confirm('Remove this device from the list?'))return;
-  deviceList = deviceList.filter(function(d){return d.id!=id;});
+  deviceList = deviceList.filter(function(d){return String(d.id)!==String(id);});
   try{ await saveDeviceList(); toast('Device removed.',true); renderDeviceList(); }
   catch(e){ toast('Failed: '+e.message,false); }
 }
@@ -1249,18 +1399,64 @@ async function removeDevice(id){
 function renderDeviceList(){
   var el = document.getElementById('deviceListEl');
   if(!deviceList.length){ el.innerHTML='<p class="norec">No devices registered yet.</p>'; return; }
-  el.innerHTML = deviceList.map(function(d){
-    return '<div class="dli">'+
-      '<div>'+
-        '<div class="dli-name">'+d.name+'</div>'+
-        '<div class="dli-sn">'+
-          (d.model?'<span style="color:var(--txt2)">Model: '+d.model+'</span>  ':'') +
-          (d.sn?'<span style="color:var(--teal)">S/N: '+d.sn+'</span>':'') +
-        '</div>'+
+  el.innerHTML='';
+  deviceList.forEach(function(d){
+    var div=document.createElement('div');
+    div.className='dli';
+    div.style.alignItems='flex-start';
+    var info=document.createElement('div');
+    info.style.flex='1';
+    info.innerHTML=
+      '<div class="dli-name">'+esc(d.name)+'</div>'+
+      '<div class="dli-sn">'+
+        (d.model?'<span style="color:var(--txt2)">Model: '+esc(d.model)+'</span>&nbsp;&nbsp;':'')+
+        (d.sn?'<span style="color:var(--teal)">S/N: '+esc(d.sn)+'</span>':'')+
       '</div>'+
-      '<button class="btn btn-d btn-sm" onclick="removeDevice('+d.id+')">🗑</button>'+
-      '</div>';
-  }).join('');
+      (d.notes?'<div style="font-size:.76rem;color:var(--txt2);margin-top:.2rem">'+esc(d.notes)+'</div>':'');
+    var btns=document.createElement('div');
+    btns.style.cssText='display:flex;gap:.4rem;flex-shrink:0';
+    var editBtn=document.createElement('button');
+    editBtn.className='btn btn-p btn-sm'; editBtn.textContent='✏️ Edit';
+    editBtn.onclick=(function(dev){ return function(){ openEditDevice(dev.id); }; })(d);
+    var delBtn=document.createElement('button');
+    delBtn.className='btn btn-d btn-sm'; delBtn.textContent='🗑';
+    delBtn.onclick=(function(did){ return function(){ removeDevice(did); }; })(d.id);
+    btns.appendChild(editBtn); btns.appendChild(delBtn);
+    div.appendChild(info); div.appendChild(btns);
+    el.appendChild(div);
+  });
+}
+
+function openEditDevice(id){
+  var d=deviceList.find(function(x){return String(x.id)===String(id);});
+  if(!d)return;
+  document.getElementById('editDevId').value=id;
+  document.getElementById('editDevName').value=d.name||'';
+  document.getElementById('editDevSN').value=d.sn||'';
+  document.getElementById('editDevModel').value=d.model||'';
+  document.getElementById('editDevNotes').value=d.notes||'';
+  document.getElementById('editDevModal').style.display='flex';
+}
+
+function closeEditDevice(){
+  document.getElementById('editDevModal').style.display='none';
+}
+
+async function saveEditDevice(){
+  var id=document.getElementById('editDevId').value;
+  var name=document.getElementById('editDevName').value.trim();
+  if(!name){toast('Device name is required.',false);return;}
+  var idx=deviceList.findIndex(function(x){return String(x.id)===String(id);});
+  if(idx<0){toast('Device not found.',false);return;}
+  deviceList[idx].name=name;
+  deviceList[idx].sn=document.getElementById('editDevSN').value.trim();
+  deviceList[idx].model=document.getElementById('editDevModel').value.trim();
+  deviceList[idx].notes=document.getElementById('editDevNotes').value.trim();
+  try{
+    await saveDeviceList();
+    closeEditDevice(); renderDeviceList();
+    toast('Device updated!',true);
+  }catch(e){ toast('Save failed: '+e.message,false); }
 }
 
 // ══════════════════════════
@@ -1481,10 +1677,28 @@ async function init(){
     }
   }catch(e){}
   // No session — show login
+  populateLoginDropdown();
   document.getElementById('loginScreen').classList.remove('hidden');
 }
 
 init();
 </script>
+<!-- Device Edit Modal -->
+<div id="editDevModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:#fff;border-radius:14px;padding:1.5rem;width:100%;max-width:440px;box-shadow:0 8px 32px rgba(0,0,0,.15)">
+    <h3 style="margin:0 0 1.1rem;font-size:1rem;color:#0f172a">✏️ Edit Device</h3>
+    <input type="hidden" id="editDevId">
+    <div style="display:grid;gap:.8rem">
+      <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Device Name *</label><input type="text" id="editDevName" style="width:100%;box-sizing:border-box"></div>
+      <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Serial Number</label><input type="text" id="editDevSN" style="width:100%;box-sizing:border-box"></div>
+      <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Model</label><input type="text" id="editDevModel" style="width:100%;box-sizing:border-box"></div>
+      <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Notes</label><textarea id="editDevNotes" style="width:100%;box-sizing:border-box;min-height:70px;resize:vertical"></textarea></div>
+    </div>
+    <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.2rem">
+      <button class="btn btn-s" onclick="closeEditDevice()">Cancel</button>
+      <button class="btn btn-p" onclick="saveEditDevice()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
