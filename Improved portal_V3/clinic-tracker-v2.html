@@ -654,6 +654,8 @@ tr:hover td{background:#f8fafc}
       <div class="msel">
         <label>Month:</label>
         <select id="dashMon" onchange="renderDash()"></select>
+        <label style="margin-left:.8rem">Nurse:</label>
+        <select id="dashNur" onchange="renderDash()"><option value="">All Nurses</option></select>
         <button class="btn bx" style="margin-left:auto" onclick="exportDashXLS()">Export XLS</button>
       </div>
       <div class="card" id="momCompare" style="display:none;padding:1rem 1.4rem;margin-bottom:1.4rem"></div>
@@ -1556,7 +1558,15 @@ function showPage(id,btn){
     var psc=document.getElementById('ptSearchCard');
     if(psc) psc.style.display = isGM()?'none':'';
   }
-  if(id==='dashboard') { populateDashMonths(); renderDash(); }
+  if(id==='dashboard'){
+    populateDashMonths();
+    var nurSel=document.getElementById('dashNur');
+    if(nurSel){
+      var cur=nurSel.value;
+      nurSel.innerHTML='<option value="">All Nurses</option>'+(lists.nurses||[]).map(function(n){return '<option value="'+n+'"'+(n===cur?' selected':'')+'>'+n+'</option>';}).join('');
+    }
+    renderDash();
+  }
   if(id==='utilization') { renderUtilization(); }
   if(id==='vacation'){
     populateVacEmp();
@@ -2553,7 +2563,8 @@ function exportRecXLS(){
 }
 function exportDashXLS(){
   var mon=document.getElementById('dashMon').value||new Date().toISOString().slice(0,7);
-  var f=records.filter(function(r){return r.date.indexOf(mon)===0;});
+  var nur=(document.getElementById('dashNur')||{}).value||'';
+  var f=records.filter(function(r){return r.date.indexOf(mon)===0 && (!nur||r.nurse===nur);});
   var rows=[['Month',fmtM(mon)],[''],['#','Date','Patient','Doctor','Procedure','Selling','Cost','Profit','Margin','Nurse']];
   f.forEach(function(r,i){rows.push([i+1,r.date,r.patient,r.doctor,r.procedure,r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),r.margin+'%',r.nurse||'']);});
   var tS=0,tC=0,tP=0; f.forEach(function(r){tS+=r.totalSell;tC+=r.totalCost;tP+=r.profit;});
@@ -2576,7 +2587,8 @@ function populateDashMonths(){
 }
 function renderDash(){
   var mon=document.getElementById('dashMon').value||new Date().toISOString().slice(0,7);
-  var f=records.filter(function(r){return r.date.indexOf(mon)===0;});
+  var nur=(document.getElementById('dashNur')||{}).value||'';
+  var f=records.filter(function(r){return r.date.indexOf(mon)===0 && (!nur||r.nurse===nur);});
   // For financials: exclude Retouch (zero impact), Complimentary counts as loss
   var fFin=f.filter(function(r){return r.procedure!=='Retouch';});
   var tS=0,tC=0,tP=0; fFin.forEach(function(r){tS+=r.totalSell;tC+=r.totalCost;tP+=r.profit;});
