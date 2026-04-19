@@ -3895,6 +3895,19 @@ function setUtilRange(range){
   renderUtilization();
 }
 
+function countWorkingDays(fromStr, toStr){
+  // Count Sat-Thu days (skip Friday) — Saudi working week
+  if(!fromStr||!toStr) return null;
+  var d=new Date(fromStr+'T00:00:00');
+  var end=new Date(toStr+'T00:00:00');
+  var count=0;
+  while(d<=end){
+    if(d.getDay()!==5) count++; // 5=Friday, skip it
+    d.setDate(d.getDate()+1);
+  }
+  return count||1;
+}
+
 function renderUtilization(){
   // Populate nurse filter
   var nurSel=document.getElementById('utilNurse');
@@ -3941,13 +3954,20 @@ function renderUtilization(){
   var totalNurses=Object.keys(nurseMap).length;
   var totalMin=0,totalRev=0,totalProcs=0;
   Object.values(nurseMap).forEach(function(n){totalMin+=n.totalMin;totalRev+=n.totalSell;totalProcs+=n.procCount;});
-  // Correct avg utilization: average of each nurse's per-day utilization
+  // Avg utilization: total minutes / working days in period / shift
+  // Determine working days in period (Sat-Thu)
+  var periodFrom=fromDate, periodTo=toDate;
+  if(!periodFrom||!periodTo){
+    var allDates=recs.map(function(r){return r.date;}).filter(Boolean).sort();
+    if(allDates.length){ periodFrom=allDates[0]; periodTo=allDates[allDates.length-1]; }
+  }
+  var workDays=countWorkingDays(periodFrom,periodTo)||1;
   var avgUtil=0;
   if(totalNurses>0){
     var utilSum=0;
     Object.values(nurseMap).forEach(function(n){
-      var daysActive=Object.keys(n.days).length||1;
-      var avgDayMin=n.totalMin/daysActive;
+      var divisor=workDays||Object.keys(n.days).length||1;
+      var avgDayMin=n.totalMin/divisor;
       utilSum+=Math.round(avgDayMin/(shiftHours*60)*100);
     });
     avgUtil=Math.round(utilSum/totalNurses);
@@ -3977,7 +3997,8 @@ function renderUtilization(){
     var d=nurseMap[name];
     var shiftMin=shiftHours*60;
     var daysWorked=Object.keys(d.days).length;
-    var avgDayMin=daysWorked>0?Math.round(d.totalMin/daysWorked):0;
+    var divisorDays=workDays||daysWorked||1;
+    var avgDayMin=Math.round(d.totalMin/divisorDays);
     var utilPct=Math.min(100,Math.round(avgDayMin/shiftMin*100));
     var utilColor=utilPct>=70?'var(--grn)':utilPct>=40?'var(--amb)':'var(--red)';
     var barColor=utilPct>=70?'#22c55e':utilPct>=40?'#f59e0b':'#ef4444';
@@ -4002,7 +4023,7 @@ function renderUtilization(){
       '</div>'+
       '<div style="margin-bottom:.5rem">'+
         '<div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--ss);margin-bottom:.25rem">'+
-          '<span>Avg daily: '+avgHrs+'h '+avgMins+'m / '+shiftHours+'h shift</span>'+
+          '<span>Avg daily: '+avgHrs+'h '+avgMins+'m / '+shiftHours+'h shift ('+workDays+' working days)</span>'+
           '<span>Total: '+hrs+'h '+mins+'m</span>'+
         '</div>'+
         '<div style="background:#f1f5f9;border-radius:99px;height:10px;overflow:hidden">'+
