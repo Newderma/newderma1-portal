@@ -846,8 +846,12 @@ tr:hover td{background:#f8fafc}
           <div class="ct">Add / Edit Doctor Profile</div>
           <div class="fg" style="margin-bottom:.75rem">
             <div>
-              <label>Doctor Name</label>
+              <label>Doctor Name (English — used as system key)</label>
               <input type="text" id="prpName" placeholder="e.g. DR Ahmed">
+            </div>
+            <div>
+              <label>Doctor Name (Arabic — used on printed documents)</label>
+              <input type="text" id="prpArName" placeholder="مثال: د. أحمد" dir="rtl" style="font-family:'Noto Sans Arabic',sans-serif">
             </div>
             <div>
               <label>Type</label>
@@ -4604,7 +4608,8 @@ function renderDrProfiles() {
     var isShared = p.type === 'shared';
     html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;padding:.9rem 1rem;background:var(--tbg);border:1px solid var(--tb);border-radius:8px">';
     html += '<div><div style="font-size:.95rem;font-weight:700;color:var(--sl)">'+esc(name)+'</div>';
-    html += '<div style="font-size:.75rem;color:var(--ss);margin-top:.2rem">'+(isShared?'Shared Partner (50%)':'Renting')+' &nbsp;|&nbsp; ';
+    if(p.arName) html += '<div style="font-size:.82rem;color:var(--sl);font-family:Arial,sans-serif;direction:rtl;margin-top:.1rem">'+esc(p.arName)+'</div>';
+    html += '<div style="font-size:.75rem;color:var(--ss);margin-top:.2rem">'+(isShared?'PT':'RT')+' &nbsp;|&nbsp; ';
     if(isShared){
       html += 'WPS: SAR '+fmtSAR(p.sharedSalary||0);
     } else {
@@ -5024,9 +5029,11 @@ function renderPayrollHistory() {
     html += '<div>';
     html += '<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">';
     html += '<span style="font-size:.95rem;font-weight:700;color:var(--sl)">'+esc(h.doctor)+'</span>';
+    var _drp=drProfiles[h.doctor]||{};
+    if(_drp.arName) html += '<span style="font-size:.8rem;color:var(--ss);font-family:Arial,sans-serif;direction:rtl;margin-left:.5rem">'+esc(_drp.arName)+'</span>';
     html += statusBadge;
     html += '</div>';
-    html += '<div style="font-size:.72rem;color:var(--ss);margin-top:.2rem">'+h.month+' &nbsp;|&nbsp; '+(h.type==='shared'?'Shared Partner / شريك':'Renting / مستأجر')+'</div>';
+    html += '<div style="font-size:.72rem;color:var(--ss);margin-top:.2rem">'+h.month+' &nbsp;|&nbsp; '+(h.type==='shared'?'PT / نسبة':'RT')+'</div>';
     html += '</div>';
     html += '<div style="text-align:right">';
     var owedLbl = h.netOwed>=0 ? 'Clinic Owes Doctor / مستحق للطبيب' : 'Doctor Owes Clinic / مستحق على الطبيب';
@@ -5571,10 +5578,11 @@ function prOpenPrintWindow(r){
 
   // Meta
   w.document.write('<div class="meta">');
-  w.document.write('<div class="meta-item"><label>Doctor / الطبيب</label><div class="val">'+r.doctor+'</div></div>');
+  var _arN = (drProfiles[r.doctor]||{}).arName||'';
+  w.document.write('<div class="meta-item"><label>Doctor / الطبيب</label><div class="val">'+r.doctor+(_arN?'<div class="val-ar">'+_arN+'</div>':'')+'</div></div>');
   w.document.write('<div class="meta-item"><label>Month / الشهر</label><div class="val">'+r.month+'</div></div>');
-  var typeEn = r.type==='shared'?'Shared Partner':'Renting';
-  var typeAr = r.type==='shared'?'شريك':'مستأجر';
+  var typeEn = r.type==='shared'?'PT':'RT';
+  var typeAr = r.type==='shared'?'نسبة':'';
   w.document.write('<div class="meta-item"><label>Type / النوع</label><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="val">'+typeEn+'</span><span class="val-ar">'+typeAr+'</span></div></div>');
   w.document.write('</div>');
 
@@ -5592,7 +5600,8 @@ function prOpenPrintWindow(r){
   w.document.write('<div class="ack">');
   w.document.write('<div class="ack-title"><span class="en">Acknowledgment</span><span class="ar">إقرار</span></div>');
   w.document.write('<div class="ack-en">I, <strong>'+r.doctor+'</strong>, confirm that I have reviewed the above payout statement for the month of <strong>'+r.month+'</strong> and that the figures are correct and agreed upon.</div>');
-  w.document.write('<div class="ack-ar">أنا، <strong>'+r.doctor+'</strong>، أقر بأنني اطلعت على كشف المستحقات أعلاه للشهر <strong>'+r.month+'</strong> وأن الأرقام صحيحة ومتفق عليها.</div>');
+  var _ackAr = _arN || r.doctor;
+  w.document.write('<div class="ack-ar">أنا، <strong>'+_ackAr+'</strong>، أقر بأنني اطلعت على كشف المستحقات أعلاه للشهر <strong>'+r.month+'</strong> وأن الأرقام صحيحة ومتفق عليها.</div>');
   w.document.write('</div>');
 
   // Signatures
@@ -5617,7 +5626,7 @@ function prExportHistory(){
   var wb = XLSX.utils.book_new();
   var sumData=[['Doctor / الطبيب','Month / الشهر','Type / النوع','Gross Invoices','Refunds','VAT','Net Income','Net Owed / المستحق']];
   filtered.forEach(function(h){
-    sumData.push([h.doctor,h.month,h.type==='shared'?'Shared Partner':'Renting',h.grossInvoices||h.gross||0,h.refunds||0,h.vat||0,h.net||0,h.netOwed||0]);
+    sumData.push([h.doctor,h.month,h.type==='shared'?'PT':'RT',h.grossInvoices||h.gross||0,h.refunds||0,h.vat||0,h.net||0,h.netOwed||0]);
   });
   var ws=XLSX.utils.aoa_to_sheet(sumData);
   ws['!cols']=[{wch:22},{wch:12},{wch:18},{wch:16},{wch:14},{wch:14},{wch:16},{wch:16}];
@@ -5646,7 +5655,9 @@ function prpToggleFields(){
 var _editingProfileName = null; // track original name when editing
 
 function prpClear(){
-  ['prpName','prpRent','prpSalary','prpGosi','prpSharedSalary'].forEach(function(id){ var el=document.getElementById(id);if(el)el.value=''; });
+  ['prpName','prpArName','prpRent','prpSalary','prpGosi','prpSharedSalary'].forEach(function(id){ var el=document.getElementById(id);if(el)el.value=''; });
+  var nameEl=document.getElementById('prpName');
+  if(nameEl){ nameEl.readOnly=false; nameEl.style.opacity=''; nameEl.title=''; }
   document.getElementById('prpType').value='renting'; prpToggleFields();
   _editingProfileName = null;
   var btn = document.querySelector('#ptab-profiles .btn.bp');
@@ -5660,23 +5671,31 @@ async function prpSave(){
   if(_editingProfileName && _editingProfileName !== name){
     delete drProfiles[_editingProfileName];
   }
+  var arName = (document.getElementById('prpArName').value||'').trim();
   if(type==='renting'){
-    drProfiles[name] = { type:'renting', rent:parseFloat(document.getElementById('prpRent').value)||0, salary:parseFloat(document.getElementById('prpSalary').value)||0, gosi:parseFloat(document.getElementById('prpGosi').value)||0 };
+    drProfiles[name] = { type:'renting', arName:arName, rent:parseFloat(document.getElementById('prpRent').value)||0, salary:parseFloat(document.getElementById('prpSalary').value)||0, gosi:parseFloat(document.getElementById('prpGosi').value)||0 };
   } else {
-    drProfiles[name] = { type:'shared', sharedSalary:parseFloat(document.getElementById('prpSharedSalary').value)||0 };
+    drProfiles[name] = { type:'shared', arName:arName, sharedSalary:parseFloat(document.getElementById('prpSharedSalary').value)||0 };
   }
   try {
     await savePayrollProfiles();
     renderDrProfiles(); populatePrDrSel(); prpClear();
     toast(_editingProfileName ? 'Profile updated!' : 'Profile saved!', true);
     _editingProfileName = null;
+    var nameEl2=document.getElementById('prpName');
+    if(nameEl2){ nameEl2.readOnly=false; nameEl2.style.opacity=''; nameEl2.title=''; }
   }
   catch(e){ toast('Save failed: '+e.message, false); }
 }
 function prpEdit(name){
   var p = drProfiles[name]; if(!p) return;
   _editingProfileName = name; // remember original name
-  document.getElementById('prpName').value = name;
+  var nameEl=document.getElementById('prpName');
+  nameEl.value = name;
+  nameEl.readOnly = true;
+  nameEl.style.opacity = '.6';
+  nameEl.title = 'Name cannot be changed after saving — it is used as the data key';
+  var arEl=document.getElementById('prpArName'); if(arEl) arEl.value=p.arName||'';
   document.getElementById('prpType').value = p.type||'renting';
   prpToggleFields();
   if(p.type==='renting'){
