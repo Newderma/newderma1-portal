@@ -1506,20 +1506,20 @@ var staffPrivileges = {}; // { 'Name': ['entry','records','vacation'] } // stand
 
 async function loadConfig(){
   try{
-    // Load all config in parallel — much faster than sequential
-    var results = await Promise.all([
-      cfgGet('lists'), cfgGet('itemCosts'), cfgGet('annualDays'),
-      cfgGet('staffPasswords'), cfgGet('adminPassword'), cfgGet('empProfiles'), cfgGet('shiftHours'), cfgGet('staffPrivileges'), cfgGet('emailjsConfig')
-    ]);
-    if(results[0]) lists            = results[0];
-    if(results[1]) itemCosts        = results[1];
-    if(results[2]) annualDays       = parseInt(results[2])||21;
-    if(results[3]) staffPasswords   = results[3];
-    if(results[4]) adminPassword    = results[4];
-    if(results[5]) empProfiles      = results[5];
-    if(results[6]) shiftHours       = parseFloat(results[6])||8;
-    if(results[7]) staffPrivileges  = results[7];
-    if(results[8]){ emailjsCfg = results[8]; try{ localStorage.setItem('ct_emailjs',JSON.stringify(emailjsCfg)); }catch(e){} }
+    // ONE call to fetch all config keys at once instead of 9 separate calls
+    var keys = ['lists','itemCosts','annualDays','staffPasswords','adminPassword','empProfiles','shiftHours','staffPrivileges','emailjsConfig'];
+    var rows = await sbGet('ct_config', 'key=in.('+keys.join(',')+')');
+    var map = {};
+    rows.forEach(function(r){ map[r.key] = r.value; });
+    if(map.lists)           lists           = map.lists;
+    if(map.itemCosts)       itemCosts       = map.itemCosts;
+    if(map.annualDays)      annualDays      = parseInt(map.annualDays)||21;
+    if(map.staffPasswords)  staffPasswords  = map.staffPasswords;
+    if(map.adminPassword)   adminPassword   = map.adminPassword;
+    if(map.empProfiles)     empProfiles     = map.empProfiles;
+    if(map.shiftHours)      shiftHours      = parseFloat(map.shiftHours)||8;
+    if(map.staffPrivileges) staffPrivileges = map.staffPrivileges;
+    if(map.emailjsConfig){  emailjsCfg = map.emailjsConfig; try{ localStorage.setItem('ct_emailjs',JSON.stringify(emailjsCfg)); }catch(e){} }
   }catch(e){ console.warn('Config load failed',e); }
   // Cache lists AND staffPrivileges for instant load next time
   try{
@@ -1676,20 +1676,21 @@ function doLogout(){
 async function loadAllData(){
   setSyncDot('syncing');
   try{
-    var allRows = await sbGet('ct_records', 'order=date.desc');
+    var vacQuery = isGM() ? 'order=req_date.desc' : 'employee=eq.'+encodeURIComponent(CU.empName)+'&order=req_date.desc';
+    // Run all fetches in parallel instead of sequentially
+    var results = await Promise.all([
+      sbGet('ct_records', 'order=date.desc'),
+      sbGet('ct_vacation', vacQuery),
+      isGM() ? loadPayrollData() : Promise.resolve()
+    ]);
+    var allRows = results[0];
     allRecords = allRows.map(normRec);
     if(isGM()){
       records = allRecords;
     } else {
       records = allRecords.filter(function(r){ return r.nurse===CU.empName || r.doctor===CU.empName; });
     }
-    var vacQuery = isGM() ? 'order=req_date.desc' : 'employee=eq.'+encodeURIComponent(CU.empName)+'&order=req_date.desc';
-    vacReqs = await sbGet('ct_vacation', vacQuery);
-    vacReqs = vacReqs.map(normVac);
-
-    // Always load payroll data for GM
-    if(isGM()) await loadPayrollData();
-
+    vacReqs = results[1].map(normVac);
     setSyncDot('on');
   }catch(e){
     setSyncDot('off');
@@ -1764,7 +1765,7 @@ function bootApp(){
   var annEl = document.getElementById('annDays'); if(annEl) annEl.value=annualDays;
 
   populateDDL(); populateVacEmp();
-  if(isGM()){ loadPayrollData().then(function(){ renderDrProfiles(); populatePrDrSel(); populateLedgerDrSel(); }).catch(function(){}); }
+  if(isGM()){ renderDrProfiles(); populatePrDrSel(); populateLedgerDrSel(); }
 
   // Auto-fill nurse field for staff (only if they have entry tab)
   var hasEntry = !isGM() && getStaffTabs().some(function(t){return t[0]==='entry';});
@@ -5705,10 +5706,8 @@ async function prpDelete(name){
     var saved = sessionStorage.getItem('ct_cu');
     if(saved){
       CU = JSON.parse(saved);
-      // Load config then restore app
-      loadConfig().then(function(){
-        startApp();
-      }).catch(function(){
+      // Restore app directly — startApp already loads config internally
+      startApp().catch(function(){
         CU = null;
         sessionStorage.removeItem('ct_cu');
         document.getElementById('loginScreen').classList.remove('hidden');
@@ -5733,7 +5732,6 @@ async function prpDelete(name){
     var lu=document.getElementById('lu');
     if(lu && !lu.value) populateLoginDropdown();
   }).catch(function(){});
-  loadPayrollData().catch(function(){});
 })();
 </script>
 </body>
