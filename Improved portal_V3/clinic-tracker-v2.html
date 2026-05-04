@@ -4996,8 +4996,12 @@ function renderPayrollHistory() {
     var totalOwed=0, totalPaidAll=0, totalRemaining=0;
     filtered.forEach(function(h){ var ps=prPaymentStatus(h); totalOwed+=h.netOwed||0; totalPaidAll+=ps.totalPaid; totalRemaining+=ps.remaining>0?ps.remaining:0; });
     sumEl.style.display='';
+    var owedSummaryBg    = totalOwed>=0?'#f0fdf4':'#fef2f2';
+    var owedSummaryBdr   = totalOwed>=0?'#bbf7d0':'#fecaca';
+    var owedSummaryClr   = totalOwed>=0?'#16a34a':'#dc2626';
+    var owedSummaryLbl   = totalOwed>=0?'Clinic Owes Doctors / مستحق للأطباء':'Doctors Owe Clinic / مستحق على الأطباء';
     sumEl.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem">'
-      +'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:.55rem .8rem"><div style="font-size:.62rem;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem">Total Owed / المستحق</div><div style="font-size:.95rem;font-weight:700;color:#16a34a">SAR '+fmtSAR(totalOwed)+'</div></div>'
+      +'<div style="background:'+owedSummaryBg+';border:1px solid '+owedSummaryBdr+';border-radius:7px;padding:.55rem .8rem"><div style="font-size:.62rem;color:'+owedSummaryClr+';font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem">'+owedSummaryLbl+'</div><div style="font-size:.95rem;font-weight:700;color:'+owedSummaryClr+'">SAR '+fmtSAR(totalOwed)+'</div></div>'
       +'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.55rem .8rem"><div style="font-size:.62rem;color:#1d4ed8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem">Total Paid / المدفوع</div><div style="font-size:.95rem;font-weight:700;color:#1d4ed8">SAR '+fmtSAR(totalPaidAll)+'</div></div>'
       +(totalRemaining>0.01?'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:.55rem .8rem"><div style="font-size:.62rem;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem">Remaining / المتبقي</div><div style="font-size:.95rem;font-weight:700;color:#dc2626">SAR '+fmtSAR(totalRemaining)+'</div></div>':'')
       +'</div>';
@@ -5025,8 +5029,9 @@ function renderPayrollHistory() {
     html += '<div style="font-size:.72rem;color:var(--ss);margin-top:.2rem">'+h.month+' &nbsp;|&nbsp; '+(h.type==='shared'?'Shared Partner / شريك':'Renting / مستأجر')+'</div>';
     html += '</div>';
     html += '<div style="text-align:right">';
+    var owedLbl = h.netOwed>=0 ? 'Clinic Owes Doctor / مستحق للطبيب' : 'Doctor Owes Clinic / مستحق على الطبيب';
     html += '<div style="font-size:1.1rem;font-weight:800;color:'+owedColor+'">SAR '+fmtSAR(h.netOwed)+'</div>';
-    html += '<div style="font-size:.68rem;color:var(--ss)">Net Owed / المستحق</div>';
+    html += '<div style="font-size:.68rem;color:'+owedColor+';font-weight:600">'+owedLbl+'</div>';
     html += '</div></div>';
 
     // Payment summary bar
