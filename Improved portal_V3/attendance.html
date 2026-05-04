@@ -476,9 +476,10 @@ async function bootApp(){
     nav.innerHTML=[
       '<button class="ntab active" onclick="showPage(\'live\',this)">Live</button>',
       '<button class="ntab" onclick="showPage(\'logs\',this)">Logs</button>',
+      '<button class="ntab" onclick="showPage(\'monthly\',this)">Monthly</button>',
       '<button class="ntab" onclick="showPage(\'settings\',this)">Settings</button>'
     ].join('');
-    content.innerHTML=buildLivePage()+buildLogsPage()+buildSettingsPage();
+    content.innerHTML=buildLivePage()+buildLogsPage()+buildMonthlyPage()+buildSettingsPage();
     await loadTodayRecs();
     renderLive();renderSettings();
     try{var lp=sessionStorage.getItem('att_page');if(lp&&lp!=='live'){var ab=null;document.querySelectorAll('.ntab').forEach(function(b){if(b.textContent.trim().toLowerCase()===lp)ab=b;});showPage(lp,ab);}}catch(e){}
@@ -502,6 +503,7 @@ function showPage(id,btn){
   if(btn)btn.classList.add('active');
   if(id==='live'){loadTodayRecs().then(renderLive);}
   if(id==='logs'){renderLogs();}
+  if(id==='monthly'){renderMonthly();}
   if(id==='settings'){renderSettings();}
 }
 
@@ -753,37 +755,137 @@ function buildLogsPage(){
 }
 
 var allLogs=[];
+var vacationLeaves=[]; // approved leaves from ct_vacation
+
+// ── VACATION HELPERS ─────────────────────────────────────────────────────
+// Fetch approved leaves from ct_vacation for a date range
+async function loadApprovedLeaves(from, to){
+  try{
+    var q = 'status=eq.Approved&order=from_date.asc';
+    if(from) q += '&from_date=lte.'+to;   // leave starts before range end
+    if(to)   q += '&to_date=gte.'+from;   // leave ends after range start
+    vacationLeaves = await sbGet('ct_vacation', q);
+  }catch(e){ vacationLeaves=[]; }
+}
+
+// Check if a staff member has approved leave on a given date (YYYY-MM-DD)
+function isOnLeave(staffName, dateStr){
+  return vacationLeaves.some(function(v){
+    return v.employee && v.employee.toLowerCase()===staffName.toLowerCase()
+      && v.from_date <= dateStr && v.to_date >= dateStr;
+  });
+}
+
+// Is a given date a working day? (Sat=6, Sun=0, Mon=1, Tue=2, Wed=3, Thu=4, Fri=5)
+function isWorkingDay(dateStr){
+  var d = new Date(dateStr);
+  var day = d.getUTCDay(); // use UTC to avoid timezone shifting the date
+  return day !== 5; // Friday is off
+}
+
+// Get all working days (Sat-Thu) between two dates inclusive
+function getWorkingDays(from, to){
+  var days=[], cur=new Date(from);
+  var end=new Date(to);
+  while(cur<=end){
+    var ds=cur.toISOString().slice(0,10);
+    if(isWorkingDay(ds)) days.push(ds);
+    cur.setUTCDate(cur.getUTCDate()+1);
+  }
+  return days;
+}
+
 async function renderLogs(){
   var from=(document.getElementById('logFrom')||{}).value||'';
   var to=(document.getElementById('logTo')||{}).value||'';
-  allLogs=await loadAllRecs(from||null,to||null);
+  // Load attendance records AND approved leaves in parallel
+  var res=await Promise.all([
+    loadAllRecs(from||null,to||null),
+    loadApprovedLeaves(from||null,to||null)
+  ]);
+  allLogs=res[0];
   var sf=document.getElementById('logStaff');
   if(sf){
     var cur=sf.value;
-    var names=[...new Set(allLogs.map(function(r){return r.staff_name;}))].sort();
-    sf.innerHTML='<option value="">All Staff</option>'+names.map(function(n){
+    // Include staff names from both clock records and staff list
+    var namesFromLogs=[...new Set(allLogs.map(function(r){return r.staff_name;}))];
+    var namesFromStaff=staffList.filter(function(s){return s.active!==false;}).map(function(s){return s.name;});
+    var allNames=[...new Set(namesFromLogs.concat(namesFromStaff))].sort();
+    sf.innerHTML='<option value="">All Staff</option>'+allNames.map(function(n){
       return '<option'+(n===cur?' selected':'')+'>'+n+'</option>';
     }).join('');
   }
   filterLogs();
 }
 function filterLogs(){
-  var staff=(document.getElementById('logStaff')||{}).value||'';
-  var list=staff?allLogs.filter(function(r){return r.staff_name===staff;}):allLogs;
+  var staffFilter=(document.getElementById('logStaff')||{}).value||'';
+  var from=(document.getElementById('logFrom')||{}).value||'';
+  var to=(document.getElementById('logTo')||{}).value||'';
   var tb=document.getElementById('logsTable');if(!tb)return;
-  if(!list.length){tb.innerHTML='<tr><td colspan="10" class="norec">No records found.</td></tr>';return;}
   var g=cfg.graceMin!=null?cfg.graceMin:10;
-  tb.innerHTML=list.map(function(r){
-    var arr=calcArr(r.clock_in),dep=calcDep(r.clock_out);
-    var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0,pen=lm+em;
-    var penStr=pen>0?'<span style="color:var(--red);font-weight:600">-'+pen+' min</span>':'<span style="color:var(--teal)">0</span>';
-    var status=r.clock_out?'<span class="badge-out">Done</span>':'<span class="badge-in">Active</span>';
-    return '<tr><td>'+fmtDate(r.date)+'</td><td><strong>'+r.staff_name+'</strong></td>'+
-      '<td>'+fmtTime(r.clock_in)+'</td><td>'+fmtTime(r.clock_out)+'</td>'+
-      '<td>'+calcDur(r.clock_in,r.clock_out)+'</td><td>'+status+'</td>'+
-      '<td>'+arrBadge(arr)+'</td><td>'+depBadge(dep)+'</td><td>'+penStr+'</td>'+
-      '<td><button class="btn btn-d btn-sm" onclick="delRec('+r.id+')">Del</button></td></tr>';
-  }).join('');
+
+  // Build list of staff to show
+  var activeStaff=staffList.filter(function(s){return s.active!==false;}).map(function(s){return s.name;});
+  if(staffFilter) activeStaff=activeStaff.filter(function(n){return n===staffFilter;});
+
+  // If no date range set, just show clock records as before
+  if(!from||!to){
+    var list=staffFilter?allLogs.filter(function(r){return r.staff_name===staffFilter;}):allLogs;
+    if(!list.length){tb.innerHTML='<tr><td colspan="10" class="norec">No records found.</td></tr>';return;}
+    tb.innerHTML=list.map(function(r){
+      var arr=calcArr(r.clock_in),dep=calcDep(r.clock_out);
+      var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0,pen=lm+em;
+      var penStr=pen>0?'<span style="color:var(--red);font-weight:600">-'+pen+' min</span>':'<span style="color:var(--teal)">0</span>';
+      var status=r.clock_out?'<span class="badge-out">Done</span>':'<span class="badge-in">Active</span>';
+      return '<tr><td>'+fmtDate(r.date)+'</td><td><strong>'+r.staff_name+'</strong></td>'+
+        '<td>'+fmtTime(r.clock_in)+'</td><td>'+fmtTime(r.clock_out)+'</td>'+
+        '<td>'+calcDur(r.clock_in,r.clock_out)+'</td><td>'+status+'</td>'+
+        '<td>'+arrBadge(arr)+'</td><td>'+depBadge(dep)+'</td><td>'+penStr+'</td>'+
+        '<td><button class="btn btn-d btn-sm" onclick="delRec('+r.id+')">Del</button></td></tr>';
+    }).join('');
+    return;
+  }
+
+  // Date range is set — show full picture including absences and leaves
+  var workingDays=getWorkingDays(from,to);
+  var today=todayStr();
+  var rows=[];
+
+  workingDays.forEach(function(ds){
+    // Skip future days
+    if(ds>today) return;
+    activeStaff.forEach(function(name){
+      var rec=allLogs.find(function(r){return r.staff_name===name&&r.date===ds;});
+      if(rec){
+        // Normal clock-in record
+        var arr=calcArr(rec.clock_in),dep=calcDep(rec.clock_out);
+        var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0,pen=lm+em;
+        var penStr=pen>0?'<span style="color:var(--red);font-weight:600">-'+pen+' min</span>':'<span style="color:var(--teal)">0</span>';
+        var status=rec.clock_out?'<span class="badge-out">Done</span>':'<span class="badge-in">Active</span>';
+        rows.push('<tr><td>'+fmtDate(ds)+'</td><td><strong>'+name+'</strong></td>'+
+          '<td>'+fmtTime(rec.clock_in)+'</td><td>'+fmtTime(rec.clock_out)+'</td>'+
+          '<td>'+calcDur(rec.clock_in,rec.clock_out)+'</td><td>'+status+'</td>'+
+          '<td>'+arrBadge(arr)+'</td><td>'+depBadge(dep)+'</td><td>'+penStr+'</td>'+
+          '<td><button class="btn btn-d btn-sm" onclick="delRec('+rec.id+')">Del</button></td></tr>');
+      } else if(isOnLeave(name,ds)){
+        // Approved leave
+        rows.push('<tr style="background:rgba(22,163,74,.04)">'+
+          '<td>'+fmtDate(ds)+'</td><td><strong>'+name+'</strong></td>'+
+          '<td colspan="7"><span style="background:rgba(22,163,74,.12);color:#16a34a;padding:.18rem .7rem;border-radius:99px;font-size:.75rem;font-weight:600">🏖️ Approved Leave</span></td>'+
+          '<td></td></tr>');
+      } else {
+        // Absent — no clock-in and no approved leave
+        rows.push('<tr style="background:rgba(239,68,68,.03)">'+
+          '<td>'+fmtDate(ds)+'</td><td><strong>'+name+'</strong></td>'+
+          '<td colspan="7"><span style="background:rgba(239,68,68,.1);color:#dc2626;padding:.18rem .7rem;border-radius:99px;font-size:.75rem;font-weight:600">⚠️ Absent</span></td>'+
+          '<td></td></tr>');
+      }
+    });
+  });
+
+  if(!rows.length){tb.innerHTML='<tr><td colspan="10" class="norec">No records found.</td></tr>';return;}
+  // Sort by date desc then name
+  tb.innerHTML=rows.reverse().join('');
 }
 async function delRec(id){
   showCModal({icon:'🗑️',title:'Delete Record?',msg:'Permanently delete this record?',okLabel:'Yes, Delete',okStyle:'var(--red)',onOk:async function(){try{await sbDel('att_records','id=eq.'+id);allLogs=allLogs.filter(function(r){return r.id!=id;});records=records.filter(function(r){return r.id!=id;});filterLogs();renderLive();toast('Deleted.',true);}catch(e){toast('Failed: '+e.message,false);}}});return;
@@ -794,6 +896,218 @@ async function delRec(id){
     filterLogs();renderLive();toast('Deleted.',true);
   }catch(e){toast('Failed: '+e.message,false);}
 }
+
+// ── MONTHLY SUMMARY ───────────────────────────────────────────────────────
+function buildMonthlyPage(){
+  var months=[];
+  var now=new Date();
+  for(var i=0;i<12;i++){
+    var d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    var val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    var lbl=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    months.push('<option value="'+val+'"'+(i===0?' selected':'')+'>'+lbl+'</option>');
+  }
+  return [
+    '<div class="page" id="page-monthly">',
+    '<div class="ph"><h2>Monthly Summary</h2><p>Per-staff breakdown for payroll and HR.</p></div>',
+    '<div class="card">',
+    '<div class="filter-row">',
+    '<select id="mthMonth" onchange="renderMonthly()" style="max-width:220px">'+months.join('')+'</select>',
+    '<select id="mthStaff" onchange="filterMonthly()" style="max-width:180px"><option value="">All Staff</option></select>',
+    '<button class="btn btn-p btn-sm" onclick="var s=document.getElementById('mthMonth');if(s)delete _mthCache[s.value];renderMonthly()">Generate</button>',
+    '<button class="btn btn-s btn-sm" onclick="exportMonthlySummary()">Export XLS</button>',
+    '</div>',
+    '<div style="overflow-x:auto"><table id="mthTable"><thead><tr>',
+    '<th>Staff</th>',
+    '<th>Days Worked</th>',
+    '<th>Total Hours</th>',
+    '<th>On Leave</th>',
+    '<th>Absent</th>',
+    '<th>Late Arrivals<br><small style="font-weight:400;text-transform:none">count / total min</small></th>',
+    '<th>Early Departures<br><small style="font-weight:400;text-transform:none">count / total min</small></th>',
+    '<th>Total Penalty<br><small style="font-weight:400;text-transform:none">combined min</small></th>',
+    '</tr></thead><tbody id="mthBody"></tbody></table></div>',
+    '</div></div>'
+  ].join('');
+}
+
+// Cache per month — fetch only selected month, cache it so staff filter is instant
+var _mthCache={}; // { "2026-03": { logs:[], leaves:[] } }
+
+async function renderMonthly(){
+  var sel=document.getElementById('mthMonth');
+  if(!sel)return;
+  var ym=sel.value; // e.g. "2026-03"
+  var yr=ym.split('-')[0], mo=ym.split('-')[1];
+  var from=yr+'-'+mo+'-01';
+  var lastDay=new Date(+yr,+mo,0).getDate();
+  var to=yr+'-'+mo+'-'+String(lastDay).padStart(2,'0');
+  var today=todayStr();
+  var tb=document.getElementById('mthBody');
+
+  // Only fetch if this month is not cached yet
+  if(!_mthCache[ym]){
+    if(tb) tb.innerHTML='<tr><td colspan="8" class="norec" style="color:var(--ss)">Loading...</td></tr>';
+    var res=await Promise.all([
+      loadAllRecs(from,to),
+      loadApprovedLeaves(from,to)
+    ]);
+    _mthCache[ym]={logs:res[0],leaves:res[1]};
+  }
+
+  var logs=_mthCache[ym].logs;
+  vacationLeaves=_mthCache[ym].leaves;
+  var g=cfg.graceMin!=null?cfg.graceMin:10;
+
+  // Get all working days in the month up to today
+  var workingDays=getWorkingDays(from,to).filter(function(d){return d<=today;});
+  var activeStaff=staffList.filter(function(s){return s.active!==false;}).map(function(s){return s.name;});
+
+  // Build map per staff
+  var map={};
+  activeStaff.forEach(function(name){
+    map[name]={days:0,totalMs:0,lateCount:0,lateMin:0,earlyDepCount:0,earlyDepMin:0,onLeave:0,absent:0};
+  });
+
+  // Fill from clock records
+  logs.forEach(function(r){
+    var name=r.staff_name||'Unknown';
+    if(!map[name])map[name]={days:0,totalMs:0,lateCount:0,lateMin:0,earlyDepCount:0,earlyDepMin:0,onLeave:0,absent:0};
+    var m=map[name];
+    m.days++;
+    if(r.clock_in&&r.clock_out){
+      var ms=new Date(r.clock_out)-new Date(r.clock_in);
+      if(ms>0)m.totalMs+=ms;
+    }
+    var arr=calcArr(r.clock_in);
+    if(arr!==null&&arr<-g){m.lateCount++;m.lateMin+=Math.abs(arr);}
+    var dep=calcDep(r.clock_out);
+    if(dep!==null&&dep<-g){m.earlyDepCount++;m.earlyDepMin+=Math.abs(dep);}
+  });
+
+  // Check each working day per staff for leave/absent
+  workingDays.forEach(function(ds){
+    activeStaff.forEach(function(name){
+      if(!map[name])return;
+      var hasRecord=logs.some(function(r){return r.staff_name===name&&r.date===ds;});
+      if(!hasRecord){
+        if(isOnLeave(name,ds)){
+          map[name].onLeave++;
+        } else {
+          map[name].absent++;
+        }
+      }
+    });
+  });
+
+  var tb=document.getElementById('mthBody');
+  if(!tb)return;
+  var names=Object.keys(map).sort();
+  if(!names.length){tb.innerHTML='<tr><td colspan="8" class="norec">No records for this month.</td></tr>';return;}
+
+  // Store full map for filtering
+  window._mthMap=map;
+  window._mthNames=names;
+
+  // Populate staff dropdown
+  var sf=document.getElementById('mthStaff');
+  if(sf){
+    var cur=sf.value;
+    sf.innerHTML='<option value="">All Staff</option>'+names.map(function(n){
+      return '<option'+(n===cur?' selected':'')+'>'+n+'</option>';
+    }).join('');
+  }
+
+  filterMonthly();
+}
+
+function filterMonthly(){
+  var sf=document.getElementById('mthStaff');
+  var staffFilter=sf?sf.value:'';
+  var map=window._mthMap||{};
+  var names=(window._mthNames||[]).filter(function(n){
+    return !staffFilter||n===staffFilter;
+  });
+  var tb=document.getElementById('mthBody');
+  if(!tb)return;
+  if(!names.length){tb.innerHTML='<tr><td colspan="8" class="norec">No records found.</td></tr>';return;}
+
+  tb.innerHTML=names.map(function(name){
+    var m=map[name];
+    var hrs=Math.floor(m.totalMs/3600000),mins=Math.floor((m.totalMs%3600000)/60000);
+    var totalPen=m.lateMin+m.earlyDepMin;
+    var leaveCell=m.onLeave>0
+      ?'<span style="color:#16a34a;font-weight:600">'+m.onLeave+' day'+(m.onLeave>1?'s':'')+'</span>'
+      :'<span style="color:var(--ss)">0</span>';
+    var absentCell=m.absent>0
+      ?'<span style="color:var(--red);font-weight:600">'+m.absent+' day'+(m.absent>1?'s':'')+'</span>'
+      :'<span style="color:var(--teal)">0</span>';
+    var lateCell=m.lateCount>0
+      ?'<span style="color:var(--red);font-weight:600">'+m.lateCount+'x / '+m.lateMin+' min</span>'
+      :'<span style="color:var(--teal)">None</span>';
+    var depCell=m.earlyDepCount>0
+      ?'<span style="color:var(--red);font-weight:600">'+m.earlyDepCount+'x / '+m.earlyDepMin+' min</span>'
+      :'<span style="color:var(--teal)">None</span>';
+    var penCell=totalPen>0
+      ?'<span style="color:var(--red);font-weight:700">-'+totalPen+' min</span>'
+      :'<span style="color:var(--teal);font-weight:600">0</span>';
+    return '<tr>'+
+      '<td><strong>'+name+'</strong></td>'+
+      '<td>'+m.days+'</td>'+
+      '<td>'+hrs+'h '+mins+'m</td>'+
+      '<td>'+leaveCell+'</td>'+
+      '<td>'+absentCell+'</td>'+
+      '<td>'+lateCell+'</td>'+
+      '<td>'+depCell+'</td>'+
+      '<td>'+penCell+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function exportMonthlySummary(){
+  var sel=document.getElementById('mthMonth');
+  if(!sel)return;
+  var ym=sel.value;
+  var tb=document.getElementById('mthBody');
+  if(!tb||!tb.children.length){toast('Generate the report first.',false);return;}
+
+  var rows=[['Staff','Days Worked','Total Hours','On Leave (days)','Absent (days)','Late Arrivals (count)','Late Arrival Min','Early Departures (count)','Early Departure Min','Total Penalty (min)']];
+  var names=Object.keys(window._mthMap||{}).sort();
+
+  // Re-read from table rows for simplicity
+  var trs=tb.querySelectorAll('tr');
+  trs.forEach(function(tr){
+    var tds=tr.querySelectorAll('td');
+    if(tds.length<6)return;
+    var name=tds[0].textContent.trim();
+    var days=tds[1].textContent.trim();
+    var hours=tds[2].textContent.trim();
+    var leaveRaw=tds[3].textContent.trim();
+    var absentRaw=tds[4].textContent.trim();
+    var lateRaw=tds[5].textContent.trim();
+    var depRaw=tds[6].textContent.trim();
+    var penRaw=tds[7].textContent.trim();
+    var leaveDays=0,absentDays=0,lateCount=0,lateMin=0,depCount=0,depMin=0,pen=0;
+    var lv=leaveRaw.match(/(\d+)/); if(lv)leaveDays=+lv[1];
+    var ab=absentRaw.match(/(\d+)/); if(ab)absentDays=+ab[1];
+    var lm=lateRaw.match(/(\d+)x\s*\/\s*(\d+)/); if(lm){lateCount=+lm[1];lateMin=+lm[2];}
+    var dm=depRaw.match(/(\d+)x\s*\/\s*(\d+)/); if(dm){depCount=+dm[1];depMin=+dm[2];}
+    var pm=penRaw.match(/(\d+)/); if(pm)pen=+pm[1];
+    rows.push([name,days,hours,leaveDays,absentDays,lateCount,lateMin,depCount,depMin,pen]);
+  });
+
+  var xml='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Monthly Summary"><Table>';
+  rows.forEach(function(row){
+    xml+='<Row>'+row.map(function(c){
+      return '<Cell><Data ss:Type="String">'+String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</Data></Cell>';
+    }).join('')+'</Row>';
+  });
+  xml+='</Table></Worksheet></Workbook>';
+  var a=document.createElement('a');
+  a.href='data:application/vnd.ms-excel;charset=utf-8,'+encodeURIComponent(xml);
+  a.download='monthly-summary-'+ym+'.xls';a.click();
+}
+
 function exportCSV(){
   var g=cfg.graceMin!=null?cfg.graceMin:10;
   var staff=(document.getElementById('logStaff')||{}).value||'';
