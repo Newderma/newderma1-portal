@@ -4450,7 +4450,10 @@ function prGetPrevBalance(drName){
   var runningBalance = 0;
   recs.forEach(function(h){
     var ps = prPaymentStatus(h);
-    runningBalance += (h.netOwed - ps.totalPaid);
+    var bal = h.netOwed >= 0
+      ? h.netOwed - ps.totalPaid
+      : h.netOwed + ps.totalPaid;
+    runningBalance += bal;
   });
 
   if(Math.abs(runningBalance) < 0.01) return null; // fully settled
@@ -4460,6 +4463,8 @@ function prGetPrevBalance(drName){
 function prCheckCarryForward(drName){
   var banner = document.getElementById('prCarryForwardBanner');
   if(!banner) return;
+  // Don't show banner when editing an existing saved record
+  if(window._prEditingExisting){ banner.style.display='none'; return; }
   var prev = prGetPrevBalance(drName);
   if(!prev){ banner.style.display='none'; return; }
 
@@ -4501,16 +4506,25 @@ function prApplyCarryForwardAddition(amount){
 
 function prApplyCarryForward(amount){
   var isShared = prCurrentDr && prCurrentDr.type === 'shared';
+  var carryNote = 'Balance carried forward / رصيد مرحّل';
   if(!isShared){
-    document.getElementById('prSpecial').value    = amount;
-    document.getElementById('prSpecialNote').value = 'Balance carried forward / رصيد مرحّل';
+    var existing = parseFloat(document.getElementById('prSpecial').value) || 0;
+    document.getElementById('prSpecial').value = existing + amount;
+    var noteEl = document.getElementById('prSpecialNote');
+    noteEl.value = noteEl.value.trim()
+      ? noteEl.value.trim() + ' + ' + carryNote
+      : carryNote;
   } else {
-    document.getElementById('prSharedSpecial').value    = amount;
-    document.getElementById('prSharedSpecialNote').value = 'Balance carried forward / رصيد مرحّل';
+    var existing2 = parseFloat(document.getElementById('prSharedSpecial').value) || 0;
+    document.getElementById('prSharedSpecial').value = existing2 + amount;
+    var noteEl2 = document.getElementById('prSharedSpecialNote');
+    noteEl2.value = noteEl2.value.trim()
+      ? noteEl2.value.trim() + ' + ' + carryNote
+      : carryNote;
   }
   document.getElementById('prCarryForwardBanner').style.display = 'none';
   prCalc();
-  toast('Carry-forward balance applied as deduction.', true);
+  toast('Carry-forward balance added to deduction.', true);
 }
 
 function populateLedgerDrSel(){
@@ -4548,7 +4562,11 @@ function renderLedger(){
 
   recs.forEach(function(h){
     var ps          = prPaymentStatus(h);
-    var monthBal    = h.netOwed - ps.totalPaid; // positive = we still owe dr, negative = dr owes us
+    // If netOwed is positive: clinic owes doctor, paid reduces what we owe
+    // If netOwed is negative: doctor owes clinic, paid reduces what they owe us
+    var monthBal = h.netOwed >= 0
+      ? h.netOwed - ps.totalPaid      // clinic still owes doctor this much
+      : h.netOwed + ps.totalPaid;     // doctor still owes clinic this much (less payments received)
     runningBalance += monthBal;
 
     var balColor  = runningBalance >= 0 ? '#16a34a' : '#dc2626';
@@ -4637,6 +4655,7 @@ function populatePrDrSel() {
 function prLoadProfile() {
   var name = document.getElementById('prDrSel').value;
   if(!name){ prCurrentDr=null; return; }
+  window._prEditingExisting = false; // reset edit flag on new doctor selection
   prCurrentDr = drProfiles[name] || null;
   if(!prCurrentDr) return;
   var isShared = prCurrentDr.type === 'shared';
@@ -4887,9 +4906,9 @@ function prCalc() {
     rows.push({label:'Net Clinic Income / صافي دخل العيادة',                amount:combined,        deduct:false, sub:true});
 
     // Step 3: split 50/50
-    rows.push({label:'Total for Split / المجموع للقسمة',  amount:combined,  deduct:false, bold:true});
+    rows.push({label:'Total / المجموع',  amount:combined,  deduct:false, bold:true});
     var halfShare = combined / 2;
-    rows.push({label:'Partner 50% Share / نصيب الشريك ٥٠٪', amount:halfShare, deduct:false, bold:true});
+    rows.push({label:'نسبة 50% / 50% Share', amount:halfShare, deduct:false, bold:true});
     total = halfShare;
 
     if(lab)      { rows.push({label:'Lab Fees 50% / أتعاب المعمل ٥٠٪',          amount:lab,      deduct:true}); total -= lab; }
@@ -4967,6 +4986,34 @@ async function prSaveHistory() {
   // Remove duplicate for same dr+month
   payrollHistory = payrollHistory.filter(function(h){ return !(h.doctor===r.doctor && h.month===r.month); });
   payrollHistory.unshift(r);
+
+  // If this month includes a carry-forward deduction, auto-settle previous unpaid months
+  var carryRow = (r.rows||[]).find(function(row){
+    return row.label && row.label.indexOf('Balance carried forward') >= 0 && row.deduct;
+  });
+  if(carryRow){
+    var remaining = carryRow.amount; // total amount being settled
+    // Get previous unpaid months for this doctor, oldest first
+    var prevUnpaid = payrollHistory
+      .filter(function(h){ return h.doctor===r.doctor && h.month < r.month; })
+      .sort(function(a,b){ return a.month.localeCompare(b.month); });
+    prevUnpaid.forEach(function(h){
+      if(remaining <= 0.01) return;
+      var ps = prPaymentStatus(h);
+      var stillOwed = Math.abs(h.netOwed) - ps.totalPaid;
+      if(stillOwed <= 0.01) return;
+      var settle = Math.min(stillOwed, remaining);
+      if(!h.payments) h.payments = [];
+      h.payments.push({
+        date: r.month,
+        amount: settle,
+        method: 'Carry-forward',
+        note: 'Settled via carry-forward deduction in '+r.month
+      });
+      remaining -= settle;
+    });
+  }
+
   try {
     await savePayrollHistory();
     toast('Saved to history!', true);
@@ -4979,8 +5026,13 @@ function prPaymentStatus(h){
   var payments = h.payments || [];
   var totalPaid = payments.reduce(function(s,p){ return s+(parseFloat(p.amount)||0); },0);
   var owed = parseFloat(h.netOwed)||0;
-  var remaining = owed - totalPaid;
-  var status = totalPaid <= 0 ? 'unpaid' : remaining <= 0.01 ? 'paid' : 'partial';
+  // For negative netOwed (doctor owes clinic), remaining = how much doctor still owes
+  // For positive netOwed (clinic owes doctor), remaining = how much clinic still owes
+  var remaining = owed >= 0
+    ? owed - totalPaid
+    : owed + totalPaid; // e.g. -3125 + 3125 = 0 (fully settled)
+  var absOwed = Math.abs(owed);
+  var status = totalPaid <= 0 ? 'unpaid' : Math.abs(remaining) <= 0.01 ? 'paid' : 'partial';
   return { totalPaid:totalPaid, remaining:remaining, status:status };
 }
 
@@ -5281,12 +5333,22 @@ async function prDownloadXls(dr, mon){
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec||!rec.xlsPath){ toast('No file stored for this record.',false); return; }
   try {
-    toast('Getting download link…', true);
+    toast('Downloading…', true);
     var url = await sbStorageDownloadUrl('payroll-files', rec.xlsPath);
+    // Fetch as blob to force correct filename (cross-origin download attribute is ignored by browsers)
+    var resp = await fetch(url);
+    var blob = await resp.blob();
+    var safeDr = dr.replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+    if(!safeDr) safeDr = 'Doctor';
+    var fname = 'Income_'+safeDr+'_'+mon+'.xlsx';
+    var blobUrl = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url;
-    a.download = rec.xlsFileName || rec.xlsPath.split('/').pop();
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    a.href = blobUrl;
+    a.download = fname;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 1000);
+    toast('Downloaded: '+fname, true);
   } catch(e){ toast('Download failed: '+e.message, false); }
 }
 
@@ -5459,6 +5521,13 @@ function prEditHistory(dr, mon){
   }
   // Run calculation to show current values
   prCalc();
+  // Check if this record already has a carry-forward deduction baked in
+  var hasCarryFwd = (rec.rows||[]).some(function(row){
+    return row.deduct && row.label && row.label.indexOf('Balance carried forward') >= 0;
+  });
+  window._prEditingExisting = hasCarryFwd; // only block banner if carry-forward already applied
+  var cfBanner = document.getElementById('prCarryForwardBanner');
+  if(cfBanner && hasCarryFwd) cfBanner.style.display = 'none';
   // Mark that saving will overwrite this record
   window._prLastResult = rec;
   toast('Loaded for editing — adjust and save to history again.', true);
@@ -5592,7 +5661,9 @@ function prOpenPrintWindow(r){
   w.document.write('<tbody>');
   w.document.write(rowsHtml);
   w.document.write('<tr class="total-row">');
-  w.document.write('<td colspan="2"><strong>Net Owed to Doctor</strong> <span style="font-family:Noto Sans Arabic,Arial,sans-serif;font-size:.78rem;color:#475569;font-weight:500">/ المبلغ المستحق للطبيب</span></td>');
+  var netLabelEn = r.netOwed >= 0 ? 'Net Owed to Doctor' : 'Doctor Owes Clinic';
+  var netLabelAr = r.netOwed >= 0 ? 'المبلغ المستحق للطبيب' : 'المبلغ المستحق على الطبيب';
+  w.document.write('<td colspan="2"><strong>'+netLabelEn+'</strong> <span style="font-family:Noto Sans Arabic,Arial,sans-serif;font-size:.78rem;color:#475569;font-weight:500">/ '+netLabelAr+'</span></td>');
   w.document.write('<td class="amt" style="color:'+netColor+'"><strong>SAR&nbsp;'+fmtSAR(r.netOwed)+'</strong></td>');
   w.document.write('</tr></tbody></table>');
 
