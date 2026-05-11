@@ -801,7 +801,7 @@ tr:hover td{background:#f8fafc}
             <div class="fg" style="margin-bottom:.75rem">
               <div>
                 <label>Deductions SAR (materials + expenses)</label>
-                <input type="number" id="prSpDeductions" min="0" step="0.01" placeholder="0" oninput="prCalc()">
+                <input type="number" id="prSpDeductions" min="0" step="0.01" placeholder="0">
               </div>
               <div>
                 <label>Deduction Note (optional)</label>
@@ -5007,36 +5007,7 @@ function prCalc() {
     total += isDeduct ? -amount : amount;
   }
 
-  if(!isShared){
-    var grossInv = prFileData.grossInvoices || 0;
-    var refunds  = prFileData.refunds       || 0;
-    var vat      = prFileData.vat           || 0;
-    var netInc   = prFileData.net           || 0; // = grossInv - refunds - vat (calculated in file reader)
-
-    // Show breakdown as sub-rows (informational)
-    rows.push({label:'Gross Invoices / إجمالي الفواتير',                    amount:grossInv,        deduct:false, sub:true});
-    if(refunds) rows.push({label:'Refunds / المرتجعات',                     amount:refunds,         deduct:true,  sub:true});
-    rows.push({label:'VAT / ضريبة القيمة المضافة',                          amount:vat,             deduct:true,  sub:true});
-
-    // Net income is the starting point for total calculation
-    addRow('Net Income / صافي الدخل',                                        netInc,                 false);
-    if(tabbyFee) addRow('Tabby/Tamara Deduction / خصم تابي وتمارا',         tabbyFee,               true);
-
-    var rent      = parseFloat(document.getElementById('prRent').value)        || 0;
-    var salary    = parseFloat(document.getElementById('prSalary').value)      || 0;
-    var gosi      = parseFloat(document.getElementById('prGosi').value)        || 0;
-    var special   = parseFloat(document.getElementById('prSpecial').value)     || 0;
-    var specNote  = document.getElementById('prSpecialNote').value.trim();
-    var addition  = parseFloat(document.getElementById('prAddition').value)    || 0;
-    var addNote   = document.getElementById('prAdditionNote').value.trim();
-
-    if(rent)     addRow('Room Rent / الإيجار',                                 rent,     true);
-    if(salary)   addRow('Salary / الراتب المدفوع',                              salary,   true);
-    if(gosi)     addRow('GOSI / التأمينات الاجتماعية',                        gosi,     true);
-    if(special)  addRow((specNote ? specNote+' / خصم' : 'Special Deduction / خصم خاص'), special, true);
-    if(addition) addRow((addNote  ? addNote +' / إضافة' : 'Addition / إضافة مستحقة'),   addition, false);
-
-  } else if(prCurrentDr.type === 'salary_perf'){
+  if(prCurrentDr.type === 'salary_perf'){
     var grossInvSP = prFileData.grossInvoices || 0;
     var refundsSP  = prFileData.refunds       || 0;
     var vatSP      = prFileData.vat           || 0;
@@ -5050,31 +5021,35 @@ function prCalc() {
     var addition    = parseFloat(document.getElementById('prSpAddition').value)  || 0;
     var addNote     = document.getElementById('prSpAdditionNote').value.trim();
 
-    // Revenue breakdown (informational)
+    // Revenue breakdown (informational only — does not affect total)
     rows.push({label:'Gross Invoices / إجمالي الفواتير', amount:grossInvSP, deduct:false, sub:true});
     if(refundsSP) rows.push({label:'Refunds / المرتجعات', amount:refundsSP, deduct:true, sub:true});
     rows.push({label:'VAT / ضريبة القيمة المضافة', amount:vatSP, deduct:true, sub:true});
-    if(tabbyFee) rows.push({label:'Tabby/Tamara Deduction / خصم تابي وتمارا', amount:tabbyFee, deduct:true, sub:true});
+    // Note: Tabby NOT deducted for salary_perf type
     rows.push({label:'Net Revenue / صافي الإيراد', amount:netIncSP, deduct:false, sub:true});
 
-    // Fixed salary (always paid)
-    addRow('Fixed Salary / الراتب الثابت', baseSalary, false);
+    // Step 1: Net after deductions (informational)
+    var netAfterDeduct = netIncSP - deductions;
+    rows.push({label:'− '+deductNote+' / الخصومات', amount:deductions, deduct:false, sub:true});
+    rows.push({label:'Net after Deductions / الصافي بعد الخصم', amount:netAfterDeduct, deduct:false, sub:true});
 
-    // Performance bonus
+    // Step 2: Performance bonus on net after deductions
     var perfBonus = 0;
-    if(netIncSP > threshold){
-      perfBonus = (netIncSP - threshold) * (perfPct / 100);
-      rows.push({label:'Revenue above SAR '+fmtSAR(threshold)+' / الإيراد فوق '+fmtSAR(threshold), amount:netIncSP-threshold, deduct:false, sub:true});
-      addRow('Performance Bonus '+perfPct+'% / نسبة الأداء '+perfPct+'%', perfBonus, false);
+    if(netAfterDeduct > threshold){
+      perfBonus = (netAfterDeduct - threshold) * (perfPct / 100);
+      rows.push({label:'Above threshold SAR '+fmtSAR(threshold)+' → SAR '+fmtSAR(netAfterDeduct-threshold)+' × '+perfPct+'%', amount:perfBonus, deduct:false, sub:true});
     } else {
-      rows.push({label:'Revenue SAR '+fmtSAR(netIncSP)+' — below threshold SAR '+fmtSAR(threshold)+' / الإيراد دون الحد', amount:0, deduct:false, sub:true});
+      rows.push({label:'Net SAR '+fmtSAR(netAfterDeduct)+' below threshold SAR '+fmtSAR(threshold), amount:0, deduct:false, sub:true});
     }
 
-    // Deductions
-    if(deductions) addRow(deductNote, deductions, true);
-    if(addition)   addRow(addNote || 'Addition / إضافة', addition, false);
+    // Step 3: Build payout = Fixed Salary + Bonus only
+    // Reset total and build cleanly
+    total = 0;
+    addRow('Fixed Salary / الراتب الثابت', baseSalary, false);
+    if(perfBonus > 0) addRow('Performance Bonus '+perfPct+'% / نسبة الأداء '+perfPct+'%', perfBonus, false);
+    if(addition) addRow(addNote || 'Addition / إضافة', addition, false);
 
-  } else {
+  } else if(isShared){
     var external   = parseFloat(document.getElementById('prExternal').value)        || 0;
     var salary2    = parseFloat(document.getElementById('prSharedSalary').value)    || 0;
     var lab        = parseFloat(document.getElementById('prLab').value)             || 0;
@@ -5112,6 +5087,34 @@ function prCalc() {
     if(salary2)  { rows.push({label:'Salary / الراتب المدفوع',                   amount:salary2,  deduct:true}); total -= salary2; }
     if(special2) { rows.push({label:(specNote2 ? specNote2+' / خصم' : 'Special Deduction / خصم خاص'), amount:special2, deduct:true}); total -= special2; }
     if(addition2){ rows.push({label:(addNote2  ? addNote2+' / إضافة' : 'Addition / إضافة مستحقة'),    amount:addition2, deduct:false}); total += addition2; }
+
+  } else {
+    // Renting type
+    var grossInv = prFileData.grossInvoices || 0;
+    var refunds  = prFileData.refunds       || 0;
+    var vat      = prFileData.vat           || 0;
+    var netInc   = prFileData.net           || 0;
+
+    rows.push({label:'Gross Invoices / إجمالي الفواتير', amount:grossInv, deduct:false, sub:true});
+    if(refunds) rows.push({label:'Refunds / المرتجعات', amount:refunds, deduct:true, sub:true});
+    rows.push({label:'VAT / ضريبة القيمة المضافة', amount:vat, deduct:true, sub:true});
+
+    addRow('Net Income / صافي الدخل', netInc, false);
+    if(tabbyFee) addRow('Tabby/Tamara Deduction / خصم تابي وتمارا', tabbyFee, true);
+
+    var rent     = parseFloat(document.getElementById('prRent').value)     || 0;
+    var salary   = parseFloat(document.getElementById('prSalary').value)   || 0;
+    var gosi     = parseFloat(document.getElementById('prGosi').value)     || 0;
+    var special  = parseFloat(document.getElementById('prSpecial').value)  || 0;
+    var specNote = document.getElementById('prSpecialNote').value.trim();
+    var addition = parseFloat(document.getElementById('prAddition').value) || 0;
+    var addNote  = document.getElementById('prAdditionNote').value.trim();
+
+    if(rent)     addRow('Room Rent / الإيجار', rent, true);
+    if(salary)   addRow('Salary / الراتب المدفوع', salary, true);
+    if(gosi)     addRow('GOSI / التأمينات الاجتماعية', gosi, true);
+    if(special)  addRow((specNote ? specNote+' / خصم' : 'Special Deduction / خصم خاص'), special, true);
+    if(addition) addRow((addNote  ? addNote+' / إضافة' : 'Addition / إضافة مستحقة'), addition, false);
   }
 
   // Build result HTML
