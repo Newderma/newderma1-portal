@@ -399,6 +399,24 @@ tr:hover td{background:#f8fafc}
 .mbtt .mbtt-box{visibility:hidden;opacity:0;background:#1e293b;color:#fff;font-size:.72rem;border-radius:8px;padding:.5rem .75rem;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:200px;line-height:1.5;text-align:center;z-index:9999;transition:opacity .2s;pointer-events:none;font-weight:400}
 .mbtt:hover .mbtt-box,.mbtt:focus .mbtt-box,.mbtt.open .mbtt-box{visibility:visible;opacity:1}
 .mbtt .mbtt-box::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1e293b}
+
+/* Vacation multi-day calendar */
+.vac-cal-wrap{margin:.8rem 0}
+.vac-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+.vac-cal-header button{background:none;border:1.5px solid var(--border);border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;color:var(--td)}
+.vac-cal-header button:hover{background:var(--tbg)}
+.vac-cal-title{font-weight:700;font-size:.9rem;color:var(--td)}
+.vac-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.vac-cal-day-name{text-align:center;font-size:.68rem;font-weight:700;color:var(--ss);padding:.2rem 0}
+.vac-cal-day{text-align:center;padding:.4rem .2rem;border-radius:6px;cursor:pointer;font-size:.82rem;color:var(--td);border:1.5px solid transparent;transition:all .15s;user-select:none}
+.vac-cal-day:hover{background:var(--tbg);border-color:var(--border)}
+.vac-cal-day.selected{background:#dcfce7;border-color:#6abf4b;color:#166534;font-weight:700}
+.vac-cal-day.empty{cursor:default}
+.vac-cal-day.today{border-color:#94a3b8}
+.vac-cal-day.past{opacity:.4;cursor:not-allowed}
+.vac-selected-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem;min-height:24px}
+.vac-chip{background:#dcfce7;border:1px solid #6abf4b;border-radius:99px;font-size:.72rem;padding:.2rem .55rem;color:#166534;display:flex;align-items:center;gap:.3rem}
+.vac-chip button{background:none;border:none;cursor:pointer;color:#166534;font-size:.8rem;padding:0;line-height:1}
 </style>
   <!-- EmailJS — dormant until service/template IDs configured in Manage -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -998,8 +1016,32 @@ tr:hover td{background:#f8fafc}
           <div class="vfg">
             <div><label>Employee · الموظف</label><select id="vacEmp"><option value="">— Select —</option></select></div>
             <div><label>Request Date · تاريخ الطلب</label><input type="date" id="vacReq"></div>
-            <div><label>From · من</label><input type="date" id="vacFrom" oninput="calcVacDays()"></div>
-            <div><label>To · إلى</label><input type="date" id="vacTo" oninput="calcVacDays()"></div>
+            <!-- Date mode toggle -->
+            <div class="ff" style="margin-bottom:0">
+              <label>Leave Dates · أيام الإجازة</label>
+              <div style="display:flex;gap:.5rem;margin-top:.4rem">
+                <button type="button" id="vacModeConsec" class="btn bp" style="font-size:.78rem;padding:.35rem .85rem" onclick="setVacMode('consec')">📅 Consecutive Days</button>
+                <button type="button" id="vacModeMulti" class="btn bs" style="font-size:.78rem;padding:.35rem .85rem" onclick="setVacMode('multi')">🗓️ Select Specific Days</button>
+              </div>
+            </div>
+            <!-- Consecutive mode -->
+            <div id="vacConsecFields">
+              <div><label>From · من</label><input type="date" id="vacFrom" oninput="calcVacDays()"></div>
+              <div><label>To · إلى</label><input type="date" id="vacTo" oninput="calcVacDays()"></div>
+            </div>
+            <!-- Multi-day calendar mode -->
+            <div id="vacMultiFields" style="display:none" class="ff">
+              <div class="vac-cal-wrap">
+                <div class="vac-cal-header">
+                  <button type="button" onclick="vacCalPrev()">‹</button>
+                  <span class="vac-cal-title" id="vacCalTitle"></span>
+                  <button type="button" onclick="vacCalNext()">›</button>
+                </div>
+                <div class="vac-cal-grid" id="vacCalGrid"></div>
+                <div style="font-size:.75rem;color:var(--ss);margin-top:.4rem">Tap days to select/deselect · اضغط للتحديد أو الإلغاء</div>
+                <div class="vac-selected-chips" id="vacSelectedChips"></div>
+              </div>
+            </div>
             <div><label>Duration · المدة</label><div id="vacDisp" style="padding:.6rem .85rem;background:var(--tbg);border-radius:var(--rs);font-weight:700;color:var(--td)">— days</div></div>
             <div><label>Type · النوع</label><select id="vacType" onchange="toggleSickFields()"><option value="Annual Leave">Annual Leave · إجازة سنوية</option><option value="Sick Leave">Sick Leave · إجازة مرضية</option><option value="Emergency Leave">Emergency Leave · إجازة طارئة</option><option value="Unpaid Leave">Unpaid Leave · إجازة بدون راتب</option><option value="Maternity Leave">Maternity Leave · إجازة أمومة</option><option value="Other">Other · أخرى</option></select></div>
             <div><label>ID Number · رقم الهوية <span style="color:var(--red)">*</span></label><input type="text" id="vacIdNumber" placeholder="10-digit ID" inputmode="numeric" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)"></div>
@@ -1771,12 +1813,15 @@ function normRec(r){
   };
 }
 function normVac(r){
+  var selDates=null;
+  try{ if(r.selected_dates) selDates=JSON.parse(r.selected_dates); }catch(e){}
   return {
     id: r.id, employee: r.employee, from: r.from_date, to: r.to_date,
     days: r.days, type: r.type, note: r.note||'', reqDate: r.req_date,
     status: r.status, rejectReason: r.reject_reason||'', decidedAt: r.decided_at||'',
     signature: r.signature||'', attachmentUrl: r.attachment_url||'', attachmentName: r.attachment_name||'',
-    contact: r.contact||'', nameConfirm: r.name_confirm||'', idNumber: r.id_number||''
+    contact: r.contact||'', nameConfirm: r.name_confirm||'', idNumber: r.id_number||'',
+    selectedDates: selDates
   };
 }
 
@@ -1910,6 +1955,19 @@ function showPage(id,btn){
   if(id==='utilization') { renderUtilization(); }
   if(id==='vacation'){
     populateVacEmp();
+    // Re-apply staff lock every time vacation tab opens
+    if(!isGM() && CU && CU.empName){
+      var ve=document.getElementById('vacEmp');
+      if(ve){
+        ve.innerHTML='<option value="'+CU.empName+'">'+CU.empName+'</option>';
+        ve.value=CU.empName;
+        ve.disabled=true;
+        ve.style.background='var(--tbg)';
+        ve.style.color='var(--td)';
+        ve.style.fontWeight='600';
+      }
+    }
+    if(vacMode==='multi') renderVacCal();
     showVTab(isGM()?'pending':'submit',document.querySelector('.vtab'));
     renderBalances(); renderStaffBalCard(); checkVacStatusAlerts();
     if(isGM()){
@@ -3069,10 +3127,110 @@ function showVTab(id,btn){
   }
   if(id==='history')  { populateVacFilter(); renderVacH(); }
 }
+// ══════════════════════════════════════════
+//  VACATION MULTI-DAY CALENDAR
+// ══════════════════════════════════════════
+var vacMode = 'consec'; // 'consec' or 'multi'
+var vacSelectedDays = []; // array of 'YYYY-MM-DD' strings
+var vacCalYear = new Date().getFullYear();
+var vacCalMonth = new Date().getMonth();
+
+function setVacMode(mode){
+  vacMode = mode;
+  document.getElementById('vacConsecFields').style.display = mode==='consec' ? '' : 'none';
+  document.getElementById('vacMultiFields').style.display  = mode==='multi'  ? '' : 'none';
+  document.getElementById('vacModeConsec').className = mode==='consec' ? 'btn bp' : 'btn bs';
+  document.getElementById('vacModeMulti').className  = mode==='multi'  ? 'btn bp' : 'btn bs';
+  document.getElementById('vacModeConsec').style.fontSize = '.78rem';
+  document.getElementById('vacModeConsec').style.padding = '.35rem .85rem';
+  document.getElementById('vacModeMulti').style.fontSize = '.78rem';
+  document.getElementById('vacModeMulti').style.padding = '.35rem .85rem';
+  if(mode==='multi'){ vacCalYear=new Date().getFullYear(); vacCalMonth=new Date().getMonth(); renderVacCal(); }
+  updateVacDisp();
+}
+
+function vacCalPrev(){
+  vacCalMonth--;
+  if(vacCalMonth<0){vacCalMonth=11;vacCalYear--;}
+  renderVacCal();
+}
+function vacCalNext(){
+  vacCalMonth++;
+  if(vacCalMonth>11){vacCalMonth=0;vacCalYear++;}
+  renderVacCal();
+}
+
+function renderVacCal(){
+  var title=document.getElementById('vacCalTitle');
+  var grid=document.getElementById('vacCalGrid');
+  if(!title||!grid) return;
+  var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  title.textContent=months[vacCalMonth]+' '+vacCalYear;
+
+  var dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var html=dayNames.map(function(d){return '<div class="vac-cal-day-name">'+d+'</div>';}).join('');
+
+  var firstDay=new Date(vacCalYear,vacCalMonth,1).getDay();
+  var daysInMonth=new Date(vacCalYear,vacCalMonth+1,0).getDate();
+  var today=new Date(); today.setHours(0,0,0,0);
+
+  // Empty cells before first day
+  for(var i=0;i<firstDay;i++) html+='<div class="vac-cal-day empty"></div>';
+
+  for(var d=1;d<=daysInMonth;d++){
+    var dateStr=vacCalYear+'-'+(String(vacCalMonth+1).padStart(2,'0'))+'-'+(String(d).padStart(2,'0'));
+    var thisDate=new Date(vacCalYear,vacCalMonth,d);
+    var isPast=thisDate<today;
+    var isToday=thisDate.getTime()===today.getTime();
+    var isSel=vacSelectedDays.indexOf(dateStr)>=0;
+    var cls='vac-cal-day'+(isSel?' selected':'')+(isToday?' today':'')+(isPast?' past':'');
+    html+='<div class="'+cls+'" data-vdate="'+dateStr+'" data-past="'+isPast+'" onclick="toggleVacDayEl(this)">'+d+'</div>';
+  }
+  grid.innerHTML=html;
+  renderVacChips();
+}
+
+function toggleVacDayEl(el){
+  toggleVacDay(el.dataset.vdate, el.dataset.past==='true');
+}
+function toggleVacDay(dateStr, isPast){
+  if(isPast) return;
+  var idx=vacSelectedDays.indexOf(dateStr);
+  if(idx>=0) vacSelectedDays.splice(idx,1);
+  else vacSelectedDays.push(dateStr);
+  vacSelectedDays.sort();
+  renderVacCal();
+  updateVacDisp();
+}
+
+function removeVacDay(dateStr){
+  var idx=vacSelectedDays.indexOf(dateStr);
+  if(idx>=0) vacSelectedDays.splice(idx,1);
+  renderVacCal();
+  updateVacDisp();
+}
+
+function renderVacChips(){
+  var el=document.getElementById('vacSelectedChips'); if(!el) return;
+  if(!vacSelectedDays.length){el.innerHTML='<span style="font-size:.75rem;color:var(--ss)">No days selected yet</span>';return;}
+  el.innerHTML=vacSelectedDays.map(function(d){
+    return '<div class="vac-chip">'+fmtD(d)+'<button type="button" data-rday="'+d+'" onclick="removeVacDay(this.dataset.rday)">✕</button></div>';
+  }).join('');
+}
+
+function updateVacDisp(){
+  var count=0;
+  if(vacMode==='consec'){
+    var f=document.getElementById('vacFrom').value, t=document.getElementById('vacTo').value;
+    if(f&&t){ count=Math.round((new Date(t)-new Date(f))/86400000)+1; if(count<0)count=0; }
+  } else {
+    count=vacSelectedDays.length;
+  }
+  document.getElementById('vacDisp').textContent=count>0?count+' day'+(count>1?'s':''):'— days';
+}
+
 function calcVacDays(){
-  var f=document.getElementById('vacFrom').value,t=document.getElementById('vacTo').value;
-  if(f&&t){ var d=Math.round((new Date(t)-new Date(f))/86400000)+1; document.getElementById('vacDisp').textContent=d>0?d+' day'+(d>1?'s':''):'Invalid'; }
-  else document.getElementById('vacDisp').textContent='— days';
+  updateVacDisp();
 }
 // ══════════════════════════════════════════
 //  SIGNATURE PAD
@@ -3203,22 +3361,32 @@ function clearAttachment(){
 
 async function submitVac(){
   var emp=document.getElementById('vacEmp').value;
-  var from=document.getElementById('vacFrom').value;
-  var to=document.getElementById('vacTo').value;
   var type=document.getElementById('vacType').value;
   var req=document.getElementById('vacReq').value;
-  // name is now handwritten canvas
   var contact=document.getElementById('vacContact').value.trim();
   var idNumber=document.getElementById('vacIdNumber').value.trim();
-  if(!emp||!from||!to||!req){   toast('Please fill in employee, dates and request date.',false); return; }
+  var from='', to='', days=0;
+
+  if(vacMode==='consec'){
+    from=document.getElementById('vacFrom').value;
+    to=document.getElementById('vacTo').value;
+    if(!emp||!from||!to||!req){ toast('Please fill in employee, dates and request date.',false); return; }
+    days=Math.round((new Date(to)-new Date(from))/86400000)+1;
+    if(days<=0){ toast('End date must be after start date.',false); return; }
+  } else {
+    if(!vacSelectedDays.length){ toast('Please select at least one day.',false); return; }
+    if(!emp||!req){ toast('Please fill in employee and request date.',false); return; }
+    days=vacSelectedDays.length;
+    from=vacSelectedDays[0];
+    to=vacSelectedDays[vacSelectedDays.length-1];
+  }
+
   if(!idNumber||idNumber.length!==10){ toast('ID number must be exactly 10 digits.',false); return; }
   if(!contact){                  toast('Contact number during leave is required.',false); return; }
   if(!nameHasContent()){         toast('Please write your name in the name field.',false); return; }
   if(!sigHasContent()){          toast('Please sign the request before submitting.',false); return; }
   if(!document.getElementById('vacConfirmCheck').checked){ toast('Please check the confirmation box before submitting. · يرجى تأكيد الطلب قبل الإرسال.',false); return; }
-  var days=Math.round((new Date(to)-new Date(from))/86400000)+1;
-  if(days<=0){ toast('End date must be after start date.',false); return; }
-  if(type==='Maternity Leave'&&days>70){ toast('Maternity Leave is limited to 70 paid days. Please adjust dates.',false); return; }
+  if(type==='Maternity Leave'&&days>70){ toast('Maternity Leave is limited to 70 paid days.',false); return; }
   if(type==='Annual Leave'){
     var b=calcBalance(emp);
     if(b.available < days){ toast(emp+' only has '+b.available+' days available.',false); return; }
@@ -3226,8 +3394,8 @@ async function submitVac(){
   // Show confirmation modal
   document.getElementById('vacConfEmp').textContent=emp;
   document.getElementById('vacConfType').textContent=type;
-  document.getElementById('vacConfFrom').textContent=fmtD(from);
-  document.getElementById('vacConfTo').textContent=fmtD(to);
+  document.getElementById('vacConfFrom').textContent=vacMode==='multi'?vacSelectedDays.map(fmtD).join(', '):fmtD(from);
+  document.getElementById('vacConfTo').textContent=vacMode==='consec'?fmtD(to):'';
   document.getElementById('vacConfDays').textContent=days+' day'+(days>1?'s':'');
   document.getElementById('vacConfirmModal').classList.remove('hidden');
 }
@@ -3235,11 +3403,19 @@ async function submitVac(){
 async function doSubmitVac(){
   document.getElementById('vacConfirmModal').classList.add('hidden');
   var emp=document.getElementById('vacEmp').value;
-  var from=document.getElementById('vacFrom').value;
-  var to=document.getElementById('vacTo').value;
   var type=document.getElementById('vacType').value;
   var req=document.getElementById('vacReq').value;
-  var days=Math.round((new Date(to)-new Date(from))/86400000)+1;
+  var from='', to='', days=0, selectedDates=null;
+  if(vacMode==='multi'){
+    selectedDates=vacSelectedDays.slice();
+    days=selectedDates.length;
+    from=selectedDates[0];
+    to=selectedDates[selectedDates.length-1];
+  } else {
+    from=document.getElementById('vacFrom').value;
+    to=document.getElementById('vacTo').value;
+    days=Math.round((new Date(to)-new Date(from))/86400000)+1;
+  }
   var sigData = document.getElementById('sigCanvas').toDataURL('image/png');
   setSyncDot('syncing');
   var btnSubmit = document.querySelector('#vs-submit .bp');
@@ -3263,7 +3439,8 @@ async function doSubmitVac(){
       signature:sigData, attachment_url:attachUrl, attachment_name:attachName,
       contact:document.getElementById('vacContact').value.trim(),
       name_confirm:document.getElementById('nameCanvas').toDataURL('image/png'),
-      id_number:document.getElementById('vacIdNumber').value.trim()};
+      id_number:document.getElementById('vacIdNumber').value.trim(),
+      selected_dates:selectedDates?JSON.stringify(selectedDates):null};
     await sbUpsert('ct_vacation',[vr]);
     vacReqs.unshift(normVac(vr));
     setSyncDot('on');
@@ -3294,7 +3471,13 @@ async function doSubmitVac(){
   finally{ if(btnSubmit){ btnSubmit.disabled=false; btnSubmit.innerHTML='Submit Request'; } }
 }
 function clearVac(){
-  ['vacEmp','vacFrom','vacTo','vacNote','vacContact','vacIdNumber'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  // Clear all fields except vacEmp for non-GM staff
+  ['vacFrom','vacTo','vacNote','vacContact','vacIdNumber'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  if(isGM()){ var ve=document.getElementById('vacEmp'); if(ve)ve.value=''; }
+  vacSelectedDays=[];
+  vacMode='consec';
+  setVacMode('consec');
+  updateVacDisp();
   var chk=document.getElementById('vacConfirmCheck');if(chk)chk.checked=false;
   clearNamePad();;
   document.getElementById('vacType').value='Annual Leave';
@@ -3310,7 +3493,10 @@ function renderPending(){
   var html='';
   pend.forEach(function(r){
     html+='<div class="reqcard"><div><div class="reqn">'+r.employee+'</div>';
-    html+='<div class="reqd">'+fmtD(r.from)+' to '+fmtD(r.to)+' | '+r.type+'</div>';
+    var dateDisplay = r.selectedDates && r.selectedDates.length
+      ? r.selectedDates.map(fmtD).join(', ')
+      : fmtD(r.from)+' → '+fmtD(r.to);
+    html+='<div class="reqd">'+dateDisplay+' | '+r.type+'</div>';
     html+='<div class="reqs">'+r.days+' day'+(r.days>1?'s':'')+' | Submitted: '+fmtD(r.reqDate)+'</div>';
     if(r.note)html+='<div class="reqnote">"'+r.note+'"</div>';
     // Signature
@@ -3377,8 +3563,9 @@ function generateVacPDF(id){
     '<table class="table">'+
       '<tr><td>اسم الموظف | Employee</td><td>'+r.employee+'</td></tr>'+
       '<tr><td>نوع الإجازة | Leave Type</td><td>'+typeAr+' &nbsp;|&nbsp; '+r.type+'</td></tr>'+
-      '<tr><td>من | From</td><td>'+fmtD(r.from)+'</td></tr>'+
-      '<tr><td>إلى | To</td><td>'+fmtD(r.to)+'</td></tr>'+
+      (r.selectedDates&&r.selectedDates.length
+        ?'<tr><td>أيام الإجازة | Leave Days</td><td>'+r.selectedDates.map(fmtD).join('<br>')+'</td></tr>'
+        :'<tr><td>من | From</td><td>'+fmtD(r.from)+'</td></tr><tr><td>إلى | To</td><td>'+fmtD(r.to)+'</td></tr>')+
       '<tr><td>عدد الأيام | Days</td><td><strong style="font-size:16px">'+r.days+' يوم | Days</strong></td></tr>'+
       '<tr><td>تاريخ الطلب | Request Date</td><td>'+fmtD(r.reqDate)+'</td></tr>'+
       (r.contact?'<tr><td>رقم التواصل | Contact</td><td>'+r.contact+'</td></tr>':'')+
@@ -3491,8 +3678,8 @@ function renderVacH(){
     tr.innerHTML=
       '<td>'+esc(r.employee)+'</td>'+
       '<td>'+esc(r.type)+'</td>'+
-      '<td>'+fmtD(r.from)+'</td>'+
-      '<td>'+fmtD(r.to)+'</td>'+
+      '<td>'+(r.selectedDates&&r.selectedDates.length?r.selectedDates.map(fmtD).join(', '):fmtD(r.from))+'</td>'+
+      '<td>'+(r.selectedDates&&r.selectedDates.length?'—':fmtD(r.to))+'</td>'+
       '<td style="text-align:center">'+r.days+'</td>'+
       '<td>'+statusCell(r)+'</td>'+
       '<td style="font-size:.78rem;color:var(--ss)">'+fmtD(r.reqDate)+(r.contact?'<br><span style="color:var(--sm)">📞 '+esc(r.contact)+'</span>':'')+'</td>'+
