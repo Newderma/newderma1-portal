@@ -3180,10 +3180,10 @@ function renderVacCal(){
   for(var d=1;d<=daysInMonth;d++){
     var dateStr=vacCalYear+'-'+(String(vacCalMonth+1).padStart(2,'0'))+'-'+(String(d).padStart(2,'0'));
     var thisDate=new Date(vacCalYear,vacCalMonth,d);
-    var isPast=thisDate<today;
+    var isPast=false; // Allow all days including past
     var isToday=thisDate.getTime()===today.getTime();
     var isSel=vacSelectedDays.indexOf(dateStr)>=0;
-    var cls='vac-cal-day'+(isSel?' selected':'')+(isToday?' today':'')+(isPast?' past':'');
+    var cls='vac-cal-day'+(isSel?' selected':'')+(isToday?' today':'');
     html+='<div class="'+cls+'" data-vdate="'+dateStr+'" data-past="'+isPast+'" onclick="toggleVacDayEl(this)">'+d+'</div>';
   }
   grid.innerHTML=html;
