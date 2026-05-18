@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Clinic Bank Reconciliation | مطابقة كشف الحساب</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#f4f6f9;
+  --surface:#ffffff;
+  --surface2:#f8fafc;
+  --border:#e2e8f0;
+  --border2:#cbd5e1;
+  --text:#0f172a;
+  --text2:#475569;
+  --text3:#94a3b8;
+  --accent:#1d4ed8;
+  --accent-light:#eff6ff;
+  --accent-border:#bfdbfe;
+  --green:#15803d;
+  --green-light:#f0fdf4;
+  --green-border:#bbf7d0;
+  --red:#dc2626;
+  --red-light:#fef2f2;
+  --red-border:#fecaca;
+  --orange:#c2410c;
+  --orange-light:#fff7ed;
+  --orange-border:#fed7aa;
+  --yellow:#a16207;
+  --yellow-light:#fefce8;
+  --yellow-border:#fef08a;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.05);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.05);
+  --radius:10px;
+  --radius-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif;min-height:100vh;font-size:14px;line-height:1.5;}
+[dir=rtl] body{font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;}
+button{cursor:pointer;font-family:inherit;transition:all .15s;}
+button:disabled{cursor:not-allowed;opacity:.5;}
+input[type=file]{display:none;}
+
+/* Header */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;height:60px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.header-logo{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.header-logo svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;}
+.header-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
+.header-sub{font-size:11px;color:var(--text3);margin-top:1px;letter-spacing:.02em;}
+.lang-btn{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;border:1.5px solid var(--border);color:var(--text2);background:var(--surface);letter-spacing:.04em;}
+.lang-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.badges-wrap{margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap;}
+
+/* Main layout */
+.main{padding:24px 32px;max-width:1440px;margin:0 auto;}
+
+/* Upload cards */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.upload-card{display:block;cursor:pointer;text-decoration:none;}
+.upload-inner{background:var(--surface);border:2px dashed var(--border2);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:14px;transition:all .2s;}
+.upload-inner:hover{border-color:var(--accent);background:var(--accent-light);}
+.upload-inner.loaded{border:2px solid var(--green);background:var(--green-light);}
+.upload-icon{width:40px;height:40px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
+.upload-inner.loaded .upload-icon{background:var(--green-border);}
+.upload-label{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--text2);text-transform:uppercase;}
+.upload-inner.loaded .upload-label{color:var(--green);}
+.upload-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.upload-inner.loaded .upload-sub{color:var(--green);}
+
+/* Run button */
+.run-btn{width:100%;padding:12px;background:var(--accent);border:none;border-radius:var(--radius);color:#fff;font-size:13px;font-weight:700;letter-spacing:.08em;margin-bottom:16px;box-shadow:var(--shadow);}
+.run-btn:hover:not(:disabled){background:#1e40af;}
+.run-btn:disabled{background:var(--border);color:var(--text3);}
+
+/* Error */
+.error-box{background:var(--red-light);border:1px solid var(--red-border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--red);margin-bottom:12px;font-size:13px;}
+
+/* Info panel */
+.info-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 18px;margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap;align-items:center;}
+.info-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg);padding:4px 10px;border-radius:20px;border:1px solid var(--border);}
+.info-chip.warn{background:var(--red-light);border-color:var(--red-border);color:var(--red);}
+
+/* Alert box */
+.alert-match{background:var(--green-light);border:1px solid var(--green-border);border-radius:var(--radius);padding:14px 18px;margin-bottom:14px;text-align:center;color:var(--green);font-weight:600;font-size:14px;}
+.alert-issues{background:var(--red-light);border:1px solid var(--red-border);border-radius:var(--radius);padding:14px 18px;margin-bottom:14px;}
+.alert-issues-title{font-size:12px;font-weight:700;color:var(--red);margin-bottom:10px;letter-spacing:.04em;}
+.alert-issues-list{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;}
+.alert-issue-row{display:flex;gap:10px;font-size:11px;align-items:baseline;}
+
+/* Filters */
+.filters{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+.filter-btn{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;border:1.5px solid var(--border);color:var(--text2);background:var(--surface);}
+.filter-btn:hover{border-color:var(--accent);color:var(--accent);}
+.filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.filter-btn.cat.active{background:var(--text);border-color:var(--text);color:#fff;}
+.filter-sep{width:1px;height:20px;background:var(--border);align-self:center;margin:0 2px;}
+.row-count{margin-inline-start:auto;font-size:11px;color:var(--text3);}
+
+/* Table */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead tr{background:var(--surface2);border-bottom:2px solid var(--border);}
+th{padding:10px 14px;text-align:start;font-size:10.5px;font-weight:700;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
+th.num{text-align:end;}
+td.num{text-align:end;}
+td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle;text-align:start;}
+tr.data-row:last-child td{border-bottom:none;}
+tr.data-row:hover td{background:#f8fafc;}
+
+/* Status badges */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+.badge-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.badge-match{background:var(--green-light);color:var(--green);}
+.badge-match .badge-dot{background:var(--green);}
+.badge-miss-sys{background:var(--red-light);color:var(--red);}
+.badge-miss-sys .badge-dot{background:var(--red);}
+.badge-miss-bank{background:var(--orange-light);color:var(--orange);}
+.badge-miss-bank .badge-dot{background:var(--orange);}
+.badge-mismatch{background:var(--yellow-light);color:var(--yellow);}
+.badge-mismatch .badge-dot{background:#ca8a04;}
+
+/* Row highlight */
+tr.row-miss-sys td{background:#fff8f8;}
+tr.row-miss-bank td{background:#fff9f5;}
+tr.row-mismatch td{background:#fffef0;}
+
+/* Expand row */
+.expand-row td{background:var(--accent-light);border-bottom:1px solid var(--accent-border);padding:14px 20px;}
+.expand-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:12px;}
+.expand-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+.expand-val{color:var(--text);word-break:break-all;line-height:1.7;font-family:'IBM Plex Mono',monospace;font-size:11px;}
+.expand-note{grid-column:1/-1;background:var(--yellow-light);border:1px solid var(--yellow-border);border-radius:6px;padding:10px 14px;}
+.expand-note .expand-label{color:var(--yellow);}
+.expand-note .expand-val{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--yellow);}
+
+/* Ref cell */
+.ref-cell{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* Diff cell */
+.diff-neg{color:var(--red);font-weight:600;}
+.diff-pos{color:var(--green);font-weight:600;}
+.diff-zero{color:var(--text3);}
+
+/* Summary badges */
+.summary-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid;}
+
+/* Hint bar */
+.hint-bar{margin-top:12px;display:flex;gap:20px;font-size:11px;color:var(--text3);flex-wrap:wrap;}
+
+/* No rows */
+.no-rows{padding:48px;text-align:center;color:var(--text3);font-size:13px;}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+@media(max-width:680px){
+  .upload-grid{grid-template-columns:1fr;}
+  .main{padding:16px;}
+  .header{padding:0 16px;}
+  .expand-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">
+    <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/><rect x="3" y="3" width="7" height="7" rx="1"/></svg>
+  </div>
+  <div>
+    <div class="header-title" id="h-title"></div>
+    <div class="header-sub" id="h-sub"></div>
+  </div>
+  <div style="display:flex;gap:6px;margin-inline-start:12px;">
+    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" id="btn-ar" onclick="setLang('ar')">ع</button>
+  </div>
+  <div class="badges-wrap" id="summary-badges"></div>
+</div>
+
+<div class="main">
+  <!-- UPLOAD -->
+  <div class="upload-grid">
+    <label class="upload-card">
+      <div class="upload-inner" id="box-bank">
+        <div class="upload-icon" id="icon-bank">📄</div>
+        <div>
+          <div class="upload-label" id="upload-bank-title"></div>
+          <div class="upload-sub" id="upload-bank-sub"></div>
+        </div>
+      </div>
+      <input type="file" accept=".xlsx" id="file-bank"/>
+    </label>
+    <label class="upload-card">
+      <div class="upload-inner" id="box-internal">
+        <div class="upload-icon" id="icon-internal">📊</div>
+        <div>
+          <div class="upload-label" id="upload-int-title"></div>
+          <div class="upload-sub" id="upload-int-sub"></div>
+        </div>
+      </div>
+      <input type="file" accept=".xlsx" id="file-internal"/>
+    </label>
+  </div>
+
+  <button class="run-btn" id="btn-run" onclick="runReconciliation()" disabled></button>
+  <div class="error-box" id="error-box" style="display:none;"></div>
+  <div class="info-panel" id="info-panel" style="display:none;"></div>
+  <div id="alert-box"></div>
+
+  <div id="results-area" style="display:none;">
+    <div class="filters" id="filters"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr id="table-head"></tr></thead>
+        <tbody id="results-tbody"></tbody>
+      </table>
+      <div class="no-rows" id="no-rows" style="display:none;"></div>
+    </div>
+    <div class="hint-bar" id="hint-bar"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ══ TRANSLATIONS ════════════════════════════════════════════════════════════
+const T={
+  en:{
+    title:'Clinic Bank Reconciliation',sub:'Discrepancy Detection Tool • SAR',
+    uploadBank:'Bank Statement',uploadBankSub:'Saudi bank Excel export (.xlsx)',
+    uploadInt:'Internal System',uploadIntSub:'Clinic accounting system export (.xlsx)',
+    run:'▶  Run Reconciliation',running:'Processing…',fileLoaded:'Loaded ✓',
+    allMatch:'✅  All transactions matched — no discrepancies found',
+    discFound:'Discrepancies Found',itemsNeedAttn:'item(s) need attention',
+    machines:'POS machines',bareRefs:'entries with ref-only descriptions (Fee/VAT)',
+    noRef:'⚠ Bank file: reference numbers not detected',
+    noPOS:'⚠ Internal file: no POS invoice entries found',
+    uploadFirst:'Please upload both files first.',
+    colClinic:'Clinic Date',colBank:'Bank Date',colCat:'Category',colType:'Type',
+    colBankAmt:'Bank Amount (SAR)',colSysAmt:'System Amount (SAR)',
+    colDiff:'Difference',colStatus:'Status',colRef:'Reference',
+    expandClinic:'Clinic Date (service date)',
+    expandBank:'Bank Date (processing date)',
+    expandBankRef:'Bank Reference(s)',expandSysRef:'System Reference(s)',expandNote:'Note / Issue',
+    hint1:'POS transactions matched by reference number — date shift handled automatically',
+    hint2:'Click any row to expand details',noRows:'No results for this filter.',
+    statAll:'All',statMatch:'Match',statMissSys:'Missing in System',
+    statMissBank:'Missing in Bank',statMismatch:'Amount Mismatch',
+    catAll:'All',catPOS:'POS Sales',catFee:'Fee / VAT',catOther:'Other',rows:'rows',
+    creditIn:'Credit In',debitOut:'Debit Out',feeVat:'Fee+VAT',
+    noteNotInBank:'Refs not found in bank',notePOSNotInSys:'Bank POS not recorded in system',
+  },
+  ar:{
+    title:'مطابقة كشف الحساب',sub:'أداة اكتشاف الفروقات • ريال سعودي',
+    uploadBank:'كشف الحساب البنكي',uploadBankSub:'ملف Excel من البنك (.xlsx)',
+    uploadInt:'النظام الداخلي',uploadIntSub:'تقرير Excel من نظام العيادة (.xlsx)',
+    run:'▶  تشغيل المطابقة',running:'جارٍ المعالجة…',fileLoaded:'تم التحميل ✓',
+    allMatch:'✅  جميع المعاملات مطابقة — لا توجد فروقات',
+    discFound:'تم اكتشاف فروقات',itemsNeedAttn:'بند يحتاج مراجعة',
+    machines:'أجهزة POS',bareRefs:'قيد بمرجع فقط (عمولة/ضريبة)',
+    noRef:'⚠ الملف البنكي: لم يتم اكتشاف أرقام المراجع',
+    noPOS:'⚠ الملف الداخلي: لم يتم العثور على قيود POS',
+    uploadFirst:'يرجى رفع كلا الملفين أولاً.',
+    colClinic:'تاريخ العيادة',colBank:'تاريخ البنك',colCat:'الفئة',colType:'النوع',
+    colBankAmt:'مبلغ البنك (ر.س)',colSysAmt:'مبلغ النظام (ر.س)',
+    colDiff:'الفرق',colStatus:'الحالة',colRef:'المرجع',
+    expandClinic:'تاريخ العيادة (تاريخ العملية)',expandBank:'تاريخ البنك (يوم المعالجة)',
+    expandBankRef:'مرجع البنك',expandSysRef:'مرجع النظام',expandNote:'ملاحظة / المشكلة',
+    hint1:'يتم مطابقة POS برقم المرجع — فارق اليوم مُعالج تلقائياً',
+    hint2:'اضغط على أي صف لعرض التفاصيل',noRows:'لا توجد نتائج لهذا الفلتر.',
+    statAll:'الكل',statMatch:'مطابق',statMissSys:'غير موجود في النظام',
+    statMissBank:'غير موجود في البنك',statMismatch:'فرق في المبلغ',
+    catAll:'الكل',catPOS:'مبيعات POS',catFee:'عمولة / ضريبة',catOther:'أخرى',rows:'صف',
+    creditIn:'إيداع',debitOut:'سحب',feeVat:'عمولة + ضريبة',
+    noteNotInBank:'مراجع غير موجودة في البنك',notePOSNotInSys:'معاملة POS غير مسجلة في النظام',
+  }
+};
+
+let lang='en';
+const t=k=>T[lang][k]||T.en[k]||k;
+
+function setLang(l){
+  lang=l;
+  document.documentElement.lang=l;
+  document.documentElement.dir=l==='ar'?'rtl':'ltr';
+  document.getElementById('btn-en').classList.toggle('active',l==='en');
+  document.getElementById('btn-ar').classList.toggle('active',l==='ar');
+  renderStatic();
+  if(allResults.length){renderBadges();renderAlert();renderFilters();renderTable();}
+}
+
+function renderStatic(){
+  document.getElementById('h-title').textContent=t('title');
+  document.getElementById('h-sub').textContent=t('sub');
+  document.getElementById('upload-bank-title').textContent=t('uploadBank');
+  document.getElementById('upload-int-title').textContent=t('uploadInt');
+  if(!bankLoaded) document.getElementById('upload-bank-sub').textContent=t('uploadBankSub');
+  if(!intLoaded)  document.getElementById('upload-int-sub').textContent=t('uploadIntSub');
+  const btn=document.getElementById('btn-run');
+  if(btn.textContent!==t('running')) btn.textContent=t('run');
+  const nr=document.getElementById('no-rows');if(nr)nr.textContent=t('noRows');
+}
+
+// ══ STATE ════════════════════════════════════════════════════════════════════
+let bankData=null,internalData=null,allResults=[];
+let statusFilter='All',catFilter='All';
+let bankLoaded=false,intLoaded=false;
+
+const STATUS_CLASS={
+  'Match':'badge-match','Missing in System':'badge-miss-sys',
+  'Missing in Bank':'badge-miss-bank','Amount Mismatch':'badge-mismatch'
+};
+const ROW_CLASS={
+  'Missing in System':'row-miss-sys','Missing in Bank':'row-miss-bank','Amount Mismatch':'row-mismatch'
+};
+const STATUS_KEY={
+  'Match':'statMatch','Missing in System':'statMissSys',
+  'Missing in Bank':'statMissBank','Amount Mismatch':'statMismatch'
+};
+const BADGE_COLORS={
+  'Match':{bg:'#f0fdf4',bc:'#bbf7d0',tc:'#15803d'},
+  'Missing in System':{bg:'#fef2f2',bc:'#fecaca',tc:'#dc2626'},
+  'Missing in Bank':{bg:'#fff7ed',bc:'#fed7aa',tc:'#c2410c'},
+  'Amount Mismatch':{bg:'#fefce8',bc:'#fef08a',tc:'#a16207'},
+};
+
+// ══ CORE LOGIC (unchanged from previous version) ═════════════════════════════
+const parseNum=v=>{
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return isNaN(v)?0:v;
+  const n=parseFloat(String(v).replace(/,/g,''));
+  return isNaN(n)?0:n;
+};
+const fmtDate=d=>{
+  if(!d&&d!==0) return '';
+  if(d instanceof Date){if(isNaN(d.getTime()))return '';return d.toISOString().slice(0,10);}
+  if(typeof d==='string'){
+    d=d.trim();
+    const m=d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m)return `${m[3]}-${m[2]}-${m[1]}`;
+    if(/^\d{4}-\d{2}-\d{2}/.test(d))return d.slice(0,10);
+    const p=new Date(d);if(!isNaN(p.getTime()))return p.toISOString().slice(0,10);return '';
+  }
+  if(typeof d==='number'){try{const dt=XLSX.SSF.parse_date_code(d);if(dt)return `${dt.y}-${String(dt.m).padStart(2,'0')}-${String(dt.d).padStart(2,'0')}`;}catch(e){}}
+  return '';
+};
+const isValidDate=d=>!!d&&d.length===10&&!d.includes('NaN');
+const round2=v=>Math.round(v*100)/100;
+const SAR=n=>n===0?'–':n.toLocaleString('en-SA',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function detectBankColumns(rows){
+  if(!rows.length)return{creditIdx:2,debitIdx:3,descIdx:4,refIdx:8,dateIdx:12};
+  const keys=Object.keys(rows[0]);const m={creditIdx:-1,debitIdx:-1,descIdx:-1,refIdx:-1,dateIdx:-1};
+  keys.forEach((k,i)=>{const kl=k.toLowerCase();
+    if(m.creditIdx<0&&(kl.includes('credit')||kl.includes('دائن')))m.creditIdx=i;
+    if(m.debitIdx<0&&(kl.includes('debit')||kl.includes('مدين')))m.debitIdx=i;
+    if(m.descIdx<0&&(kl.includes('description')||kl.includes('تفاصيل')))m.descIdx=i;
+    if(m.refIdx<0&&(kl.includes('reference')||kl.includes('مرجع')))m.refIdx=i;
+    if(m.dateIdx<0&&(kl.includes('transaction date')||kl.includes('تاريخ العملية')))m.dateIdx=i;
+  });
+  if(m.creditIdx<0)m.creditIdx=2;if(m.debitIdx<0)m.debitIdx=3;
+  if(m.descIdx<0)m.descIdx=4;if(m.refIdx<0)m.refIdx=8;if(m.dateIdx<0)m.dateIdx=12;
+  return m;
+}
+function detectInternalColumns(rows){
+  if(!rows.length)return{debitIdx:0,creditIdx:1,descIdx:4,dateIdx:5};
+  const keys=Object.keys(rows[0]);const m={debitIdx:-1,creditIdx:-1,descIdx:-1,dateIdx:-1};
+  keys.forEach((k,i)=>{const kl=k.toLowerCase();
+    if(m.debitIdx<0&&kl.includes('مدين')&&!kl.includes('رصيد'))m.debitIdx=i;
+    if(m.creditIdx<0&&kl.includes('دائن')&&!kl.includes('رصيد'))m.creditIdx=i;
+    if(m.descIdx<0&&(kl.includes('كشف')||kl.includes('تفاصيل')||kl.includes('description')))m.descIdx=i;
+    if(m.dateIdx<0&&(kl.includes('تاريخ')||kl.includes('date')))m.dateIdx=i;
+  });
+  if(m.debitIdx<0)m.debitIdx=0;if(m.creditIdx<0)m.creditIdx=1;
+  if(m.descIdx<0)m.descIdx=4;if(m.dateIdx<0)m.dateIdx=5;return m;
+}
+const REF_RE=/\b(ATMTOT[A-Z0-9]+|FT[A-Z0-9]{8,}|LD[A-Z0-9]{5,}|[A-Z]{2,}[0-9]{6,}[A-Z0-9]*)\b/g;
+const extractRefs=s=>[...String(s).matchAll(REF_RE)].map(m=>m[1]);
+const BANK_PFX={SPANMRC:'POS_MADA',SFEEMRC:'FEE_MADA',VISAMRC:'POS_VISA',VFEEMRC:'FEE_VISA',BNETMRC:'POS_MASTER',BFEEMRC:'FEE_MASTER'};
+function bankTxType(d){const p=d.match(/^([A-Z]+MRC)/);if(p&&BANK_PFX[p[1]])return BANK_PFX[p[1]];if(d.startsWith('ATMTOT')&&(d.includes('ضريبة')||d.includes('ضريبه')))return 'VAT';return 'OTHER';}
+function internalTxType(d,ic){
+  if(d.includes('فواتير مدى'))return 'POS_MADA';if(d.includes('فواتير فيزا'))return 'POS_VISA';
+  if(d.includes('فواتير ماستر'))return 'POS_MASTER';if(d.includes('فواتير تحويل'))return 'TRANSFER';
+  if(d.includes('عمولة')&&(d.includes('نقاط البيع')||d.includes('نقاط البيه')))return 'FEE';
+  if((d.includes('ضريبه')||d.includes('ضريبة'))&&(d.includes('نقاط البيع')||d.includes('نقاط البيه')))return 'VAT';
+  if(/^قيد\s*\S*\s*رقم\s*\d+\s+ATMTOT/.test(d)||/^قيد يومية رقم\d+\s+ATMTOT/.test(d))return 'VAT';
+  if(ic&&(d.includes('تحويل')||d.includes('FT')||d.includes('تابي')||d.includes('تمارا')||d.includes('طبيب')))return 'TRANSFER_IN';
+  if(!ic&&(d.includes('تحويل')||d.includes('FT')||d.includes('حوالة')))return 'TRANSFER_OUT';
+  return 'OTHER';
+}
+function detectMachines(bankRows){const map={};const seen=[];for(const r of bankRows){const m=String(r.desc||'').match(/\b(\d{16})\b/);if(m&&!map[m[1]]){seen.push(m[1]);map[m[1]]='POS'+seen.length;}}return map;}
+function parseBank(rows){
+  const c=detectBankColumns(rows);const out=[];
+  for(const r of rows){const v=Object.values(r);
+    const credit=parseNum(v[c.creditIdx]),debit=parseNum(v[c.debitIdx]);
+    const desc=String(v[c.descIdx]||'').trim(),ref=String(v[c.refIdx]||'').trim(),date=fmtDate(v[c.dateIdx]);
+    if(!isValidDate(date)||!ref||ref==='nan')continue;
+    const amount=credit!==0?credit:Math.abs(debit);if(amount===0)continue;
+    const txType=bankTxType(desc);let valueDate=date;
+    const vd=desc.match(/Value Dated (\d{8})/);if(vd){const s=vd[1];valueDate=`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;}
+    out.push({bankDate:date,valueDate,ref,desc,amount,isCredit:credit!==0,txType});
+  }return out;
+}
+function parseInternal(rows){
+  const c=detectInternalColumns(rows);const out=[];
+  for(const r of rows){const v=Object.values(r);
+    const debit=parseNum(v[c.debitIdx]),credit=parseNum(v[c.creditIdx]);
+    const desc=String(v[c.descIdx]||'').trim(),date=fmtDate(v[c.dateIdx]);
+    if(!isValidDate(date))continue;
+    const amount=debit!==0?debit:credit;const isCredit=credit!==0&&debit===0;
+    if(amount===0)continue;
+    const txType=internalTxType(desc,isCredit),refs=extractRefs(desc);
+    const pdm=desc.match(/من تاريخ (\d{2}\/\d{2}\/\d{4})/);
+    out.push({clinicDate:pdm?fmtDate(pdm[1]):date,entryDate:date,desc,amount,isCredit,txType,refs});
+  }return out;
+}
+function reconcile(bankRows,intRows){
+  const results=[];
+  const bpRef={};for(const r of bankRows)if(['POS_MADA','POS_VISA','POS_MASTER'].includes(r.txType))bpRef[r.ref]=r;
+  const matched=new Set();
+  for(const ir of intRows){
+    if(!['POS_MADA','POS_VISA','POS_MASTER'].includes(ir.txType))continue;
+    let bt=0;const found=[],miss=[],bd=[];
+    for(const ref of ir.refs){const br=bpRef[ref];if(br){bt+=br.amount;found.push(ref);bd.push(br.bankDate);matched.add(ref);}else miss.push(ref);}
+    const bAmt=round2(bt),sAmt=round2(ir.amount),diff=round2(bAmt-sAmt);
+    const bDate=bd[0]||'';
+    const status=(!ir.refs.length||!found.length)?'Missing in Bank':miss.length?'Amount Mismatch':Math.abs(diff)<0.02?'Match':'Amount Mismatch';
+    results.push({category:'POS Sales',clinicDate:ir.clinicDate,bankDate:bDate,type:ir.txType.replace('POS_',''),bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:found.join('\n'),sysRefs:ir.refs.join('\n'),note:miss.length?t('noteNotInBank')+': '+miss.join(', '):status!=='Match'?`Bank: ${SAR(bAmt)} | Sys: ${SAR(sAmt)}`:''});
+  }
+  for(const r of bankRows){
+    if(!['POS_MADA','POS_VISA','POS_MASTER'].includes(r.txType)||matched.has(r.ref))continue;
+    results.push({category:'POS Sales',clinicDate:'',bankDate:r.bankDate,type:r.txType.replace('POS_',''),bankAmt:round2(r.amount),sysAmt:0,diff:round2(r.amount),status:'Missing in System',bankRefs:r.ref,sysRefs:'',note:t('notePOSNotInSys')});
+  }
+  const bFV={},iFV={};
+  for(const r of bankRows){if(!['FEE_MADA','FEE_VISA','FEE_MASTER','VAT'].includes(r.txType))continue;if(!bFV[r.ref])bFV[r.ref]={total:0,bankDate:r.bankDate};bFV[r.ref].total+=r.amount;}
+  for(const r of intRows){if(!['FEE','VAT'].includes(r.txType))continue;for(const ref of r.refs){if(!iFV[ref])iFV[ref]={total:0,clinicDate:r.clinicDate};iFV[ref].total+=r.amount;}}
+  for(const ref of new Set([...Object.keys(bFV),...Object.keys(iFV)])){
+    const b=bFV[ref],s=iFV[ref];const bAmt=round2(b?.total||0),sAmt=round2(s?.total||0),diff=round2(bAmt-sAmt);
+    const status=Math.abs(diff)<0.02?'Match':b&&!s?'Missing in System':!b&&s?'Missing in Bank':'Amount Mismatch';
+    results.push({category:'Fee / VAT',clinicDate:s?.clinicDate||'',bankDate:b?.bankDate||'',type:'Fee+VAT',bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:ref,sysRefs:ref,note:status!=='Match'?`Bank: ${SAR(bAmt)} | Sys: ${SAR(sAmt)}`:''});
+  }
+  const iOther={};
+  for(const r of intRows){if(!['TRANSFER','TRANSFER_IN','TRANSFER_OUT','OTHER'].includes(r.txType))continue;for(const ref of r.refs)iOther[ref]=r;}
+  for(const r of bankRows.filter(r=>r.txType==='OTHER')){
+    const m=iOther[r.ref];const bAmt=round2(r.amount),sAmt=round2(m?.amount||0),diff=round2(bAmt-sAmt);
+    const status=m?(Math.abs(diff)<0.02?'Match':'Amount Mismatch'):'Missing in System';
+    results.push({category:'Other',clinicDate:m?.clinicDate||'',bankDate:r.bankDate,type:r.isCredit?'Credit In':'Debit Out',bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:r.ref,sysRefs:m?.refs?.join(', ')||'',note:status!=='Match'?r.desc.slice(0,80):''});
+  }
+  return results.sort((a,b)=>{const ai=a.status!=='Match'?0:1,bi=b.status!=='Match'?0:1;if(ai!==bi)return ai-bi;return(a.bankDate||a.clinicDate).localeCompare(b.bankDate||b.clinicDate);});
+}
+
+// ══ UI ═══════════════════════════════════════════════════════════════════════
+function showError(msg){const el=document.getElementById('error-box');el.style.display=msg?'block':'none';el.textContent=msg;}
+
+function renderInfoPanel(bankRows,intRows){
+  const panel=document.getElementById('info-panel');
+  const machines=detectMachines(bankRows.map(r=>({desc:r.desc})));
+  const machList=Object.entries(machines).map(([num,name])=>`${name}: ···${num.slice(-4)}`).join('  ');
+  const bare=intRows.filter(r=>/^قيد\s*\S*\s*رقم\s*\d+\s+ATMTOT/.test(r.desc||'')||/^قيد يومية رقم\d+\s+ATMTOT/.test(r.desc||'')).length;
+  const hasRef=bankRows.some(r=>String(r.ref||'').includes('ATMTOT')||String(r.ref||'').includes('FT'));
+  const hasPOS=intRows.some(r=>['POS_MADA','POS_VISA','POS_MASTER'].includes(r.txType));
+  const chips=[];
+  if(machList) chips.push(`<span class="info-chip">💳 ${t('machines')}: ${machList}</span>`);
+  if(bare>0)   chips.push(`<span class="info-chip">📋 ${bare} ${t('bareRefs')}</span>`);
+  if(!hasRef)  chips.push(`<span class="info-chip warn">${t('noRef')}</span>`);
+  if(!hasPOS)  chips.push(`<span class="info-chip warn">${t('noPOS')}</span>`);
+  if(!chips.length){panel.style.display='none';return;}
+  panel.style.display='flex';
+  panel.innerHTML=chips.join('');
+}
+
+function renderBadges(){
+  const counts={};for(const r of allResults)counts[r.status]=(counts[r.status]||0)+1;
+  const el=document.getElementById('summary-badges');el.innerHTML='';
+  for(const [s,n] of Object.entries(counts)){
+    const c=BADGE_COLORS[s]||{bg:'#f1f5f9',bc:'#cbd5e1',tc:'#475569'};
+    el.innerHTML+=`<span class="summary-badge" style="background:${c.bg};border-color:${c.bc};color:${c.tc};">
+      <span style="width:7px;height:7px;border-radius:50%;background:${c.tc};display:inline-block;"></span>
+      ${n} ${t(STATUS_KEY[s]||'statAll')}</span>`;
+  }
+}
+
+function renderAlert(){
+  const issues=allResults.filter(r=>r.status!=='Match');
+  const el=document.getElementById('alert-box');
+  if(!issues.length){el.innerHTML=`<div class="alert-match">${t('allMatch')}</div>`;return;}
+  let rows='';
+  for(const r of issues){
+    const c=BADGE_COLORS[r.status]||{tc:'#475569'};
+    rows+=`<div class="alert-issue-row">
+      <span style="color:var(--text3);min-width:90px;flex-shrink:0;font-size:11px;">${r.bankDate||r.clinicDate}</span>
+      <span style="color:var(--text2);min-width:90px;flex-shrink:0;font-size:11px;">${r.category}</span>
+      <span style="color:var(--text2);min-width:70px;flex-shrink:0;font-size:11px;">${r.type==='Credit In'?t('creditIn'):r.type==='Debit Out'?t('debitOut'):r.type==='Fee+VAT'?t('feeVat'):r.type}</span>
+      <span style="color:${c.tc};min-width:130px;flex-shrink:0;font-size:11px;font-weight:600;">${t(STATUS_KEY[r.status])}</span>
+      <span style="color:var(--red);font-size:11px;">Bank: ${SAR(r.bankAmt)} | Sys: ${SAR(r.sysAmt)}</span>
+    </div>`;
+  }
+  el.innerHTML=`<div class="alert-issues">
+    <div class="alert-issues-title">⚠ ${t('discFound')} — ${issues.length} ${t('itemsNeedAttn')}</div>
+    <div class="alert-issues-list">${rows}</div>
+  </div>`;
+}
+
+function renderFilters(){
+  const statuses=[['All','statAll'],['Match','statMatch'],['Missing in System','statMissSys'],['Missing in Bank','statMissBank'],['Amount Mismatch','statMismatch']];
+  const cats=[['All','catAll'],['POS Sales','catPOS'],['Fee / VAT','catFee'],['Other','catOther']];
+  let html='';
+  for(const [s,tk] of statuses){
+    const a=statusFilter===s;
+    html+=`<button class="filter-btn${a?' active':''}" onclick="setStatusFilter('${s}')">${t(tk)}</button>`;
+  }
+  html+='<div class="filter-sep"></div>';
+  for(const [c,tk] of cats){
+    const a=catFilter===c;
+    html+=`<button class="filter-btn cat${a?' active':''}" onclick="setCatFilter('${c}')">${t(tk)}</button>`;
+  }
+  html+=`<span class="row-count" id="row-count"></span>`;
+  document.getElementById('filters').innerHTML=html;
+  const cols=[
+    {k:'colClinic',num:false},{k:'colBank',num:false},{k:'colCat',num:false},{k:'colType',num:false},
+    {k:'colBankAmt',num:true},{k:'colSysAmt',num:true},{k:'colDiff',num:true},
+    {k:'colStatus',num:false},{k:'colRef',num:false}
+  ];
+  document.getElementById('table-head').innerHTML=cols.map(c=>`<th${c.num?' class="num"':''}>${t(c.k)}</th>`).join('');
+  document.getElementById('hint-bar').innerHTML=`<span>ℹ ${t('hint1')}</span><span>• ${t('hint2')}</span>`;
+}
+
+function renderTable(){
+  const filtered=allResults.filter(r=>(statusFilter==='All'||r.status===statusFilter)&&(catFilter==='All'||r.category===catFilter));
+  const cnt=document.getElementById('row-count');if(cnt)cnt.textContent=`${filtered.length} ${t('rows')}`;
+  const tbody=document.getElementById('results-tbody');
+  const noRows=document.getElementById('no-rows');noRows.textContent=t('noRows');
+  if(!filtered.length){tbody.innerHTML='';noRows.style.display='block';return;}
+  noRows.style.display='none';
+  let html='';
+  for(let i=0;i<filtered.length;i++){
+    const r=filtered[i];
+    const bc=STATUS_CLASS[r.status]||'badge-match';
+    const rc=ROW_CLASS[r.status]||'';
+    const ra=r.bankRefs?r.bankRefs.split('\n').filter(Boolean):[];
+    const rd=ra.length>1?`${ra[0]} <span style="color:var(--text3);font-size:10px;">+${ra.length-1}</span>`:(ra[0]||'—');
+    const diffCls=r.diff>0?'diff-pos':r.diff<0?'diff-neg':'diff-zero';
+    const statusLabel=t(STATUS_KEY[r.status]||'statAll');
+    const typeLabel=r.type==='Credit In'?t('creditIn'):r.type==='Debit Out'?t('debitOut'):r.type==='Fee+VAT'?t('feeVat'):r.type;
+    html+=`<tr class="data-row${rc?' '+rc:''}" onclick="toggleExpand(${i})" style="cursor:pointer;">
+      <td style="color:var(--text);font-size:12px;">${r.clinicDate||'—'}</td>
+      <td style="color:var(--text2);font-size:12px;">${r.bankDate||'—'}</td>
+      <td style="color:var(--text2);">${r.category}</td>
+      <td style="color:var(--text);font-weight:500;">${typeLabel}</td>
+      <td class="num" style="font-family:'IBM Plex Mono',monospace;font-size:12px;">${SAR(r.bankAmt)}</td>
+      <td class="num" style="font-family:'IBM Plex Mono',monospace;font-size:12px;">${SAR(r.sysAmt)}</td>
+      <td class="num ${diffCls}" style="font-family:'IBM Plex Mono',monospace;font-size:12px;">${r.diff!==0?SAR(r.diff):'–'}</td>
+      <td><span class="badge ${bc}"><span class="badge-dot"></span>${statusLabel}</span></td>
+      <td class="ref-cell">${rd}</td>
+    </tr>
+    <tr id="exp-${i}" style="display:none;" class="expand-row">
+      <td colspan="9">
+        <div class="expand-grid">
+          <div><div class="expand-label">${t('expandClinic')}</div><div class="expand-val">${r.clinicDate||'—'}</div></div>
+          <div><div class="expand-label">${t('expandBank')}</div><div class="expand-val">${r.bankDate||'—'}</div></div>
+          <div><div class="expand-label">${t('expandBankRef')}</div><div class="expand-val">${r.bankRefs?r.bankRefs.replace(/\n/g,'<br>'):'—'}</div></div>
+          <div><div class="expand-label">${t('expandSysRef')}</div><div class="expand-val">${r.sysRefs?r.sysRefs.replace(/\n/g,'<br>'):'—'}</div></div>
+          ${r.note?`<div class="expand-note"><div class="expand-label">${t('expandNote')}</div><div class="expand-val">${r.note}</div></div>`:''}
+        </div>
+      </td>
+    </tr>`;
+  }
+  tbody.innerHTML=html;
+}
+
+function toggleExpand(i){const el=document.getElementById('exp-'+i);if(el)el.style.display=el.style.display==='none'?'table-row':'none';}
+function setStatusFilter(s){statusFilter=s;renderFilters();renderTable();}
+function setCatFilter(c){catFilter=c;renderFilters();renderTable();}
+
+function loadFile(inputEl,which){
+  const file=inputEl.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      if(which==='bank'){bankData=rows;bankLoaded=true;markLoaded('bank',file.name);}
+      else{internalData=rows;intLoaded=true;markLoaded('internal',file.name);}
+      const btn=document.getElementById('btn-run');
+      if(bankData&&internalData){btn.disabled=false;}
+      showError('');
+    }catch(e){showError('Failed to read file: '+e.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function markLoaded(w,name){
+  const box=document.getElementById('box-'+w);
+  box.classList.add('loaded');
+  document.getElementById('icon-'+w).textContent='✓';
+  document.getElementById(w==='bank'?'upload-bank-title':'upload-int-title').textContent=w==='bank'?t('uploadBank'):t('uploadInt');
+  document.getElementById(w==='bank'?'upload-bank-sub':'upload-int-sub').textContent=name+' — '+t('fileLoaded');
+}
+
+document.getElementById('file-bank').addEventListener('change',e=>loadFile(e.target,'bank'));
+document.getElementById('file-internal').addEventListener('change',e=>loadFile(e.target,'internal'));
+
+function runReconciliation(){
+  if(!bankData||!internalData){showError(t('uploadFirst'));return;}
+  showError('');
+  const btn=document.getElementById('btn-run');btn.textContent=t('running');btn.disabled=true;
+  setTimeout(()=>{
+    try{
+      const bank=parseBank(bankData),internal=parseInternal(internalData);
+      renderInfoPanel(bank,internal);
+      allResults=reconcile(bank,internal);
+      renderBadges();renderAlert();renderFilters();renderTable();
+      document.getElementById('results-area').style.display='block';
+    }catch(e){showError('Error: '+e.message);console.error(e);}
+    btn.textContent=t('run');btn.disabled=false;
+  },100);
+}
+
+renderStatic();
+</script>
+</body>
+</html>
