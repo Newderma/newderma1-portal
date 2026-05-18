@@ -34,7 +34,7 @@ html,body{min-height:100vh;background:var(--bg);color:var(--sl);font-family:'DM 
 .divider{height:1px;background:var(--border);max-width:860px;margin:0 auto 2.5rem}
 
 /* MODULES */
-.modules-wrap{max-width:860px;margin:0 auto;padding:0 1.5rem 3rem;flex:1}
+.modules-wrap{max-width:1100px;margin:0 auto;padding:0 1.5rem 3rem;flex:1}
 .modules{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem}
 
 .module-card{
@@ -72,10 +72,36 @@ footer{text-align:center;font-size:.68rem;color:var(--ss);padding:1.2rem;
 .modules .module-card:nth-child(1){animation:fadeUp .4s .1s ease both}
 .modules .module-card:nth-child(2){animation:fadeUp .4s .2s ease both}
 .modules .module-card:nth-child(3){animation:fadeUp .4s .3s ease both}
+.modules .module-card:nth-child(4){animation:fadeUp .4s .4s ease both}
+
+/* PIN MODAL */
+.pin-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;}
+.pin-overlay.open{display:flex;}
+.pin-box{background:#fff;border-radius:18px;padding:2rem 2rem 1.6rem;width:320px;box-shadow:0 24px 64px rgba(0,0,0,.18);text-align:center;}
+.pin-logo{font-size:2rem;margin-bottom:.6rem;}
+.pin-title{font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:.25rem;}
+.pin-sub{font-size:.78rem;color:#94a3b8;margin-bottom:1.3rem;font-family:'Noto Sans Arabic',sans-serif;}
+.pin-dots{display:flex;justify-content:center;gap:10px;margin-bottom:1.2rem;}
+.pin-dot{width:13px;height:13px;border-radius:50%;background:#e2e8f0;transition:background .15s;}
+.pin-dot.filled{background:var(--green);}
+.pin-dot.error{background:#ef4444;}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
+.pin-btn{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:.7rem;font-size:1.1rem;font-weight:600;color:#1e293b;cursor:pointer;transition:all .12s;}
+.pin-btn:hover{background:var(--gbg);border-color:var(--gborder);color:var(--green2);}
+.pin-btn:active{transform:scale(.94);}
+.pin-cancel{font-size:.78rem;color:#94a3b8;cursor:pointer;padding:.4rem;border:none;background:none;width:100%;}
+.pin-cancel:hover{color:#475569;}
+.card-locked::after{content:'🔒';position:absolute;top:10px;right:12px;font-size:.8rem;opacity:.5;}
 
 @media(max-width:650px){
   .modules{grid-template-columns:1fr}
   .hero h1{font-size:1.6rem}
+}
+@media(min-width:651px) and (max-width:900px){
+  .modules{grid-template-columns:repeat(2,1fr)}
+}
+@media(min-width:901px){
+  .modules{grid-template-columns:repeat(4,1fr)}
 }
 </style>
 </head>
@@ -127,10 +153,122 @@ footer{text-align:center;font-size:.68rem;color:var(--ss);padding:1.2rem;
         <div class="card-tags"><span class="tag">PPM</span><span class="tag">Devices</span><span class="tag">Reports</span></div>
       </a>
 
+      <a class="module-card card-locked" href="#" onclick="openPIN(event)">
+        <div class="card-top">
+          <div class="card-icon">&#128200;<div class="card-num">4</div></div>
+          <div class="card-arrow">Open <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        </div>
+        <div class="card-title">Bank Reconciliation</div>
+        <div class="card-title-ar">مطابقة كشف الحساب</div>
+        <div class="card-sub">Match bank statement against internal system — detect missing entries and discrepancies.</div>
+        <div class="card-tags"><span class="tag">POS</span><span class="tag">Fees</span><span class="tag">SAR</span></div>
+      </a>
+
     </div>
   </div>
 
   <footer>Newderma1 &middot; Derma Clinic &middot; مركز البشرة الجديدة الاولى</footer>
 </div>
-</body>
-</html>
+
+<!-- PIN MODAL -->
+<div class="pin-overlay" id="pinOverlay">
+  <div class="pin-box">
+    <div class="pin-logo">🔐</div>
+    <div class="pin-title">Manager Access</div>
+    <div class="pin-sub">أدخل رمز المدير للمتابعة</div>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="enterDigit('1')">1</button>
+      <button class="pin-btn" onclick="enterDigit('2')">2</button>
+      <button class="pin-btn" onclick="enterDigit('3')">3</button>
+      <button class="pin-btn" onclick="enterDigit('4')">4</button>
+      <button class="pin-btn" onclick="enterDigit('5')">5</button>
+      <button class="pin-btn" onclick="enterDigit('6')">6</button>
+      <button class="pin-btn" onclick="enterDigit('7')">7</button>
+      <button class="pin-btn" onclick="enterDigit('8')">8</button>
+      <button class="pin-btn" onclick="enterDigit('9')">9</button>
+      <button class="pin-btn" onclick="clearPin()" style="font-size:.85rem;color:#94a3b8;">⌫</button>
+      <button class="pin-btn" onclick="enterDigit('0')">0</button>
+      <button class="pin-btn" onclick="clearPin()" style="font-size:.85rem;color:#94a3b8;">C</button>
+    </div>
+    <button class="pin-cancel" onclick="closePin()">Cancel &nbsp;/&nbsp; إلغاء</button>
+  </div>
+</div>
+
+<script>
+  const SB_URL = 'https://pdlhcgdjrqzjanonevqx.supabase.co';
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkbGhjZ2RqcnF6amFub25ldnF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MDQ1OTIsImV4cCI6MjA4ODQ4MDU5Mn0.902WRLQAChto_Rw3QMegm2i_saVyRTpAF5vdpwFoUkU';
+
+  // PIN loaded from Supabase — fallback to '1234' if offline
+  let MANAGER_PIN = '1234';
+
+  async function loadPIN(){
+    try{
+      const res = await fetch(`${SB_URL}/rest/v1/portal_settings?key=eq.manager_pin&select=value`,{
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      });
+      const data = await res.json();
+      if(data && data[0] && data[0].value) MANAGER_PIN = data[0].value;
+    }catch(e){ /* offline fallback */ }
+  }
+
+  let current = '';
+
+  function openPIN(e){
+    e.preventDefault();
+    current = '';
+    updateDots();
+    document.getElementById('pinOverlay').classList.add('open');
+    loadPIN(); // refresh PIN from Supabase each time modal opens
+  }
+
+  function closePin(){
+    document.getElementById('pinOverlay').classList.remove('open');
+    current = '';
+    updateDots();
+  }
+
+  function enterDigit(d){
+    if(current.length >= 4) return;
+    current += d;
+    updateDots();
+    if(current.length === 4) setTimeout(checkPin, 120);
+  }
+
+  function clearPin(){
+    current = current.slice(0,-1);
+    updateDots();
+  }
+
+  function updateDots(state){
+    for(let i=0;i<4;i++){
+      const dot = document.getElementById('d'+i);
+      dot.className = 'pin-dot';
+      if(state === 'error') dot.classList.add('error');
+      else if(i < current.length) dot.classList.add('filled');
+    }
+  }
+
+  function checkPin(){
+    if(current === MANAGER_PIN){
+      closePin();
+      window.location.href = 'clinic_reconciliation.html';
+    } else {
+      updateDots('error');
+      setTimeout(()=>{ current=''; updateDots(); }, 800);
+    }
+  }
+
+  // Close on overlay click
+  document.getElementById('pinOverlay').addEventListener('click', function(e){
+    if(e.target === this) closePin();
+  });
+
+  // Preload PIN on page load
+  loadPIN();
+</script>
