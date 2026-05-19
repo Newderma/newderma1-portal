@@ -1841,7 +1841,7 @@ function bootApp(){
   if(cn){ document.getElementById('clinicName').textContent=cn; var ci=document.getElementById('clinicNameInput'); if(ci)ci.value=cn; }
 
   var tabs = isGM()
-    ? [['costs','Costs','💰'],['records','Records','📋'],['dashboard','Dashboard','📊'],['utilization','Utilization','📈'],['vacation','Vacation','🏖️'],['payroll','Payroll','🦷'],['manage','Manage','⚙️']]
+    ? [['costs','Costs','💰'],['records','Records','📋'],['dashboard','Dashboard','📊'],['utilization','Utilization','📈'],['vacation','Vacation','🏖️'],['payroll','Payroll','🦷'],['manage','Manage','⚙️'],['fintools','Financial Tools','📂']]
     : getStaffTabs();
   var h='', bh='';
   for(var i=0;i<tabs.length;i++){
@@ -1850,8 +1850,13 @@ function bootApp(){
       var pendCount=vacReqs.filter(function(r){return r.status==='Pending';}).length;
       if(pendCount>0) tabLabel+=' <span style="background:#ef4444;color:#fff;border-radius:99px;font-size:.65rem;font-weight:800;padding:.1rem .45rem;vertical-align:middle">'+pendCount+'</span>';
     }
-    h+='<button class="ntab" onclick="showPage(\''+tabs[i][0]+'\',this)">'+tabLabel+'</button>';
-    bh+='<button class="btab" onclick="showPage(\''+tabs[i][0]+'\',this)" data-page="'+tabs[i][0]+'"><span class="btico">'+tabs[i][2]+'</span>'+tabs[i][1]+'</button>';
+    if(tabs[i][0]==='fintools'){
+      h+='<button class="ntab" onclick="window.open(\'clinic_reconciliation.html\',\'_blank\')">'+tabLabel+'</button>';
+      bh+='<button class="btab" onclick="window.open(\'clinic_reconciliation.html\',\'_blank\')" data-page="fintools"><span class="btico">'+tabs[i][2]+'</span>'+tabs[i][1]+'</button>';
+    } else {
+      h+='<button class="ntab" onclick="showPage(\''+tabs[i][0]+'\',this)">'+tabLabel+'</button>';
+      bh+='<button class="btab" onclick="showPage(\''+tabs[i][0]+'\',this)" data-page="'+tabs[i][0]+'"><span class="btico">'+tabs[i][2]+'</span>'+tabs[i][1]+'</button>';
+    }
   }
   document.getElementById('navTabs').innerHTML=h;
   document.getElementById('bottomNav').innerHTML=bh;
