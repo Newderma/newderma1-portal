@@ -1503,7 +1503,7 @@ function renderSIList(q){
   var cur = document.getElementById('rMachine').value;
   list.innerHTML = filtered.map(function(d){
     var sel = cur===d.name ? ' ssel' : '';
-    return '<div class="si-item'+sel+'" onclick="selectDevice('+d.id+')">'+
+    return '<div class="si-item'+sel+'" onclick="selectDevice(\''+d.id+'\')">'+
       '<div>'+d.name+'</div>'+
       '<div class="si-sub">'+(d.sn?'S/N: '+d.sn:'')+(d.model?' · '+d.model:'')+'</div>'+
       '</div>';
