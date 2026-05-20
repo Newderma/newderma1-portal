@@ -1464,15 +1464,64 @@ async function loadDevices(){
   try{
     var r = await sbGet('md_svc_config','key=eq.svcDeviceList');
     deviceList = (r && r[0]) ? JSON.parse(r[0].value) : [];
+    // Re-attach cert data from separate rows (stored as svcCert_{id})
+    if(deviceList.length){
+      var certRows = await sbGet('md_svc_config','key=like.svcCert_*');
+      if(certRows && certRows.length){
+        var certMap={};
+        certRows.forEach(function(row){
+          var devId = row.key.replace('svcCert_','');
+          try{ certMap[devId]=JSON.parse(row.value); }catch(e){}
+        });
+        deviceList.forEach(function(d){
+          if(certMap[d.id]){
+            d.sfda_cert      = certMap[d.id].sfda_cert;
+            d.sfda_cert_type = certMap[d.id].sfda_cert_type;
+          }
+        });
+      }
+    }
   }catch(e){ deviceList=[]; }
 }
 
+// Save device list WITHOUT cert blobs (certs stored separately per device)
 async function saveDeviceList(){
+  var lean = deviceList.map(function(d){
+    var copy = Object.assign({},d);
+    delete copy.sfda_cert;
+    delete copy.sfda_cert_type;
+    return copy;
+  });
   await fetch(SB_URL+'/rest/v1/md_svc_config',{
     method:'POST',
     headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),
-    body:JSON.stringify({key:'svcDeviceList', value:JSON.stringify(deviceList)})
+    body:JSON.stringify({key:'svcDeviceList', value:JSON.stringify(lean)})
   });
+}
+
+// Save cert for a single device (separate row, only called when cert changes)
+async function saveDeviceCert(devId, certData, certType){
+  var key = 'svcCert_'+devId;
+  if(!certData){
+    // Remove cert row
+    await fetch(SB_URL+'/rest/v1/md_svc_config?key=eq.'+encodeURIComponent(key),{
+      method:'DELETE', headers:sbH({})
+    });
+    return;
+  }
+  await fetch(SB_URL+'/rest/v1/md_svc_config',{
+    method:'POST',
+    headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),
+    body:JSON.stringify({key:key, value:JSON.stringify({sfda_cert:certData, sfda_cert_type:certType})})
+  });
+}
+
+// Remove cert row when a device is deleted
+async function deleteDeviceCert(devId){
+  var key = 'svcCert_'+devId;
+  await fetch(SB_URL+'/rest/v1/md_svc_config?key=eq.'+encodeURIComponent(key),{
+    method:'DELETE', headers:sbH({})
+  }).catch(function(){});
 }
 
 async function addDevice(){
@@ -1487,14 +1536,20 @@ async function addDevice(){
     ppm_interval: parseInt(document.getElementById('devPpmInterval').value)||0,
     last_ppm: document.getElementById('devLastPpm').value||''
   };
+  // cert stored separately — only keep expiry in the lean device object
+  dev.sfda_cert_expiry = document.getElementById('devCertExpiry').value||'';
   if(_newDevCert && _newDevCert.data){
-    dev.sfda_cert        = _newDevCert.data;
-    dev.sfda_cert_type   = _newDevCert.type;
-    dev.sfda_cert_expiry = document.getElementById('devCertExpiry').value||'';
+    // attach to in-memory object for immediate UI display
+    dev.sfda_cert      = _newDevCert.data;
+    dev.sfda_cert_type = _newDevCert.type;
   }
   deviceList.push(dev);
   try{
     await saveDeviceList();
+    // Save cert separately so it doesn't slow down the device list
+    if(_newDevCert && _newDevCert.data){
+      await saveDeviceCert(dev.id, _newDevCert.data, _newDevCert.type);
+    }
     toast('Device added!', true);
     document.getElementById('devName').value='';
     document.getElementById('devSN').value='';
@@ -1514,7 +1569,11 @@ async function addDevice(){
 async function removeDevice(id){
   if(!confirm('Remove this device from the list?'))return;
   deviceList = deviceList.filter(function(d){return String(d.id)!==String(id);});
-  try{ await saveDeviceList(); toast('Device removed.',true); renderDeviceList(); }
+  try{
+    await saveDeviceList();
+    await deleteDeviceCert(id);
+    toast('Device removed.',true); renderDeviceList();
+  }
   catch(e){ toast('Failed: '+e.message,false); }
 }
 
@@ -1624,7 +1683,6 @@ async function saveEditDevice(){
   // Handle certificate
   if(_certPending!==null){
     if(_certPending.data===null){
-      // User clicked remove
       delete deviceList[idx].sfda_cert;
       delete deviceList[idx].sfda_cert_type;
     } else {
@@ -1635,7 +1693,12 @@ async function saveEditDevice(){
   }
   deviceList[idx].sfda_cert_expiry = document.getElementById('editDevCertExpiry').value||'';
   try{
+    var certPendingCopy = _certPending; // already null but capture cert state
+    var savedCert  = deviceList[idx].sfda_cert;
+    var savedCertType = deviceList[idx].sfda_cert_type;
     await saveDeviceList();
+    // Save cert separately (only touches one row, much faster)
+    await saveDeviceCert(deviceList[idx].id, savedCert||null, savedCertType||null);
     closeEditDevice(); renderDeviceList();
     toast('Device updated!',true);
   }catch(e){ toast('Save failed: '+e.message,false); }
