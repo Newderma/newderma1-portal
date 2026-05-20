@@ -1148,9 +1148,19 @@ function printReportById(id){
   var pa=document.getElementById('printArea');
   pa.innerHTML=html;
   pa.style.display='block';
+  // Build a clean filename: MachineName_YYYY-MM-DD
+  var safeMachine=(r.machine||'Report').replace(/[\/\\:*?"<>|]/g,'').replace(/\s+/g,' ').trim();
+  var safeSN=(r.serial_number||'').replace(/[\/\\:*?"<>|]/g,'').replace(/\s+/g,' ').trim();
+  var safeDate=(r.service_date||new Date().toISOString()).slice(0,10);
+  var prevTitle=document.title;
+  document.title=safeMachine+(safeSN?' — SN-'+safeSN:'')+' — '+safeDate;
   setTimeout(function(){
     window.print();
-    setTimeout(function(){ pa.style.display='none'; pa.innerHTML=''; }, 800);
+    setTimeout(function(){
+      pa.style.display='none';
+      pa.innerHTML='';
+      document.title=prevTitle;
+    }, 800);
   },200);
 }
 function rfield(k,v){return'<div class="report-field"><span class="rk">'+k+'</span><span class="rv">'+(v||'—')+'</span></div>';}
