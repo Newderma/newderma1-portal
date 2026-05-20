@@ -284,6 +284,7 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
 
     <!-- NEW SERVICE REPORT (Engineer) -->
     <div class="page" id="page-new">
+      <div id="ppmAlertBannerEng" style="display:none;margin-bottom:1.2rem"></div>
       <div class="ph"><h2>📋 New Service Report</h2><p>Fill in all details and sign before submitting.</p></div>
 
       <div class="card">
@@ -432,6 +433,7 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
       <div class="ph">
         <h2>🏥 Device List</h2><p>Manage devices available for engineers to select when submitting reports.</p>
       </div>
+      <div id="ppmAlertBanner" style="display:none;margin-bottom:1.2rem"></div>
       <div class="card" style="max-width:600px">
         <div class="ct">Add New Device</div>
         <div class="fgrid">
@@ -439,6 +441,37 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
           <div><label>Serial Number (S/N)</label><input type="text" id="devSN" placeholder="Serial number"></div>
           <div><label>Model</label><input type="text" id="devModel" placeholder="Model number"></div>
           <div><label>Notes</label><input type="text" id="devNotes" placeholder="Optional notes"></div>
+          <div>
+            <label>PPM Interval <span style="font-size:.7rem;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+            <select id="devPpmInterval" onchange="document.getElementById('devLastPpmWrap').style.display=this.value?'block':'none'">
+              <option value="">— No PPM schedule —</option>
+              <option value="1">Every 1 month</option>
+              <option value="2">Every 2 months</option>
+              <option value="3">Every 3 months</option>
+              <option value="6">Every 6 months</option>
+              <option value="12">Every 12 months</option>
+            </select>
+          </div>
+          <div id="devLastPpmWrap" style="display:none">
+            <label>Last PPM Date <span style="font-size:.7rem;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0">(optional — leave blank if unknown)</span></label>
+            <input type="date" id="devLastPpm">
+          </div>
+          <div class="fw" style="border-top:1px solid var(--border);padding-top:.9rem;margin-top:.1rem">
+            <label style="margin-bottom:.5rem">🏅 SFDA Certificate <span style="font-size:.7rem;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+            <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+              <label style="display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .75rem;background:var(--navy3);border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;font-size:.78rem;font-weight:600;color:var(--txt2);white-space:nowrap">
+                📎 Attach Certificate
+                <input type="file" id="devCertFile" accept="image/*,application/pdf" style="display:none" onchange="previewNewDevCert(event)">
+              </label>
+              <button class="btn btn-d btn-sm" id="devCertRemoveBtn" onclick="removeNewDevCert()" style="display:none">🗑 Remove</button>
+            </div>
+            <div id="devCertPreview" style="margin-top:.6rem"></div>
+            <div style="font-size:.72rem;color:var(--txt3);margin-top:.35rem">Accepted: JPG, PNG, PDF. Max ~6 MB.</div>
+            <div style="margin-top:.7rem">
+              <label style="margin-bottom:.3rem">📅 Certificate Expiry Date <span style="font-size:.7rem;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+              <input type="date" id="devCertExpiry">
+            </div>
+          </div>
         </div>
         <div class="btn-row"><button class="btn btn-p" onclick="addDevice()">+ Add Device</button></div>
       </div>
@@ -448,6 +481,69 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
           <button class="btn btn-s btn-sm" onclick="exportDevicesXLS()">📥 Export</button>
         </div>
         <div id="deviceListEl"><p class="norec">No devices yet.</p></div>
+      </div>
+    </div>
+
+    <!-- COMPLIANCE (Admin) -->
+    <div class="page" id="page-compliance">
+      <div class="ph">
+        <h2>📊 Compliance Dashboard</h2>
+        <p>PPM schedule and SFDA certificate status for all registered devices.</p>
+      </div>
+
+      <!-- PPM STATUS TABLE -->
+      <div class="card" style="margin-bottom:1.4rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+          <div class="ct" style="margin:0">🔧 PPM Schedule</div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <select id="ppmFilterStatus" onchange="renderCompliancePage()" style="font-size:.78rem;padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border)">
+              <option value="">All statuses</option>
+              <option value="overdue">🔴 Overdue</option>
+              <option value="due">🟡 Due soon (≤30d)</option>
+              <option value="ok">🟢 OK</option>
+              <option value="none">⚪ No PPM recorded</option>
+              <option value="unset">— No schedule set</option>
+            </select>
+            <button class="btn btn-s btn-sm" onclick="exportComplianceXLS()">📥 Export</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table id="ppmTable">
+            <thead>
+              <tr>
+                <th>Device</th><th>S/N</th><th>Model</th>
+                <th>Interval</th><th>Last PPM</th><th>Next Due</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="ppmTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SFDA CERT TABLE -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+          <div class="ct" style="margin:0">🏅 SFDA Certificate Expiry</div>
+          <select id="certFilterStatus" onchange="renderCompliancePage()" style="font-size:.78rem;padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border)">
+            <option value="">All statuses</option>
+            <option value="expired">🔴 Expired</option>
+            <option value="expiring">🟡 Expiring (≤60d)</option>
+            <option value="valid">🟢 Valid</option>
+            <option value="noexpiry">📅 No expiry set</option>
+            <option value="nocert">❌ No certificate</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table id="certTable">
+            <thead>
+              <tr>
+                <th>Device</th><th>S/N</th><th>Model</th>
+                <th>Certificate</th><th>Expiry Date</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="certTableBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -664,7 +760,7 @@ function doLogout(){
 
 function bootApp(){
   var tabs=CU.role==='admin'
-    ?[['reports','Reports'],['devices','Devices'],['settings','Settings']]
+    ?[['reports','Reports'],['devices','Devices'],['compliance','Compliance'],['settings','Settings']]
     :[['new','New Report'],['my','My Reports']];
   document.getElementById('navTabs').innerHTML=tabs.map(function(t){
     return '<button class="ntab" onclick="showPage(\''+t[0]+'\',this)">'+t[1]+'</button>';
@@ -678,7 +774,7 @@ function bootApp(){
     initSigPad('sigCustomer');initSigPad('sigEngineer');
   }
   loadReports().then(function(){
-    if(CU.role==='engineer'){ buildDeviceSI(); renderQuickPicks(); }
+    if(CU.role==='engineer'){ buildDeviceSI(); renderQuickPicks(); renderPpmAlerts('ppmAlertBannerEng'); }
     var firstTab=document.querySelector('.ntab');
     var firstPage=CU.role==='admin'?'reports':'new';
     showPage(firstPage,firstTab);
@@ -704,7 +800,9 @@ function showPage(id,btn){
   if(id==='my')renderMyReports();
   if(id==='settings'){
     renderEngineersList(); renderLogoPreview(); renderAllTemplateLists(); renderStampPreview(); }
-  if(id==='devices')renderDeviceList();
+  if(id==='devices'){renderDeviceList(); renderPpmAlerts('ppmAlertBanner');}
+  if(id==='compliance'){renderCompliancePage();}
+  if(id==='new'){renderPpmAlerts('ppmAlertBannerEng');}
 }
 
 // ══════════════════════════
@@ -1385,8 +1483,15 @@ async function addDevice(){
     name: name,
     sn:    document.getElementById('devSN').value.trim(),
     model: document.getElementById('devModel').value.trim(),
-    notes: document.getElementById('devNotes').value.trim()
+    notes: document.getElementById('devNotes').value.trim(),
+    ppm_interval: parseInt(document.getElementById('devPpmInterval').value)||0,
+    last_ppm: document.getElementById('devLastPpm').value||''
   };
+  if(_newDevCert && _newDevCert.data){
+    dev.sfda_cert        = _newDevCert.data;
+    dev.sfda_cert_type   = _newDevCert.type;
+    dev.sfda_cert_expiry = document.getElementById('devCertExpiry').value||'';
+  }
   deviceList.push(dev);
   try{
     await saveDeviceList();
@@ -1395,6 +1500,13 @@ async function addDevice(){
     document.getElementById('devSN').value='';
     document.getElementById('devModel').value='';
     document.getElementById('devNotes').value='';
+    document.getElementById('devPpmInterval').value='';
+    document.getElementById('devLastPpm').value='';
+    document.getElementById('devCertFile').value='';
+    document.getElementById('devCertPreview').innerHTML='';
+    document.getElementById('devCertRemoveBtn').style.display='none';
+    document.getElementById('devCertExpiry').value='';
+    _newDevCert=null;
     renderDeviceList();
   }catch(e){ deviceList.pop(); toast('Save failed: '+e.message,false); }
 }
@@ -1423,8 +1535,38 @@ function renderDeviceList(){
         (d.sn?'<span style="color:var(--teal)">S/N: '+esc(d.sn)+'</span>':'')+
       '</div>'+
       (d.notes?'<div style="font-size:.76rem;color:var(--txt2);margin-top:.2rem">'+esc(d.notes)+'</div>':'');
+    // PPM status badge
+    if(d.ppm_interval){
+      var ppmInfo = getPpmStatus(d);
+      info.innerHTML += '<div style="margin-top:.35rem">'+
+        '<span style="display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .6rem;background:'+ppmInfo.bg+';border:1px solid '+ppmInfo.border+';border-radius:99px;font-size:.7rem;font-weight:700;color:'+ppmInfo.color+'">'+
+          ppmInfo.icon+' PPM: '+ppmInfo.label+
+        '</span>'+
+        (ppmInfo.nextDate ? '<span style="font-size:.7rem;color:var(--txt3);margin-left:.4rem">Next: '+fmtD(ppmInfo.nextDate)+'</span>' : '')+
+      '</div>';
+    }
+    // cert badge inline
+    if(d.sfda_cert){
+      var certExp = getCertExpiryStatus(d.sfda_cert_expiry);
+      info.innerHTML+='<div style="margin-top:.35rem;display:flex;gap:.35rem;flex-wrap:wrap">'+
+        '<span style="display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:99px;font-size:.7rem;font-weight:700;color:#16a34a">🏅 SFDA Cert</span>'+
+        (certExp ? '<span style="display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;background:'+certExp.bg+';border:1px solid '+certExp.border+';border-radius:99px;font-size:.7rem;font-weight:700;color:'+certExp.color+'">'+certExp.icon+' '+certExp.label+'</span>' : '')+
+      '</div>';
+    } else {
+      info.innerHTML+='<div style="margin-top:.35rem"><span style="display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.18);border-radius:99px;font-size:.7rem;font-weight:600;color:#ef4444">❌ No SFDA Cert</span></div>';
+    }
     var btns=document.createElement('div');
-    btns.style.cssText='display:flex;gap:.4rem;flex-shrink:0';
+    btns.style.cssText='display:flex;gap:.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end';
+    if(d.sfda_cert){
+      var certBtn=document.createElement('button');
+      certBtn.className='btn btn-s btn-sm'; certBtn.textContent='🏅 Certificate';
+      certBtn.style.cssText='border-color:rgba(22,163,74,.4);color:#16a34a';
+      certBtn.onclick=(function(dev){ return function(){ 
+        document.getElementById('certViewModal').setAttribute('data-dev-id', String(dev.id));
+        openCertView(dev.id); 
+      }; })(d);
+      btns.appendChild(certBtn);
+    }
     var editBtn=document.createElement('button');
     editBtn.className='btn btn-p btn-sm'; editBtn.textContent='✏️ Edit';
     editBtn.onclick=(function(dev){ return function(){ openEditDevice(dev.id); }; })(d);
@@ -1440,11 +1582,26 @@ function renderDeviceList(){
 function openEditDevice(id){
   var d=deviceList.find(function(x){return String(x.id)===String(id);});
   if(!d)return;
+  _certPending=null;
   document.getElementById('editDevId').value=id;
   document.getElementById('editDevName').value=d.name||'';
   document.getElementById('editDevSN').value=d.sn||'';
   document.getElementById('editDevModel').value=d.model||'';
   document.getElementById('editDevNotes').value=d.notes||'';
+  document.getElementById('editDevCertFile').value='';
+  document.getElementById('editDevCertPreview').innerHTML='';
+  var rmBtn=document.getElementById('editDevCertRemoveBtn');
+  if(rmBtn) rmBtn.style.display='none';
+  renderCertStatus(d);
+  document.getElementById('editDevCertExpiry').value = d.sfda_cert_expiry||'';
+  renderCertExpiryStatus(d.sfda_cert_expiry||'');
+  // PPM fields
+  document.getElementById('editDevPpmInterval').value = d.ppm_interval||'';
+  // Auto-detect last PPM from submitted reports for this device
+  var autoLastPpm = getLastPpmDate(d.name, d.sn);
+  var lastPpm = autoLastPpm || d.last_ppm || '';
+  document.getElementById('editDevLastPpm').value = lastPpm;
+  renderEditPpmStatus(d.ppm_interval, lastPpm);
   document.getElementById('editDevModal').style.display='flex';
 }
 
@@ -1462,6 +1619,21 @@ async function saveEditDevice(){
   deviceList[idx].sn=document.getElementById('editDevSN').value.trim();
   deviceList[idx].model=document.getElementById('editDevModel').value.trim();
   deviceList[idx].notes=document.getElementById('editDevNotes').value.trim();
+  deviceList[idx].ppm_interval = parseInt(document.getElementById('editDevPpmInterval').value)||0;
+  deviceList[idx].last_ppm     = document.getElementById('editDevLastPpm').value||'';
+  // Handle certificate
+  if(_certPending!==null){
+    if(_certPending.data===null){
+      // User clicked remove
+      delete deviceList[idx].sfda_cert;
+      delete deviceList[idx].sfda_cert_type;
+    } else {
+      deviceList[idx].sfda_cert=_certPending.data;
+      deviceList[idx].sfda_cert_type=_certPending.type;
+    }
+    _certPending=null;
+  }
+  deviceList[idx].sfda_cert_expiry = document.getElementById('editDevCertExpiry').value||'';
   try{
     await saveDeviceList();
     closeEditDevice(); renderDeviceList();
@@ -1662,6 +1834,455 @@ function appendTemplate(targetId, text){
   ta.scrollTop = ta.scrollHeight;
 }
 
+
+
+
+
+// ══════════════════════════
+// COMPLIANCE DASHBOARD
+// ══════════════════════════
+function renderCompliancePage(){
+  renderPpmTable();
+  renderCertTable();
+}
+
+function renderPpmTable(){
+  var tbody = document.getElementById('ppmTableBody');
+  if(!tbody) return;
+  var filter = (document.getElementById('ppmFilterStatus')||{}).value||'';
+
+  var rows = deviceList.map(function(d){
+    if(!d.ppm_interval){
+      return {d:d,interval:0,lastPpm:'',nextDate:'',days:null,statusKey:'unset',
+        icon:'—',label:'No schedule',color:'#94a3b8',bg:'rgba(148,163,184,.08)',border:'rgba(148,163,184,.2)'};
+    }
+    var lastPpm  = getEffectiveLastPpm(d);
+    var nextDate = lastPpm ? addMonths(lastPpm, d.ppm_interval) : '';
+    var days     = nextDate ? daysUntil(nextDate) : null;
+    var statusKey,icon,label,color,bg,border;
+    if(!lastPpm){
+      statusKey='none';icon='⚪';label='No PPM recorded';
+      color='#94a3b8';bg='rgba(148,163,184,.08)';border='rgba(148,163,184,.2)';
+    } else if(days<0){
+      statusKey='overdue';icon='🔴';label='Overdue '+Math.abs(days)+'d';
+      color='#ef4444';bg='rgba(239,68,68,.08)';border='rgba(239,68,68,.25)';
+    } else if(days<=30){
+      statusKey='due';icon='🟡';label='Due in '+days+'d';
+      color='#d97706';bg='rgba(217,119,6,.08)';border='rgba(217,119,6,.25)';
+    } else {
+      statusKey='ok';icon='🟢';label='OK — '+days+'d left';
+      color='#16a34a';bg='rgba(22,163,74,.08)';border='rgba(22,163,74,.25)';
+    }
+    return {d:d,interval:d.ppm_interval,lastPpm:lastPpm,nextDate:nextDate,days:days,
+      statusKey:statusKey,icon:icon,label:label,color:color,bg:bg,border:border};
+  });
+
+  if(filter) rows = rows.filter(function(r){ return r.statusKey===filter; });
+
+  var order={overdue:0,due:1,none:2,ok:3,unset:4};
+  rows.sort(function(a,b){
+    var oa=order[a.statusKey]||3, ob=order[b.statusKey]||3;
+    if(oa!==ob) return oa-ob;
+    return (a.days===null?9999:a.days)-(b.days===null?9999:b.days);
+  });
+
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7" class="norec">No devices match this filter.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(function(r){
+    var d=r.d;
+    var snCell    = d.sn   ? esc(d.sn)   : '—';
+    var modelCell = d.model? esc(d.model) : '—';
+    var intCell   = r.interval ? (r.interval+' month'+(r.interval>1?'s':'')) : '—';
+    var lastCell  = r.lastPpm
+      ? '<span style="color:var(--txt)">'+fmtD(r.lastPpm)+'</span>'
+      : '<span style="color:var(--txt3);font-style:italic">None</span>';
+    var nextColor = r.days===null?'var(--txt)':r.days<=0?'#ef4444':r.days<=30?'#d97706':'var(--txt)';
+    var nextCell  = r.nextDate ? '<strong style="color:'+nextColor+'">'+fmtD(r.nextDate)+'</strong>' : '—';
+    var badge     = '<span style="display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .65rem;'+
+      'background:'+r.bg+';border:1px solid '+r.border+';border-radius:99px;'+
+      'font-size:.73rem;font-weight:700;color:'+r.color+'">'+r.icon+' '+r.label+'</span>';
+    return '<tr>'+
+      '<td><strong>'+esc(d.name)+'</strong></td>'+
+      '<td style="color:var(--txt2)">'+snCell+'</td>'+
+      '<td style="color:var(--txt2)">'+modelCell+'</td>'+
+      '<td>'+intCell+'</td>'+
+      '<td>'+lastCell+'</td>'+
+      '<td>'+nextCell+'</td>'+
+      '<td>'+badge+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function renderCertTable(){
+  var tbody = document.getElementById('certTableBody');
+  if(!tbody) return;
+  var filter = (document.getElementById('certFilterStatus')||{}).value||'';
+
+  var rows = deviceList.map(function(d){
+    if(!d.sfda_cert){
+      return {d:d,hasCert:false,expiry:'',days:null,statusKey:'nocert',
+        icon:'❌',label:'No certificate',color:'#ef4444',bg:'rgba(239,68,68,.06)',border:'rgba(239,68,68,.18)'};
+    }
+    if(!d.sfda_cert_expiry){
+      return {d:d,hasCert:true,expiry:'',days:null,statusKey:'noexpiry',
+        icon:'📅',label:'No expiry set',color:'#94a3b8',bg:'rgba(148,163,184,.08)',border:'rgba(148,163,184,.2)'};
+    }
+    var days=daysUntil(d.sfda_cert_expiry);
+    var statusKey,icon,label,color,bg,border;
+    if(days<0){
+      statusKey='expired';icon='🔴';label='Expired '+Math.abs(days)+'d ago';
+      color='#ef4444';bg='rgba(239,68,68,.08)';border='rgba(239,68,68,.25)';
+    } else if(days<=60){
+      statusKey='expiring';icon='🟡';label='Expiring in '+days+'d';
+      color='#d97706';bg='rgba(217,119,6,.08)';border='rgba(217,119,6,.25)';
+    } else {
+      statusKey='valid';icon='🟢';label='Valid — '+days+'d left';
+      color='#16a34a';bg='rgba(22,163,74,.08)';border='rgba(22,163,74,.25)';
+    }
+    return {d:d,hasCert:true,expiry:d.sfda_cert_expiry,days:days,
+      statusKey:statusKey,icon:icon,label:label,color:color,bg:bg,border:border};
+  });
+
+  if(filter) rows = rows.filter(function(r){ return r.statusKey===filter; });
+
+  var order={expired:0,expiring:1,noexpiry:2,valid:3,nocert:4};
+  rows.sort(function(a,b){
+    var oa=order[a.statusKey]||3, ob=order[b.statusKey]||3;
+    if(oa!==ob) return oa-ob;
+    return (a.days===null?9999:a.days)-(b.days===null?9999:b.days);
+  });
+
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7" class="norec">No devices match this filter.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(function(r){
+    var d=r.d;
+    var snCell    = d.sn    ? esc(d.sn)    : '—';
+    var modelCell = d.model ? esc(d.model) : '—';
+    var certCell  = r.hasCert
+      ? '<span style="color:#16a34a;font-weight:600">✅ Attached</span>'
+      : '<span style="color:#ef4444">❌ None</span>';
+    var expColor  = r.days===null?'var(--txt)':r.days<=0?'#ef4444':r.days<=60?'#d97706':'var(--txt)';
+    var expiryCell= r.expiry ? '<strong style="color:'+expColor+'">'+fmtD(r.expiry)+'</strong>' : '—';
+    var badge     = '<span style="display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .65rem;'+
+      'background:'+r.bg+';border:1px solid '+r.border+';border-radius:99px;'+
+      'font-size:.73rem;font-weight:700;color:'+r.color+'">'+r.icon+' '+r.label+'</span>';
+    var viewBtn   = r.hasCert
+      ? '<button class="btn btn-s btn-sm" onclick="openCertView(&quot;'+String(d.id)+'&quot;)" style="border-color:rgba(22,163,74,.4);color:#16a34a">🏅 View</button>'
+      : '';
+    return '<tr>'+
+      '<td><strong>'+esc(d.name)+'</strong></td>'+
+      '<td style="color:var(--txt2)">'+snCell+'</td>'+
+      '<td style="color:var(--txt2)">'+modelCell+'</td>'+
+      '<td>'+certCell+'</td>'+
+      '<td>'+expiryCell+'</td>'+
+      '<td>'+badge+'</td>'+
+      '<td>'+viewBtn+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function exportComplianceXLS(){
+  var rows=[['Device','S/N','Model','PPM Interval','Last PPM','Next PPM Due','PPM Status','SFDA Cert','Cert Expiry','Cert Status']];
+  deviceList.forEach(function(d){
+    var lastPpm  = getEffectiveLastPpm(d);
+    var nextDate = (d.ppm_interval&&lastPpm) ? addMonths(lastPpm,d.ppm_interval) : '';
+    var ppmDays  = nextDate ? daysUntil(nextDate) : null;
+    var ppmSt    = !d.ppm_interval?'No schedule':!lastPpm?'No PPM recorded':
+      ppmDays<0?'Overdue '+Math.abs(ppmDays)+'d':ppmDays<=30?'Due in '+ppmDays+'d':'OK';
+    var certSt   = !d.sfda_cert?'No cert':!d.sfda_cert_expiry?'No expiry set':(function(){
+      var dy=daysUntil(d.sfda_cert_expiry);
+      return dy<0?'Expired '+Math.abs(dy)+'d ago':dy<=60?'Expiring in '+dy+'d':'Valid';
+    })();
+    rows.push([d.name||'',d.sn||'',d.model||'',
+      d.ppm_interval?(d.ppm_interval+' months'):'—',
+      lastPpm||'—',nextDate||'—',ppmSt,
+      d.sfda_cert?'Yes':'No',d.sfda_cert_expiry||'—',certSt]);
+  });
+  var csv=rows.map(function(r){
+    return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');
+  }).join('\n');
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='compliance-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('Exported!',true);
+}
+
+
+// ══════════════════════════
+// SFDA CERT EXPIRY
+// ══════════════════════════
+
+function getCertExpiryStatus(expiryDate){
+  if(!expiryDate) return null;
+  var days = daysUntil(expiryDate);
+  if(days < 0)  return {icon:'🔴', label:'Expired '+Math.abs(days)+'d ago', color:'#ef4444', bg:'rgba(239,68,68,.1)',  border:'rgba(239,68,68,.3)',  days:days};
+  if(days <= 60) return {icon:'🟡', label:'Expires in '+days+'d',           color:'#d97706', bg:'rgba(217,119,6,.1)',  border:'rgba(217,119,6,.3)',  days:days};
+  return           {icon:'🟢', label:'Valid — '+days+'d left',              color:'#16a34a', bg:'rgba(22,163,74,.1)', border:'rgba(22,163,74,.3)', days:days};
+}
+
+function renderCertExpiryStatus(val){
+  var el = document.getElementById('editDevCertExpiryStatus');
+  if(!el) return;
+  if(!val){ el.innerHTML=''; return; }
+  var st = getCertExpiryStatus(val);
+  if(!st){ el.innerHTML=''; return; }
+  el.innerHTML='<span style="font-size:.75rem;font-weight:700;color:'+st.color+'">'+st.icon+' '+st.label+'</span>';
+}
+
+// ══════════════════════════
+// PPM SCHEDULER
+// ══════════════════════════
+
+// Returns the most recent PPM service date for a device matched by name+sn from submitted reports
+function getLastPpmDate(devName, devSN){
+  var ppmReports = reports.filter(function(r){
+    var nameMatch = r.machine && r.machine.toLowerCase()===devName.toLowerCase();
+    var snMatch   = devSN ? (r.serial_number && r.serial_number===devSN) : true;
+    var isPpm     = r.service_type && r.service_type.indexOf('PPM')>=0;
+    return nameMatch && snMatch && isPpm;
+  });
+  if(!ppmReports.length) return '';
+  ppmReports.sort(function(a,b){ return b.service_date.localeCompare(a.service_date); });
+  return ppmReports[0].service_date;
+}
+
+// Returns effective last PPM: auto-detected from reports, fallback to stored manual date
+function getEffectiveLastPpm(d){
+  return getLastPpmDate(d.name, d.sn) || d.last_ppm || '';
+}
+
+// Adds months to a YYYY-MM-DD date string, returns YYYY-MM-DD
+function addMonths(dateStr, months){
+  if(!dateStr) return '';
+  var dt = new Date(dateStr);
+  dt.setMonth(dt.getMonth() + months);
+  return dt.toISOString().slice(0,10);
+}
+
+// Returns days between today and a YYYY-MM-DD date (negative = overdue)
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  var today = new Date(); today.setHours(0,0,0,0);
+  var due   = new Date(dateStr);
+  return Math.round((due - today) / 86400000);
+}
+
+// Returns {icon, label, color, bg, border, nextDate, days} for a device
+function getPpmStatus(d){
+  if(!d.ppm_interval) return null;
+  var lastPpm  = getEffectiveLastPpm(d);
+  var nextDate = lastPpm ? addMonths(lastPpm, d.ppm_interval) : '';
+  var days     = nextDate ? daysUntil(nextDate) : null;
+
+  if(!lastPpm || days===null){
+    return {icon:'⚪', label:'No PPM recorded', color:'#94a3b8', bg:'rgba(148,163,184,.1)', border:'rgba(148,163,184,.3)', nextDate:'', days:null};
+  }
+  if(days < 0){
+    return {icon:'🔴', label:'Overdue by '+Math.abs(days)+'d', color:'#ef4444', bg:'rgba(239,68,68,.1)', border:'rgba(239,68,68,.3)', nextDate:nextDate, days:days};
+  }
+  if(days <= 30){
+    return {icon:'🟡', label:'Due in '+days+'d', color:'#d97706', bg:'rgba(217,119,6,.1)', border:'rgba(217,119,6,.3)', nextDate:nextDate, days:days};
+  }
+  return {icon:'🟢', label:'OK — '+days+'d left', color:'#16a34a', bg:'rgba(22,163,74,.1)', border:'rgba(22,163,74,.3)', nextDate:nextDate, days:days};
+}
+
+// Renders the mini PPM status line inside the Edit Device modal
+function renderEditPpmStatus(interval, lastPpm){
+  var el = document.getElementById('editDevPpmStatus');
+  if(!el) return;
+  if(!interval || !lastPpm){ el.innerHTML=''; return; }
+  var nextDate = addMonths(lastPpm, parseInt(interval));
+  var days = daysUntil(nextDate);
+  var color = days<0?'#ef4444':days<=30?'#d97706':'#16a34a';
+  var icon  = days<0?'🔴':days<=30?'🟡':'🟢';
+  el.innerHTML='<div style="font-size:.75rem;color:'+color+';font-weight:600;padding:.3rem 0">'+
+    icon+' Next PPM due: '+fmtD(nextDate)+(days>=0?' ('+days+' days)':' ('+Math.abs(days)+' days overdue)')+'</div>';
+}
+
+// Renders the PPM + Cert Expiry alert banner
+function renderPpmAlerts(bannerId){
+  var el = document.getElementById(bannerId);
+  if(!el) return;
+
+  var ppmAlerts = [];
+  var certAlerts = [];
+
+  deviceList.forEach(function(d){
+    if(d.ppm_interval){
+      var st = getPpmStatus(d);
+      if(st && st.days!==null && st.days<=30) ppmAlerts.push({d:d, st:st, type:'ppm'});
+    }
+    if(d.sfda_cert && d.sfda_cert_expiry){
+      var ce = getCertExpiryStatus(d.sfda_cert_expiry);
+      if(ce && ce.days<=60) certAlerts.push({d:d, st:ce, type:'cert'});
+    }
+  });
+
+  var all = ppmAlerts.concat(certAlerts);
+  if(!all.length){ el.style.display='none'; el.innerHTML=''; return; }
+  all.sort(function(a,b){ return a.st.days - b.st.days; });
+
+  var rows = all.map(function(a){
+    var typeTag = a.type==='ppm'
+      ? '<span style="font-size:.68rem;padding:.1rem .45rem;background:rgba(255,255,255,.18);border-radius:4px;font-weight:700;margin-right:.1rem">PPM</span>'
+      : '<span style="font-size:.68rem;padding:.1rem .45rem;background:rgba(255,255,255,.18);border-radius:4px;font-weight:700;margin-right:.1rem">SFDA</span>';
+    var detail = a.type==='ppm'
+      ? a.st.label+(a.st.nextDate?' · Due: '+fmtD(a.st.nextDate):'')
+      : a.st.label+(a.d.sfda_cert_expiry?' · Expiry: '+fmtD(a.d.sfda_cert_expiry):'');
+    var freq = a.type==='ppm'
+      ? 'Every '+a.d.ppm_interval+' month'+(a.d.ppm_interval>1?'s':'')
+      : 'Certificate renewal needed';
+    return '<div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .9rem;border-bottom:1px solid rgba(255,255,255,.08);flex-wrap:wrap">'+
+      '<span style="font-size:.9rem">'+a.st.icon+'</span>'+
+      typeTag+
+      '<div style="flex:1;min-width:160px">'+
+        '<div style="font-weight:700;font-size:.84rem">'+esc(a.d.name)+(a.d.sn?' <span style="font-weight:400;opacity:.7">S/N: '+esc(a.d.sn)+'</span>':'')+'</div>'+
+        '<div style="font-size:.75rem;opacity:.85">'+detail+'</div>'+
+      '</div>'+
+      '<span style="font-size:.72rem;opacity:.65;white-space:nowrap">'+freq+'</span>'+
+    '</div>';
+  }).join('');
+
+  var totalLabel = [];
+  if(ppmAlerts.length) totalLabel.push(ppmAlerts.length+' PPM');
+  if(certAlerts.length) totalLabel.push(certAlerts.length+' Cert expiry');
+
+  el.style.display='block';
+  el.innerHTML=
+    '<div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:var(--rs);overflow:hidden;box-shadow:0 2px 12px rgba(79,70,229,.25)">'+
+      '<div style="display:flex;align-items:center;gap:.6rem;padding:.7rem 1rem;background:rgba(0,0,0,.15)">'+
+        '<span style="font-size:1.1rem">🔔</span>'+
+        '<span style="font-weight:700;color:#fff;font-size:.88rem">Alerts — '+totalLabel.join(' &amp; ')+' require attention</span>'+
+      '</div>'+
+      '<div style="color:#e0e7ff">'+rows+'</div>'+
+    '</div>';
+}
+
+// ══════════════════════════
+// SFDA CERTIFICATE
+// ══════════════════════════
+var _certPending = null;
+
+var _newDevCert = null;
+
+function previewNewDevCert(e){
+  var file = e.target.files[0];
+  if(!file){ _newDevCert=null; return; }
+  if(file.size > 6*1024*1024){ toast('File too large. Please use a file under 6 MB.',false); e.target.value=''; return; }
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    var data = ev.target.result;
+    var type = file.type.startsWith('image/') ? 'image' : 'pdf';
+    _newDevCert = {data: data, type: type, name: file.name};
+    var prev = document.getElementById('devCertPreview');
+    var rmBtn = document.getElementById('devCertRemoveBtn');
+    if(type==='image'){
+      prev.innerHTML='<img src="'+data+'" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid var(--border);object-fit:contain">';
+    } else {
+      prev.innerHTML='<div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;background:var(--navy3);border:1px solid var(--border);border-radius:var(--rs);font-size:.82rem;color:var(--txt)">📄 <span>'+esc(file.name)+'</span></div>';
+    }
+    if(rmBtn) rmBtn.style.display='inline-flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeNewDevCert(){
+  _newDevCert=null;
+  document.getElementById('devCertPreview').innerHTML='';
+  document.getElementById('devCertFile').value='';
+  document.getElementById('devCertRemoveBtn').style.display='none';
+}
+
+function previewCert(e){
+  var file = e.target.files[0];
+  if(!file){ _certPending=null; return; }
+  if(file.size > 6*1024*1024){ toast('File too large. Please use a file under 6 MB.',false); e.target.value=''; return; }
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    var data = ev.target.result;
+    var type = file.type.startsWith('image/') ? 'image' : 'pdf';
+    _certPending = {data: data, type: type, name: file.name};
+    var prev = document.getElementById('editDevCertPreview');
+    var rmBtn = document.getElementById('editDevCertRemoveBtn');
+    if(type==='image'){
+      prev.innerHTML='<img src="'+data+'" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;object-fit:contain">';
+    } else {
+      prev.innerHTML='<div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;font-size:.82rem;color:#0f172a">📄 <span>'+esc(file.name)+'</span></div>';
+    }
+    if(rmBtn) rmBtn.style.display='inline-flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeCertPreview(){
+  _certPending = {data: null, type: null, name: null};
+  document.getElementById('editDevCertPreview').innerHTML='';
+  document.getElementById('editDevCertFile').value='';
+  var rmBtn = document.getElementById('editDevCertRemoveBtn');
+  if(rmBtn) rmBtn.style.display='none';
+  document.getElementById('editDevCertStatus').innerHTML=
+    '<span style="font-size:.75rem;color:#ef4444;font-weight:600">⚠️ Certificate will be removed on save</span>';
+}
+
+function renderCertStatus(d){
+  var el = document.getElementById('editDevCertStatus');
+  if(!el) return;
+  if(d && d.sfda_cert){
+    el.innerHTML='<span style="display:inline-flex;align-items:center;gap:.35rem;padding:.28rem .65rem;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:99px;font-size:.74rem;font-weight:700;color:#16a34a">✅ Certificate attached</span>';
+  } else {
+    el.innerHTML='<span style="display:inline-flex;align-items:center;gap:.35rem;padding:.28rem .65rem;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:99px;font-size:.74rem;font-weight:700;color:#ef4444">❌ No certificate</span>';
+  }
+}
+
+function openCertView(id){
+  var d = deviceList.find(function(x){return String(x.id)===String(id);});
+  if(!d||!d.sfda_cert){ toast('No certificate attached to this device.',false); return; }
+  document.getElementById('certViewModal').setAttribute('data-dev-id', String(id));
+  document.getElementById('certViewTitle').textContent = d.name + ' — SFDA Certificate';
+  document.getElementById('certViewSub').textContent = (d.sn?'S/N: '+d.sn:'') + (d.model?' · '+d.model:'');
+  var body = document.getElementById('certViewBody');
+  if(d.sfda_cert_type==='pdf'){
+    body.innerHTML='<iframe src="'+d.sfda_cert+'" style="width:100%;min-height:70vh;border:none;border-radius:6px"></iframe>';
+  } else {
+    body.innerHTML='<img src="'+d.sfda_cert+'" style="max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.1)">';
+  }
+  document.getElementById('certViewModal').style.display='flex';
+}
+
+function closeCertView(){
+  document.getElementById('certViewModal').style.display='none';
+  document.getElementById('certViewBody').innerHTML='';
+}
+
+function printCert(){
+  var id = document.getElementById('certViewModal').getAttribute('data-dev-id');
+  var d = id ? deviceList.find(function(x){return String(x.id)===String(id);}) : null;
+  if(!d||!d.sfda_cert){ toast('No certificate to print.',false); return; }
+  var prevTitle = document.title;
+  document.title = d.name + ' — SFDA Certificate';
+  if(d.sfda_cert_type==='pdf'){
+    var win = window.open('','_blank');
+    win.document.write('<html><head><title>'+d.name+' SFDA Certificate</title></head><body style="margin:0"><iframe src="'+d.sfda_cert+'" style="width:100vw;height:100vh;border:none"></iframe></body></html>');
+    win.document.close();
+    setTimeout(function(){ win.print(); document.title=prevTitle; },600);
+  } else {
+    var pa = document.getElementById('printArea');
+    pa.innerHTML='<div style="text-align:center;padding:1rem"><img src="'+d.sfda_cert+'" style="max-width:100%;max-height:95vh;object-fit:contain"></div>';
+    pa.style.display='block';
+    setTimeout(function(){
+      window.print();
+      setTimeout(function(){ pa.style.display='none'; pa.innerHTML=''; document.title=prevTitle; },800);
+    },200);
+  }
+}
+
 // ══════════════════════════
 // INIT
 // ══════════════════════════
@@ -1694,8 +2315,8 @@ async function init(){
 init();
 </script>
 <!-- Device Edit Modal -->
-<div id="editDevModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:1rem">
-  <div style="background:#fff;border-radius:14px;padding:1.5rem;width:100%;max-width:440px;box-shadow:0 8px 32px rgba(0,0,0,.15)">
+<div id="editDevModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:1rem;overflow-y:auto">
+  <div style="background:#fff;border-radius:14px;padding:1.5rem;width:100%;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.15);margin:auto">
     <h3 style="margin:0 0 1.1rem;font-size:1rem;color:#0f172a">✏️ Edit Device</h3>
     <input type="hidden" id="editDevId">
     <div style="display:grid;gap:.8rem">
@@ -1703,11 +2324,64 @@ init();
       <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Serial Number</label><input type="text" id="editDevSN" style="width:100%;box-sizing:border-box"></div>
       <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Model</label><input type="text" id="editDevModel" style="width:100%;box-sizing:border-box"></div>
       <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Notes</label><textarea id="editDevNotes" style="width:100%;box-sizing:border-box;min-height:70px;resize:vertical"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+        <div>
+          <label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">PPM Interval</label>
+          <select id="editDevPpmInterval" style="width:100%;box-sizing:border-box" onchange="renderEditPpmStatus(this.value,document.getElementById('editDevLastPpm').value)">
+            <option value="">— No PPM schedule —</option>
+            <option value="1">Every 1 month</option>
+            <option value="2">Every 2 months</option>
+            <option value="3">Every 3 months</option>
+            <option value="6">Every 6 months</option>
+            <option value="12">Every 12 months</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Last PPM Date <span style="font-size:.68rem;color:#94a3b8;font-weight:400">(auto or manual)</span></label>
+          <input type="date" id="editDevLastPpm" style="width:100%;box-sizing:border-box" onchange="renderEditPpmStatus(document.getElementById('editDevPpmInterval').value,this.value)">
+        </div>
+      </div>
+      <div id="editDevPpmStatus" style="margin-top:-.2rem"></div>
+      <div style="border-top:1px solid #e2e8f0;padding-top:.9rem;margin-top:.2rem">
+        <label style="font-size:.78rem;font-weight:700;color:#0f172a;display:block;margin-bottom:.5rem">🏅 SFDA Certificate</label>
+        <div id="editDevCertStatus" style="margin-bottom:.6rem"></div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .75rem;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:600;color:#475569;white-space:nowrap">
+            📎 Attach File
+            <input type="file" id="editDevCertFile" accept="image/*,application/pdf" style="display:none" onchange="previewCert(event)">
+          </label>
+          <button class="btn btn-d btn-sm" id="editDevCertRemoveBtn" onclick="removeCertPreview()" style="display:none">🗑 Remove</button>
+        </div>
+        <div id="editDevCertPreview" style="margin-top:.7rem"></div>
+        <div style="font-size:.72rem;color:#94a3b8;margin-top:.4rem">Accepted: JPG, PNG, PDF. Max ~6 MB.</div>
+        <div style="margin-top:.7rem">
+          <label style="font-size:.78rem;font-weight:700;color:#0f172a;display:block;margin-bottom:.3rem">📅 Certificate Expiry Date</label>
+          <input type="date" id="editDevCertExpiry" style="width:100%;box-sizing:border-box" onchange="renderCertExpiryStatus(this.value)">
+          <div id="editDevCertExpiryStatus" style="margin-top:.35rem"></div>
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.2rem">
       <button class="btn btn-s" onclick="closeEditDevice()">Cancel</button>
       <button class="btn btn-p" onclick="saveEditDevice()">💾 Save Changes</button>
     </div>
+  </div>
+</div>
+
+<!-- SFDA Certificate Viewer Modal -->
+<div id="certViewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:10000;align-items:center;justify-content:center;padding:1rem;overflow-y:auto">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:780px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.3);margin:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.3rem;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+      <div>
+        <div style="font-size:.95rem;font-weight:700;color:#0f172a" id="certViewTitle">SFDA Certificate</div>
+        <div style="font-size:.75rem;color:#64748b;margin-top:.1rem" id="certViewSub"></div>
+      </div>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-p btn-sm" onclick="printCert()">🖨 Print</button>
+        <button class="btn btn-s btn-sm" onclick="closeCertView()">✕ Close</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow:auto;padding:1rem;background:#f8fafc;display:flex;align-items:flex-start;justify-content:center" id="certViewBody"></div>
   </div>
 </div>
 </body>
