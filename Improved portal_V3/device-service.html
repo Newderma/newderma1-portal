@@ -441,6 +441,9 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
           <div><label>Serial Number (S/N)</label><input type="text" id="devSN" placeholder="Serial number"></div>
           <div><label>Model</label><input type="text" id="devModel" placeholder="Model number"></div>
           <div><label>Notes</label><input type="text" id="devNotes" placeholder="Optional notes"></div>
+          <div><label>Year of Manufacture</label><input type="number" id="devYear" placeholder="e.g. 2021" min="1990" max="2099" style="width:100%;box-sizing:border-box"></div>
+          <div><label>Country of Origin</label><input type="text" id="devOrigin" placeholder="e.g. USA, Germany, Japan"></div>
+          <div><label>Location in Clinic</label><input type="text" id="devLocation" placeholder="e.g. Room 3, Floor 2"></div>
           <div>
             <label>PPM Interval <span style="font-size:.7rem;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
             <select id="devPpmInterval" onchange="document.getElementById('devLastPpmWrap').style.display=this.value?'block':'none'">
@@ -511,7 +514,7 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
           <table id="ppmTable">
             <thead>
               <tr>
-                <th>Device</th><th>S/N</th><th>Model</th>
+                <th>Device</th><th>S/N</th><th>Model</th><th>Year</th><th>Origin</th><th>Location</th>
                 <th>Interval</th><th>Last PPM</th><th>Next Due</th><th>Status</th>
               </tr>
             </thead>
@@ -537,7 +540,7 @@ td{padding:.65rem .8rem;color:var(--txt);vertical-align:middle}
           <table id="certTable">
             <thead>
               <tr>
-                <th>Device</th><th>S/N</th><th>Model</th>
+                <th>Device</th><th>S/N</th><th>Model</th><th>Year</th><th>Origin</th><th>Location</th>
                 <th>Certificate</th><th>Expiry Date</th><th>Status</th><th></th>
               </tr>
             </thead>
@@ -1532,7 +1535,10 @@ async function addDevice(){
     name: name,
     sn:    document.getElementById('devSN').value.trim(),
     model: document.getElementById('devModel').value.trim(),
-    notes: document.getElementById('devNotes').value.trim(),
+    notes:     document.getElementById('devNotes').value.trim(),
+    year:      document.getElementById('devYear').value.trim(),
+    origin:    document.getElementById('devOrigin').value.trim(),
+    location:  document.getElementById('devLocation').value.trim(),
     ppm_interval: parseInt(document.getElementById('devPpmInterval').value)||0,
     last_ppm: document.getElementById('devLastPpm').value||''
   };
@@ -1555,6 +1561,9 @@ async function addDevice(){
     document.getElementById('devSN').value='';
     document.getElementById('devModel').value='';
     document.getElementById('devNotes').value='';
+    document.getElementById('devYear').value='';
+    document.getElementById('devOrigin').value='';
+    document.getElementById('devLocation').value='';
     document.getElementById('devPpmInterval').value='';
     document.getElementById('devLastPpm').value='';
     document.getElementById('devCertFile').value='';
@@ -1593,7 +1602,13 @@ function renderDeviceList(){
         (d.model?'<span style="color:var(--txt2)">Model: '+esc(d.model)+'</span>&nbsp;&nbsp;':'')+
         (d.sn?'<span style="color:var(--teal)">S/N: '+esc(d.sn)+'</span>':'')+
       '</div>'+
-      (d.notes?'<div style="font-size:.76rem;color:var(--txt2);margin-top:.2rem">'+esc(d.notes)+'</div>':'');
+      (d.notes?'<div style="font-size:.76rem;color:var(--txt2);margin-top:.2rem">'+esc(d.notes)+'</div>':'')+
+      ((d.year||d.origin||d.location)?
+        '<div style="font-size:.74rem;color:var(--txt3);margin-top:.18rem;display:flex;gap:.7rem;flex-wrap:wrap">'+
+          (d.year?'<span>📅 '+esc(d.year)+'</span>':'')+
+          (d.origin?'<span>🌍 '+esc(d.origin)+'</span>':'')+
+          (d.location?'<span>📍 '+esc(d.location)+'</span>':'')+
+        '</div>':'');
     // PPM status badge
     if(d.ppm_interval){
       var ppmInfo = getPpmStatus(d);
@@ -1647,6 +1662,9 @@ function openEditDevice(id){
   document.getElementById('editDevSN').value=d.sn||'';
   document.getElementById('editDevModel').value=d.model||'';
   document.getElementById('editDevNotes').value=d.notes||'';
+  document.getElementById('editDevYear').value=d.year||'';
+  document.getElementById('editDevOrigin').value=d.origin||'';
+  document.getElementById('editDevLocation').value=d.location||'';
   document.getElementById('editDevCertFile').value='';
   document.getElementById('editDevCertPreview').innerHTML='';
   var rmBtn=document.getElementById('editDevCertRemoveBtn');
@@ -1677,28 +1695,38 @@ async function saveEditDevice(){
   deviceList[idx].name=name;
   deviceList[idx].sn=document.getElementById('editDevSN').value.trim();
   deviceList[idx].model=document.getElementById('editDevModel').value.trim();
-  deviceList[idx].notes=document.getElementById('editDevNotes').value.trim();
+  deviceList[idx].notes    = document.getElementById('editDevNotes').value.trim();
+  deviceList[idx].year     = document.getElementById('editDevYear').value.trim();
+  deviceList[idx].origin   = document.getElementById('editDevOrigin').value.trim();
+  deviceList[idx].location = document.getElementById('editDevLocation').value.trim();
   deviceList[idx].ppm_interval = parseInt(document.getElementById('editDevPpmInterval').value)||0;
   deviceList[idx].last_ppm     = document.getElementById('editDevLastPpm').value||'';
-  // Handle certificate
-  if(_certPending!==null){
-    if(_certPending.data===null){
+  // Handle certificate — capture BEFORE saveDeviceList strips it from memory
+  var certChanged = _certPending !== null;
+  var certToSave  = null;
+  var certTypeToSave = null;
+  if(_certPending !== null){
+    if(_certPending.data === null){
+      // User removed cert
       delete deviceList[idx].sfda_cert;
       delete deviceList[idx].sfda_cert_type;
+      certToSave = null;
     } else {
-      deviceList[idx].sfda_cert=_certPending.data;
-      deviceList[idx].sfda_cert_type=_certPending.type;
+      // User attached new cert
+      deviceList[idx].sfda_cert      = _certPending.data;
+      deviceList[idx].sfda_cert_type = _certPending.type;
+      certToSave     = _certPending.data;
+      certTypeToSave = _certPending.type;
     }
-    _certPending=null;
+    _certPending = null;
   }
   deviceList[idx].sfda_cert_expiry = document.getElementById('editDevCertExpiry').value||'';
   try{
-    var certPendingCopy = _certPending; // already null but capture cert state
-    var savedCert  = deviceList[idx].sfda_cert;
-    var savedCertType = deviceList[idx].sfda_cert_type;
     await saveDeviceList();
-    // Save cert separately (only touches one row, much faster)
-    await saveDeviceCert(deviceList[idx].id, savedCert||null, savedCertType||null);
+    // Only touch the cert row if something actually changed
+    if(certChanged){
+      await saveDeviceCert(deviceList[idx].id, certToSave, certTypeToSave);
+    }
     closeEditDevice(); renderDeviceList();
     toast('Device updated!',true);
   }catch(e){ toast('Save failed: '+e.message,false); }
@@ -1971,6 +1999,9 @@ function renderPpmTable(){
       '<td><strong>'+esc(d.name)+'</strong></td>'+
       '<td style="color:var(--txt2)">'+snCell+'</td>'+
       '<td style="color:var(--txt2)">'+modelCell+'</td>'+
+      '<td style="color:var(--txt2)">'+(d.year||'—')+'</td>'+
+      '<td style="color:var(--txt2)">'+(d.origin?esc(d.origin):'—')+'</td>'+
+      '<td style="color:var(--txt2)">'+(d.location?esc(d.location):'—')+'</td>'+
       '<td>'+intCell+'</td>'+
       '<td>'+lastCell+'</td>'+
       '<td>'+nextCell+'</td>'+
@@ -2042,6 +2073,9 @@ function renderCertTable(){
       '<td><strong>'+esc(d.name)+'</strong></td>'+
       '<td style="color:var(--txt2)">'+snCell+'</td>'+
       '<td style="color:var(--txt2)">'+modelCell+'</td>'+
+      '<td style="color:var(--txt2)">'+(d.year||'—')+'</td>'+
+      '<td style="color:var(--txt2)">'+(d.origin?esc(d.origin):'—')+'</td>'+
+      '<td style="color:var(--txt2)">'+(d.location?esc(d.location):'—')+'</td>'+
       '<td>'+certCell+'</td>'+
       '<td>'+expiryCell+'</td>'+
       '<td>'+badge+'</td>'+
@@ -2051,7 +2085,7 @@ function renderCertTable(){
 }
 
 function exportComplianceXLS(){
-  var rows=[['Device','S/N','Model','PPM Interval','Last PPM','Next PPM Due','PPM Status','SFDA Cert','Cert Expiry','Cert Status']];
+  var rows=[['Device','S/N','Model','Year','Origin','Location','PPM Interval','Last PPM','Next PPM Due','PPM Status','SFDA Cert','Cert Expiry','Cert Status']];
   deviceList.forEach(function(d){
     var lastPpm  = getEffectiveLastPpm(d);
     var nextDate = (d.ppm_interval&&lastPpm) ? addMonths(lastPpm,d.ppm_interval) : '';
@@ -2062,7 +2096,7 @@ function exportComplianceXLS(){
       var dy=daysUntil(d.sfda_cert_expiry);
       return dy<0?'Expired '+Math.abs(dy)+'d ago':dy<=60?'Expiring in '+dy+'d':'Valid';
     })();
-    rows.push([d.name||'',d.sn||'',d.model||'',
+    rows.push([d.name||'',d.sn||'',d.model||'',d.year||'',d.origin||'',d.location||'',
       d.ppm_interval?(d.ppm_interval+' months'):'—',
       lastPpm||'—',nextDate||'—',ppmSt,
       d.sfda_cert?'Yes':'No',d.sfda_cert_expiry||'—',certSt]);
@@ -2387,6 +2421,11 @@ init();
       <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Serial Number</label><input type="text" id="editDevSN" style="width:100%;box-sizing:border-box"></div>
       <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Model</label><input type="text" id="editDevModel" style="width:100%;box-sizing:border-box"></div>
       <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Notes</label><textarea id="editDevNotes" style="width:100%;box-sizing:border-box;min-height:70px;resize:vertical"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+        <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Year of Manufacture</label><input type="number" id="editDevYear" min="1990" max="2099" placeholder="e.g. 2021" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Country of Origin</label><input type="text" id="editDevOrigin" placeholder="e.g. USA" style="width:100%;box-sizing:border-box"></div>
+      </div>
+      <div><label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Location in Clinic</label><input type="text" id="editDevLocation" placeholder="e.g. Room 3, Floor 2" style="width:100%;box-sizing:border-box"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
         <div>
           <label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">PPM Interval</label>
