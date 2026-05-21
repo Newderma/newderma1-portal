@@ -1,4 +1,125 @@
+<!--
+=============================================================
+  CLINIC BANK RECONCILIATION TOOL — MATCHING RULES
+  Last updated: May 2026
+=============================================================
+
+FILES TO UPLOAD:
+  - Bank Statement   : Exact month only (e.g. May 1 to May 31)
+  - Internal System  : Same month with 1 day overlap each side
+                       Include last day of prev month + first day of next month
+                       This covers the POS +1 day bank processing shift.
+
+MATCHING RULES:
+  1. POS Sales (Mada / Visa / Master)
+     Matched by REFERENCE NUMBER not by date.
+     Bank processes next day: clinic date Apr 30 = bank date May 1.
+     Tool handles date shift automatically.
+
+  2. Fees and VAT
+     Matched by REFERENCE NUMBER (fee + VAT share same ref).
+     Both rows summed must equal the internal system total.
+
+  3. Other transactions (transfers, salary, loan payments)
+     Matched by REFERENCE NUMBER. Same day, no date shift.
+
+  4. POS on LAST day of bank statement
+     Belongs to previous month internal entries.
+     Ignored by tool, not a discrepancy.
+
+  5. POS on FIRST day of bank statement
+     Settled from previous month internal entries.
+     Ignored by tool, not a discrepancy.
+
+REFERENCE NUMBER FORMATS SUPPORTED:
+  ATMTOT...   POS fees and VAT rows
+  FT...       Bank transfers
+  LD...       Loan and financing payments
+  UPPERCASE + 6 or more digits (future-proof for new bank ref types)
+
+INTERNAL SYSTEM KEYWORDS (Arabic):
+  فواتير مدى       POS Mada sales
+  فواتير فيزا      POS Visa sales
+  فواتير ماستر     POS Master sales
+  عمولة نقاط البيع / البيه   Fee (typo variant accepted)
+  ضريبة / ضريبه نقاط البيع   VAT (both spellings accepted)
+  Bare ref rows قيد يومية رقمNNN ATMTOT treated as Fee/VAT
+
+POS MACHINES:
+  Auto-detected from bank file. Not hardcoded.
+  16-digit machine numbers detected and named POS1, POS2, etc.
+
+WHERE TO CHANGE THINGS:
+  POS matching logic    reconcile() function section 1
+  Fee/VAT matching      reconcile() function section 2
+  Other matching        reconcile() function section 3
+  Arabic keywords       internalTxType() function
+  Bank type codes       BANK_PFX constant
+  Ref number formats    REF_RE constant
+=============================================================
+-->
 <!DOCTYPE html>
+<!--
+=============================================================
+  CLINIC BANK RECONCILIATION TOOL — MATCHING RULES
+  Last updated: May 2026
+=============================================================
+
+FILES TO UPLOAD:
+  - Bank Statement   : Exact month only (e.g. May 1 – May 31)
+  - Internal System  : Same month ±1 day overlap
+                       (include last day of prev month + first day of next month)
+                       This covers the POS +1 day processing shift.
+
+MATCHING RULES:
+  1. POS Sales (Mada / Visa / Master)
+     - Matched by REFERENCE NUMBER — not by date
+     - Bank processes next day: clinic date Apr 30 = bank date May 1
+     - Tool handles the date shift automatically
+
+  2. Fees & VAT
+     - Matched by REFERENCE NUMBER (fee + VAT share same ref)
+     - Both rows summed must equal the internal system total
+
+  3. Other transactions (transfers, salary, loan payments)
+     - Matched by REFERENCE NUMBER
+     - Same day — no date shift applied
+
+  4. POS on LAST day of bank statement
+     - Belongs to previous month internal entries
+     - Ignored by tool — NOT a discrepancy
+
+  5. POS on FIRST day of bank statement
+     - Settled from previous month internal entries
+     - Ignored by tool — NOT a discrepancy
+
+REFERENCE NUMBER FORMATS SUPPORTED:
+  - ATMTOT...   POS fees and VAT rows
+  - FT...       Bank transfers
+  - LD...       Loan / financing payments
+  - UPPERCASE + 6+ digits  (future-proof for new bank ref types)
+
+INTERNAL SYSTEM DESCRIPTION KEYWORDS (Arabic):
+  - فواتير مدى     → POS Mada sales
+  - فواتير فيزا    → POS Visa sales
+  - فواتير ماستر   → POS Master sales
+  - عمولة نقاط البيع / البيه  → Fee (typo variant accepted)
+  - ضريبة/ضريبه نقاط البيع   → VAT (both spellings accepted)
+  - Bare ref rows: "قيد يومية رقمNNN ATMTOT..." → treated as Fee/VAT
+
+POS MACHINES (auto-detected from bank file — not hardcoded):
+  - 16-digit machine numbers are detected automatically
+  - Named POS1, POS2, etc. in order of appearance
+
+TO CHANGE RULES IN FUTURE:
+  - POS matching logic   → reconcile() function → section 1
+  - Fee/VAT matching     → reconcile() function → section 2
+  - Other matching       → reconcile() function → section 3
+  - Arabic keywords      → internalTxType() function
+  - Bank type codes      → BANK_PFX constant
+  - Ref number formats   → REF_RE constant
+=============================================================
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -156,6 +277,29 @@ tr.row-mismatch td{background:#fffef0;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.upload-rules{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+.upload-rule-row{display:flex;align-items:baseline;gap:6px;font-size:11px;color:var(--text2);line-height:1.4;}
+.upload-rule-row strong{color:var(--text);font-weight:600;white-space:nowrap;}
+.upload-rule-row span{color:var(--text3);}
+
+/* INFO MODAL */
+.info-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--accent-light);border:1.5px solid var(--accent-border);color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;margin-inline-start:6px;line-height:1;transition:all .15s;}
+.info-btn:hover{background:var(--accent);color:#fff;}
+.info-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(3px);z-index:2000;align-items:center;justify-content:center;padding:20px;}
+.info-overlay.open{display:flex;}
+.info-modal{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);max-width:520px;width:100%;box-shadow:var(--shadow-md);overflow:hidden;}
+.info-modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.info-modal-title{font-size:13px;font-weight:700;color:var(--text);letter-spacing:.04em;}
+.info-modal-close{background:none;border:none;font-size:18px;color:var(--text3);cursor:pointer;padding:0;line-height:1;}
+.info-modal-close:hover{color:var(--text);}
+.info-modal-body{padding:16px 20px;display:flex;flex-direction:column;gap:10px;max-height:70vh;overflow-y:auto;}
+.info-rule{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);}
+.info-rule-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.info-rule-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.info-rule-desc{font-size:11px;color:var(--text2);line-height:1.5;}
+.info-rule-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;margin-top:4px;}
+.badge-bank{background:var(--accent-light);color:var(--accent);border:1px solid var(--accent-border);}
+.badge-int{background:var(--green-light);color:var(--green);border:1px solid var(--green-border);}
 
 @media(max-width:680px){
   .upload-grid{grid-template-columns:1fr;}
@@ -192,6 +336,7 @@ tr.row-mismatch td{background:#fffef0;}
         <div>
           <div class="upload-label" id="upload-bank-title"></div>
           <div class="upload-sub" id="upload-bank-sub"></div>
+          <div class="upload-rules" id="upload-bank-rules"></div>
         </div>
       </div>
       <input type="file" accept=".xlsx" id="file-bank"/>
@@ -202,6 +347,7 @@ tr.row-mismatch td{background:#fffef0;}
         <div>
           <div class="upload-label" id="upload-int-title"></div>
           <div class="upload-sub" id="upload-int-sub"></div>
+          <div class="upload-rules" id="upload-int-rules"></div>
         </div>
       </div>
       <input type="file" accept=".xlsx" id="file-internal"/>
@@ -255,6 +401,31 @@ const T={
     catAll:'All',catPOS:'POS Sales',catFee:'Fee / VAT',catOther:'Other',rows:'rows',
     creditIn:'Credit In',debitOut:'Debit Out',feeVat:'Fee+VAT',
     noteNotInBank:'Refs not found in bank',notePOSNotInSys:'Bank POS not recorded in system',
+    bankRules:[
+      {label:'Period:',   text:'Exact month only — e.g. May 1 to May 31'},
+      {label:'Columns:',  text:'Date · Reference · Description · Debit / Credit'},
+      {label:'POS shift:',text:'Bank posts POS next day — handled automatically'},
+    ],
+    intRules:[
+      {label:'Period:',   text:'Same month + last day of prev month + first day of next month'},
+      {label:'Columns:',  text:'Entry No · Date · Description · Debit · Credit'},
+      {label:'POS entries:',text:'One total per network per day (Mada / Visa / Master)'},
+      {label:'References:',text:'Each entry must include ref number after a dash in description'},
+    ],
+    infoBank:'Bank Statement — Upload Rules',
+    infoInt:'Internal System — Upload Rules',
+    infoBankRules:[
+      {icon:'📅',title:'Exact month only',desc:'Upload one complete month only. Example: May 1 to May 31. Do not mix months.'},
+      {icon:'🔢',title:'Reference numbers required',desc:'The file must contain the Reference column (ATMTOT, FT, LD...). This is how every transaction is matched.'},
+      {icon:'📋',title:'Required columns',desc:'Transaction Date · Reference Number · Transaction Details · Debit / Credit'},
+      {icon:'🏧',title:'POS +1 day shift',desc:'POS transactions made at the clinic on Day 1 appear in the bank on Day 2. The tool handles this automatically.'},
+    ],
+    infoIntRules:[
+      {icon:'📅',title:'Same month with ±1 day overlap',desc:'Export the same month as the bank, but include the last day of the previous month AND the first day of the next month. This covers POS transactions that cross the month boundary.'},
+      {icon:'🔢',title:'Reference numbers in descriptions',desc:'Every POS, fee, VAT, transfer or loan entry must include its reference number in the description field after a dash. Example: فواتير مدى - ATMTOT20260501...'},
+      {icon:'📋',title:'Required columns',desc:'Entry No · Date · Description · Debit · Credit'},
+      {icon:'🏧',title:'POS entries are summed',desc:'All Mada for one day = one total entry. Same for Visa and Master. Fees and VAT are entered individually per reference.'},
+    ],
   },
   ar:{
     title:'مطابقة كشف الحساب',sub:'أداة اكتشاف الفروقات • ريال سعودي',
@@ -278,7 +449,32 @@ const T={
     statMissBank:'غير موجود في البنك',statMismatch:'فرق في المبلغ',
     catAll:'الكل',catPOS:'مبيعات POS',catFee:'عمولة / ضريبة',catOther:'أخرى',rows:'صف',
     creditIn:'إيداع',debitOut:'سحب',feeVat:'عمولة + ضريبة',
+    infoBank:'كشف الحساب البنكي — قواعد الرفع',
+    infoInt:'النظام الداخلي — قواعد الرفع',
+    infoBankRules:[
+      {icon:'📅',title:'الشهر كاملاً فقط',desc:'ارفع كشف الحساب لشهر واحد كامل فقط. مثال: من 1 مايو إلى 31 مايو. لا تخلط بين شهرين.'},
+      {icon:'🔢',title:'أرقام المراجع إلزامية',desc:'يجب أن يحتوي الملف على عمود الرقم المرجعي (ATMTOT أو FT أو LD). هذا هو الأساس لمطابقة كل معاملة.'},
+      {icon:'📋',title:'الأعمدة المطلوبة',desc:'تاريخ العملية · الرقم المرجعي · تفاصيل العملية · دائن / مدين'},
+      {icon:'🏧',title:'فارق يوم POS',desc:'معاملات POS التي تتم في العيادة اليوم تظهر في البنك في اليوم التالي. الأداة تتعامل مع هذا الفارق تلقائياً.'},
+    ],
+    infoIntRules:[
+      {icon:'📅',title:'نفس الشهر مع هامش يوم واحد',desc:'صدّر نفس شهر كشف البنك، لكن أضف آخر يوم من الشهر السابق وأول يوم من الشهر التالي. هذا ضروري لمطابقة معاملات POS التي تقع على حدود الشهر.'},
+      {icon:'🔢',title:'أرقام المراجع في الوصف',desc:'يجب أن يحتوي كل قيد (POS أو عمولة أو ضريبة أو تحويل أو قرض) على رقم المرجع في حقل الوصف بعد شرطة. مثال: فواتير مدى - ATMTOT20260501...'},
+      {icon:'📋',title:'الأعمدة المطلوبة',desc:'رقم القيد · التاريخ · كشف الحساب · مدين · دائن'},
+      {icon:'🏧',title:'قيود POS مجمّعة',desc:'جميع معاملات مدى ليوم واحد تُدخل كمجموع واحد. وكذلك فيزا وماستر. أما العمولة والضريبة فتُدخل كل منها بشكل منفصل مع رقم مرجعها.'},
+    ],
     noteNotInBank:'مراجع غير موجودة في البنك',notePOSNotInSys:'معاملة POS غير مسجلة في النظام',
+    bankRules:[
+      {label:'الفترة:',       text:'شهر كامل فقط — مثال: 1 مايو إلى 31 مايو'},
+      {label:'الأعمدة:',      text:'التاريخ · الرقم المرجعي · التفاصيل · دائن / مدين'},
+      {label:'فارق POS:',     text:'البنك يعالج POS في اليوم التالي — تلقائي'},
+    ],
+    intRules:[
+      {label:'الفترة:',       text:'نفس الشهر + آخر يوم من الشهر السابق + أول يوم من الشهر التالي'},
+      {label:'الأعمدة:',      text:'رقم القيد · التاريخ · الوصف · مدين · دائن'},
+      {label:'قيود POS:',     text:'مجموع واحد لكل شبكة في اليوم (مدى / فيزا / ماستر)'},
+      {label:'المراجع:',      text:'كل قيد يجب أن يتضمن رقم المرجع بعد شرطة في الوصف'},
+    ],
   }
 };
 
@@ -291,7 +487,29 @@ function setLang(l){
   document.documentElement.dir=l==='ar'?'rtl':'ltr';
   document.getElementById('btn-en').classList.toggle('active',l==='en');
   document.getElementById('btn-ar').classList.toggle('active',l==='ar');
-  renderStatic();
+  
+function openInfo(e,which){
+  e.preventDefault();e.stopPropagation();
+  const isBank=which==='bank';
+  const titleKey=isBank?'infoBank':'infoInt';
+  const rulesKey=isBank?'infoBankRules':'infoIntRules';
+  document.getElementById('infoModalTitle').textContent=t(titleKey);
+  const rules=t(rulesKey);
+  document.getElementById('infoModalBody').innerHTML=rules.map(r=>`
+    <div class="info-rule">
+      <div class="info-rule-icon">${r.icon}</div>
+      <div>
+        <div class="info-rule-title">${r.title}</div>
+        <div class="info-rule-desc">${r.desc}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('infoOverlay').classList.add('open');
+}
+function closeInfo(){
+  document.getElementById('infoOverlay').classList.remove('open');
+}
+
+renderStatic();
   if(allResults.length){renderBadges();renderAlert();renderFilters();renderTable();}
 }
 
@@ -305,6 +523,14 @@ function renderStatic(){
   const btn=document.getElementById('btn-run');
   if(btn.textContent!==t('running')) btn.textContent=t('run');
   const nr=document.getElementById('no-rows');if(nr)nr.textContent=t('noRows');
+  // Render visible rules under each upload card
+  const renderRules=(elId,key)=>{
+    const el=document.getElementById(elId);if(!el)return;
+    const rules=t(key);if(!Array.isArray(rules))return;
+    el.innerHTML=rules.map(r=>`<div class="upload-rule-row"><strong>${r.label}</strong><span>${r.text}</span></div>`).join('');
+  };
+  renderRules('upload-bank-rules','bankRules');
+  renderRules('upload-int-rules','intRules');
 }
 
 // ══ STATE ════════════════════════════════════════════════════════════════════
@@ -624,5 +850,16 @@ function runReconciliation(){
 
 renderStatic();
 </script>
+
+<!-- INFO MODAL -->
+<div class="info-overlay" id="infoOverlay" onclick="if(event.target===this)closeInfo()">
+  <div class="info-modal">
+    <div class="info-modal-head">
+      <div class="info-modal-title" id="infoModalTitle"></div>
+      <button class="info-modal-close" onclick="closeInfo()">&#x2715;</button>
+    </div>
+    <div class="info-modal-body" id="infoModalBody"></div>
+  </div>
+</div>
 </body>
 </html>
