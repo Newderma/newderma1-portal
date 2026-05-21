@@ -178,13 +178,15 @@ input[type=file]{display:none;}
 .main{padding:24px 32px;max-width:1440px;margin:0 auto;}
 
 /* Upload cards */
-.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
-.upload-card{display:block;cursor:pointer;text-decoration:none;}
-.upload-inner{background:var(--surface);border:2px dashed var(--border2);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:14px;transition:all .2s;}
-.upload-inner:hover{border-color:var(--accent);background:var(--accent-light);}
-.upload-inner.loaded{border:2px solid var(--green);background:var(--green-light);}
-.upload-icon{width:40px;height:40px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
-.upload-inner.loaded .upload-icon{background:var(--green-border);}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;align-items:stretch;}
+.upload-card{display:block;cursor:pointer;text-decoration:none;height:100%;}
+.upload-inner{background:var(--surface);border:2px solid #1e293b;border-radius:var(--radius);padding:16px 20px;display:flex;align-items:flex-start;gap:14px;transition:all .2s;height:100%;}
+.upload-inner:hover{background:var(--accent-light);border-color:#1e293b;}
+.upload-inner.loaded{background:var(--green-light);border-color:var(--green);}
+.upload-icon{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
+.upload-icon.bank-icon{background:#eff6ff;color:#1d4ed8;}
+.upload-icon.int-icon{background:#fef3c7;color:#d97706;}
+.upload-inner.loaded .upload-icon{background:var(--green-border);color:var(--green);}
 .upload-label{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--text2);text-transform:uppercase;}
 .upload-inner.loaded .upload-label{color:var(--green);}
 .upload-sub{font-size:11px;color:var(--text3);margin-top:2px;}
@@ -332,7 +334,7 @@ tr.row-mismatch td{background:#fffef0;}
   <div class="upload-grid">
     <label class="upload-card">
       <div class="upload-inner" id="box-bank">
-        <div class="upload-icon" id="icon-bank">📄</div>
+        <div class="upload-icon bank-icon" id="icon-bank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg></div>
         <div>
           <div class="upload-label" id="upload-bank-title"></div>
           <div class="upload-sub" id="upload-bank-sub"></div>
@@ -343,7 +345,7 @@ tr.row-mismatch td{background:#fffef0;}
     </label>
     <label class="upload-card">
       <div class="upload-inner" id="box-internal">
-        <div class="upload-icon" id="icon-internal">📊</div>
+        <div class="upload-icon int-icon" id="icon-internal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg></div>
         <div>
           <div class="upload-label" id="upload-int-title"></div>
           <div class="upload-sub" id="upload-int-sub"></div>
@@ -379,8 +381,8 @@ tr.row-mismatch td{background:#fffef0;}
 const T={
   en:{
     title:'Clinic Bank Reconciliation',sub:'Discrepancy Detection Tool • SAR',
-    uploadBank:'Bank Statement',uploadBankSub:'Saudi bank Excel export (.xlsx)',
-    uploadInt:'Internal System',uploadIntSub:'Clinic accounting system export (.xlsx)',
+    uploadBank:'Upload Bank Statement',uploadBankSub:'Click to upload your bank Excel file (.xlsx)',
+    uploadInt:'Upload Internal File',uploadIntSub:'Click to upload your internal system Excel file (.xlsx)',
     run:'▶  Run Reconciliation',running:'Processing…',fileLoaded:'Loaded ✓',
     allMatch:'✅  All transactions matched — no discrepancies found',
     discFound:'Discrepancies Found',itemsNeedAttn:'item(s) need attention',
@@ -429,8 +431,8 @@ const T={
   },
   ar:{
     title:'مطابقة كشف الحساب',sub:'أداة اكتشاف الفروقات • ريال سعودي',
-    uploadBank:'كشف الحساب البنكي',uploadBankSub:'ملف Excel من البنك (.xlsx)',
-    uploadInt:'النظام الداخلي',uploadIntSub:'تقرير Excel من نظام العيادة (.xlsx)',
+    uploadBank:'رفع كشف الحساب البنكي',uploadBankSub:'اضغط لرفع ملف Excel من البنك (.xlsx)',
+    uploadInt:'رفع ملف النظام الداخلي',uploadIntSub:'اضغط لرفع ملف Excel من النظام الداخلي (.xlsx)',
     run:'▶  تشغيل المطابقة',running:'جارٍ المعالجة…',fileLoaded:'تم التحميل ✓',
     allMatch:'✅  جميع المعاملات مطابقة — لا توجد فروقات',
     discFound:'تم اكتشاف فروقات',itemsNeedAttn:'بند يحتاج مراجعة',
@@ -824,7 +826,7 @@ function loadFile(inputEl,which){
 function markLoaded(w,name){
   const box=document.getElementById('box-'+w);
   box.classList.add('loaded');
-  document.getElementById('icon-'+w).textContent='✓';
+  document.getElementById('icon-'+w).innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   document.getElementById(w==='bank'?'upload-bank-title':'upload-int-title').textContent=w==='bank'?t('uploadBank'):t('uploadInt');
   document.getElementById(w==='bank'?'upload-bank-sub':'upload-int-sub').textContent=name+' — '+t('fileLoaded');
 }
