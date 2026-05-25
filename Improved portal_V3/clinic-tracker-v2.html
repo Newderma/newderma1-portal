@@ -2664,7 +2664,7 @@ function renderRecords(){
     html+=(isRetouch?'<tr class="rec-retouch">':isComp?'<tr class="rec-comp">':'<tr>');
     html+='<td style="color:var(--ss)">'+(i+1)+'</td><td style="white-space:nowrap">'+fmtD(r.date)+'</td>';
     var stBadge=isRetouch?'<span class="badge-retouch">🔄 Retouch</span>':isComp?'<span class="badge-comp">🎁 Comp</span>':'';
-    html+='<td><strong style="cursor:pointer;color:var(--teal);text-decoration:underline" onclick="openPatientHistory(\''+esc(r.patient)+'\')">'+esc(r.patient)+'</strong> '+stBadge+''+(r.patientId?'<br><small style="color:var(--ss)">'+esc(r.patientId)+'</small>':'')+'</td>';
+    html+='<td><strong style="cursor:pointer;color:var(--teal);text-decoration:underline" onclick="openPatientHistory(\''+esc(r.patient)+'\',\''+esc(r.patientId||'')+'\')" >'+esc(r.patient)+'</strong> '+stBadge+''+(r.patientId?'<br><small style="color:var(--ss)">'+esc(r.patientId)+'</small>':'')+'</td>';
     html+='<td>'+esc(r.doctor)+'</td><td><span class="badge">'+esc(r.procedure)+'</span></td>';
     html+='<td><span style="font-size:.78rem;color:var(--td);font-weight:500">'+esc(r.area||'—')+'</span></td>';
     html+='<td>'+isum+'</td>';
@@ -2703,17 +2703,19 @@ function renderRecords(){
 // ══════════════════════════════════════════
 //  PATIENT HISTORY
 // ══════════════════════════════════════════
-async function openPatientHistory(name){
+async function openPatientHistory(name, pid){
   var modal = document.getElementById('patHistModal');
-  document.getElementById('patHistName').textContent = name;
+  document.getElementById('patHistName').textContent = name + (pid ? ' · ' + pid : '');
   document.getElementById('patHistStats').innerHTML = '<span style="color:var(--ss);font-size:.85rem">Loading…</span>';
-  document.getElementById('patHistBody').innerHTML = '<tr><td colspan="8" class="norec">Loading…</td></tr>';
+  document.getElementById('patHistBody').innerHTML = '<tr><td colspan="9" class="norec">Loading…</td></tr>';
   modal.classList.remove('hidden');
 
-  // allRecords holds the complete unfiltered dataset for all roles
-  // so patient history always works regardless of whether user is doctor/nurse/GM
   var pool = allRecords.length ? allRecords : records;
-  var pts = pool.filter(function(r){ return r.patient === name; }).sort(function(a,b){ return b.date.localeCompare(a.date); });
+  // Match by patient ID if available, otherwise by name only
+  var pts = pool.filter(function(r){
+    if(pid) return r.patientId === pid;
+    return r.patient === name;
+  }).sort(function(a,b){ return b.date.localeCompare(a.date); });
 
   var totS=0, totV=pts.length;
   pts.forEach(function(r){ totS+=r.totalSell; });
@@ -2791,11 +2793,18 @@ function addEditItemRow(p){
     '<div class="si-wrap" id="esi'+id+'" style="min-width:0"></div>'+
     '<input type="number" id="eqty'+id+'" value="'+(p?p.qty:'')+'" placeholder="0" min="0" step="0.1" oninput="calcEditRow('+id+')">'+
     '<input type="number" id="esel'+id+'" value="'+(p?p.sellPerMl:'')+'" placeholder="0.00" min="0" step="0.01" style="border-color:#bae6fd" oninput="calcEditRow('+id+')">'+
-    '<input type="number" id="ecst'+id+'" value="'+(p?p.costPerMl:'')+'" placeholder="0.00" min="0" step="0.01" style="border-color:#fde68a" oninput="calcEditRow('+id+')">'+
+    '<input type="number" id="ecst'+id+'" value="'+(p?(p.costPerMl||itemCosts[p.name]||0):'')+'" placeholder="0.00" min="0" step="0.01" style="border-color:#fde68a" oninput="calcEditRow('+id+')">'+
     '<div class="dsp" id="edsp'+id+'" style="font-size:.8rem">SAR '+(p?(p.qty*p.sellPerMl).toFixed(2):'0.00')+'</div>'+
     '<button type="button" class="brm" onclick="removeEditRow('+id+')">x</button>';
   document.getElementById('editItemRows').appendChild(div);
-  buildSearchSelect('esi'+id, lists.items, p?p.name:'', function(){ calcEditRow(id); });
+  buildSearchSelect('esi'+id, lists.items, p?p.name:'', function(){
+    var sel=getSIVal('esi'+id);
+    var cField=document.getElementById('ecst'+id);
+    if(sel && (!cField.value || parseFloat(cField.value)===0) && itemCosts[sel]){
+      cField.value=itemCosts[sel];
+    }
+    calcEditRow(id);
+  });
 }
 function removeEditRow(id){ var el=document.getElementById('erow'+id); if(el)el.remove(); }
 function calcEditRow(id){
@@ -2819,7 +2828,7 @@ async function saveEditRecord(){
     var name=getSIVal('esi'+i);
     var qty=parseFloat(document.getElementById('eqty'+i).value)||0;
     var sell=parseFloat(document.getElementById('esel'+i).value)||0;
-    var cost=parseFloat(document.getElementById('ecst'+i).value)||0;
+    var cost=parseFloat(document.getElementById('ecst'+i).value)||itemCosts[name]||0;
     if(name){ var sv=qty*sell,cv=qty*cost;
       items.push({name:name,qty:qty,sellPerMl:sell,costPerMl:cost,totalSell:+sv.toFixed(2),totalCost:+cv.toFixed(2),profit:+(sv-cv).toFixed(2)});
       ts+=sv; tc+=cv; }
