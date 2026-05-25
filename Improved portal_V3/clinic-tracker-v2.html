@@ -631,6 +631,7 @@ tr:hover td{background:#f8fafc}
           <select id="fNur" onchange="renderRecords()" style="display:none"><option value="">All Nurses</option></select>
           <select id="fMon" onchange="renderRecords()"><option value="">All Months</option></select>
           <select id="fItem" onchange="renderRecords()"><option value="">All Items</option></select>
+          <select id="fProc" onchange="renderRecords()"><option value="">All Procedures</option></select>
           <span class="rcc" id="recCnt">0 records</span>
           <button class="btn bx" id="btnExportRec" onclick="exportRecXLS()">Export XLS</button>
         </div>
@@ -1415,7 +1416,7 @@ tr:hover td{background:#f8fafc}
     <h3>🧑‍⚕️ Patient History — <span id="patHistName" style="color:var(--teal)"></span></h3>
     <div id="patHistStats" style="display:flex;gap:.8rem;flex-wrap:wrap;margin:.8rem 0 1.2rem"></div>
     <div style="overflow-x:auto;max-height:55vh;overflow-y:auto">
-      <table><thead><tr><th>#</th><th>Date</th><th>Doctor</th><th>Procedure</th><th>Area</th><th>Items</th><th>Selling</th><th>Notes</th></tr></thead>
+      <table><thead><tr><th>#</th><th>Date</th><th>Doctor</th><th>Procedure</th><th>Area</th><th>Items</th><th>Selling</th><th>Notes</th><th>Nurse</th></tr></thead>
       <tbody id="patHistBody"></tbody></table>
     </div>
     <div class="modal-footer">
@@ -2604,6 +2605,9 @@ function updateFilters(){
   var allItems=(lists.items||[]).slice().sort();
   var curItem=(document.getElementById('fItem')||{value:''}).value||'';
   document.getElementById('fItem').innerHTML='<option value="">All Items</option>'+allItems.map(function(i){return '<option'+(i===curItem?' selected':'')+'>'+i+'</option>';}).join('');
+  var allProcs=(lists.procedures||[]).slice().sort();
+  var curProc=(document.getElementById('fProc')||{value:''}).value||'';
+  document.getElementById('fProc').innerHTML='<option value="">All Procedures</option>'+allProcs.map(function(p){return '<option'+(p===curProc?' selected':'')+'>'+p+'</option>';}).join('');
   document.getElementById('fMon').innerHTML='<option value="">All Months</option>'+ms.map(function(m){return '<option value="'+m+'">'+fmtM(m)+'</option>';}).join('');
   if(isGM()){
     var nurEl=document.getElementById('fNur');
@@ -2625,10 +2629,12 @@ function renderRecords(){
   var fm=document.getElementById('fMon').value||'';
   var fn=(document.getElementById('fNur')||{}).value||'';
   var fi=(document.getElementById('fItem')||{}).value||'';
+  var fp=(document.getElementById('fProc')||{}).value||'';
   var f=records.filter(function(r){
     return (!q||(r.patient.toLowerCase().indexOf(q)>=0||r.doctor.toLowerCase().indexOf(q)>=0||r.procedure.toLowerCase().indexOf(q)>=0||(r.patientId&&r.patientId.toLowerCase().indexOf(q)>=0)))
         &&(!fd||r.doctor===fd)&&(!fm||r.date.indexOf(fm)===0)&&(!fn||r.nurse===fn)
-        &&(!fi||(Array.isArray(r.items)&&r.items.some(function(it){return (typeof it==='string'?it:it.name)===fi;})));
+        &&(!fi||(Array.isArray(r.items)&&r.items.some(function(it){return (typeof it==='string'?it:it.name)===fi;})))
+        &&(!fp||r.procedure===fp);
   });
   // Sort
   f.sort(function(a,b){
@@ -2714,7 +2720,7 @@ async function openPatientHistory(name){
     (pts.length?'<div class="tc" style="flex:0 0 auto"><div class="lb">Last Visit</div><div class="vl" style="font-size:1rem">'+fmtD(pts[0].date)+'</div></div>':'');
 
   if(!pts.length){
-    document.getElementById('patHistBody').innerHTML='<tr><td colspan="8" class="norec">No records found for this patient.</td></tr>';
+    document.getElementById('patHistBody').innerHTML='<tr><td colspan="9" class="norec">No records found for this patient.</td></tr>';
   } else {
     var html='';
     pts.forEach(function(r,i){
@@ -2724,7 +2730,8 @@ async function openPatientHistory(name){
       html+='<td><span style="font-size:.78rem;color:var(--td)">'+esc(r.area||'—')+'</span></td>';
       html+='<td>'+isum+'</td>';
       html+='<td style="color:#0369a1;font-weight:600;white-space:nowrap">SAR '+r.totalSell.toFixed(2)+'</td>';
-      html+='<td style="font-size:.78rem;color:var(--sm);max-width:180px">'+esc(r.notes||'—')+'</td></tr>';
+      html+='<td style="font-size:.78rem;color:var(--sm);max-width:180px">'+esc(r.notes||'—')+'</td>';
+      html+='<td style="font-size:.78rem;color:var(--td)">'+esc(r.nurse||'—')+'</td></tr>';
     });
     document.getElementById('patHistBody').innerHTML=html;
   }
