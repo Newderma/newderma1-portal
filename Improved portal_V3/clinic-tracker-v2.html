@@ -630,6 +630,7 @@ tr:hover td{background:#f8fafc}
           <select id="fDoc" onchange="renderRecords()"><option value="">All Doctors</option></select>
           <select id="fNur" onchange="renderRecords()" style="display:none"><option value="">All Nurses</option></select>
           <select id="fMon" onchange="renderRecords()"><option value="">All Months</option></select>
+          <select id="fItem" onchange="renderRecords()"><option value="">All Items</option></select>
           <span class="rcc" id="recCnt">0 records</span>
           <button class="btn bx" id="btnExportRec" onclick="exportRecXLS()">Export XLS</button>
         </div>
@@ -748,6 +749,14 @@ tr:hover td{background:#f8fafc}
 
           <!-- RENTING FIELDS -->
           <div id="prRentFields">
+            <div style="font-size:.72rem;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Income / الدخل</div>
+            <div class="fg" style="margin-bottom:.75rem">
+              <div>
+                <label>External Cash Income / الدخل الخارجي نقدي SAR</label>
+                <input type="number" id="prRentExternal" min="0" step="0.01" placeholder="0" oninput="prCalc()">
+              </div>
+            </div>
+            <div style="font-size:.72rem;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Deductions / الخصومات</div>
             <div class="fg" style="margin-bottom:.75rem">
               <div>
                 <label>Room Rent / الإيجار SAR</label>
@@ -784,6 +793,14 @@ tr:hover td{background:#f8fafc}
 
           <!-- SALARY + PERFORMANCE FIELDS -->
           <div id="prSalaryPerfFields" style="display:none">
+            <div style="font-size:.72rem;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Income / الدخل</div>
+            <div class="fg" style="margin-bottom:.75rem">
+              <div>
+                <label>External Cash Income / الدخل الخارجي نقدي SAR</label>
+                <input type="number" id="prSpExternal" min="0" step="0.01" placeholder="0" oninput="prCalc()">
+              </div>
+            </div>
+            <div style="font-size:.72rem;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Deductions / الخصومات</div>
             <div class="fg" style="margin-bottom:.75rem">
               <div>
                 <label>Fixed Salary SAR</label>
@@ -2584,6 +2601,9 @@ function updateFilters(){
   records.forEach(function(r){ if(r.doctor&&ds.indexOf(r.doctor)<0)ds.push(r.doctor); var m=r.date.slice(0,7); if(ms.indexOf(m)<0)ms.push(m); });
   ds.sort(); ms.sort().reverse();
   document.getElementById('fDoc').innerHTML='<option value="">All Doctors</option>'+ds.map(function(d){return '<option>'+d+'</option>';}).join('');
+  var allItems=(lists.items||[]).slice().sort();
+  var curItem=(document.getElementById('fItem')||{value:''}).value||'';
+  document.getElementById('fItem').innerHTML='<option value="">All Items</option>'+allItems.map(function(i){return '<option'+(i===curItem?' selected':'')+'>'+i+'</option>';}).join('');
   document.getElementById('fMon').innerHTML='<option value="">All Months</option>'+ms.map(function(m){return '<option value="'+m+'">'+fmtM(m)+'</option>';}).join('');
   if(isGM()){
     var nurEl=document.getElementById('fNur');
@@ -2604,9 +2624,11 @@ function renderRecords(){
   var fd=document.getElementById('fDoc').value||'';
   var fm=document.getElementById('fMon').value||'';
   var fn=(document.getElementById('fNur')||{}).value||'';
+  var fi=(document.getElementById('fItem')||{}).value||'';
   var f=records.filter(function(r){
     return (!q||(r.patient.toLowerCase().indexOf(q)>=0||r.doctor.toLowerCase().indexOf(q)>=0||r.procedure.toLowerCase().indexOf(q)>=0||(r.patientId&&r.patientId.toLowerCase().indexOf(q)>=0)))
-        &&(!fd||r.doctor===fd)&&(!fm||r.date.indexOf(fm)===0)&&(!fn||r.nurse===fn);
+        &&(!fd||r.doctor===fd)&&(!fm||r.date.indexOf(fm)===0)&&(!fn||r.nurse===fn)
+        &&(!fi||(Array.isArray(r.items)&&r.items.some(function(it){return (typeof it==='string'?it:it.name)===fi;})));
   });
   // Sort
   f.sort(function(a,b){
@@ -4825,6 +4847,8 @@ function prLoadProfile() {
     document.getElementById('prLab').value      = 0;
     document.getElementById('prChair').value    = 0;
     document.getElementById('prExternal').value = 0;
+    document.getElementById('prRentExternal').value = 0;
+    document.getElementById('prSpExternal').value = 0;
     document.getElementById('prSharedSpecial').value = '';
     document.getElementById('prSharedSpecialNote').value = '';
     document.getElementById('prSharedAddition').value = '';
@@ -5017,6 +5041,7 @@ function prCalc() {
     var baseSalary  = prCurrentDr.baseSalary || 0;
     var threshold   = prCurrentDr.threshold  || 25000;
     var perfPct     = prCurrentDr.perfPct    || 35;
+    var spExternal  = parseFloat(document.getElementById('prSpExternal').value)   || 0;
     var deductions  = parseFloat(document.getElementById('prSpDeductions').value) || 0;
     var deductNote  = document.getElementById('prSpDeductNote').value.trim() || 'Materials & Expenses / مواد ومصاريف';
     var addition    = parseFloat(document.getElementById('prSpAddition').value)  || 0;
@@ -5027,10 +5052,12 @@ function prCalc() {
     if(refundsSP) rows.push({label:'Refunds / المرتجعات', amount:refundsSP, deduct:true, sub:true});
     rows.push({label:'VAT / ضريبة القيمة المضافة', amount:vatSP, deduct:true, sub:true});
     // Note: Tabby NOT deducted for salary_perf type
-    rows.push({label:'Net Revenue / صافي الإيراد', amount:netIncSP, deduct:false, sub:true});
+    if(spExternal) rows.push({label:'External Cash Income / الدخل الخارجي نقدي', amount:spExternal, deduct:false, sub:true});
+    var netIncSPTotal = netIncSP + spExternal;
+    rows.push({label:'Net Revenue / صافي الإيراد', amount:netIncSPTotal, deduct:false, sub:true});
 
     // Step 1: Net after deductions (informational)
-    var netAfterDeduct = netIncSP - deductions;
+    var netAfterDeduct = netIncSPTotal - deductions;
     rows.push({label:'− '+deductNote+' / الخصومات', amount:deductions, deduct:false, sub:true});
     rows.push({label:'Net after Deductions / الصافي بعد الخصم', amount:netAfterDeduct, deduct:false, sub:true});
 
@@ -5074,6 +5101,7 @@ function prCalc() {
     var clinicTabbyFee = tabbyFee;
     if(clinicTabbyFee) rows.push({label:'Tabby/Tamara Deduction / خصم تابي وتمارا', amount:clinicTabbyFee, deduct:true, sub:true});
 
+    if(external) rows.push({label:'External Cash Income / الدخل الخارجي نقدي', amount:external, deduct:false, sub:true});
     var combined = netInc2 + external - clinicTabbyFee;
     rows.push({label:'Net Clinic Income / صافي دخل العيادة',                amount:combined,        deduct:false, sub:true});
 
@@ -5103,14 +5131,16 @@ function prCalc() {
     addRow('Net Income / صافي الدخل', netInc, false);
     if(tabbyFee) addRow('Tabby/Tamara Deduction / خصم تابي وتمارا', tabbyFee, true);
 
-    var rent     = parseFloat(document.getElementById('prRent').value)     || 0;
-    var salary   = parseFloat(document.getElementById('prSalary').value)   || 0;
-    var gosi     = parseFloat(document.getElementById('prGosi').value)     || 0;
-    var special  = parseFloat(document.getElementById('prSpecial').value)  || 0;
+    var rentExt  = parseFloat(document.getElementById('prRentExternal').value) || 0;
+    var rent     = parseFloat(document.getElementById('prRent').value)         || 0;
+    var salary   = parseFloat(document.getElementById('prSalary').value)       || 0;
+    var gosi     = parseFloat(document.getElementById('prGosi').value)         || 0;
+    var special  = parseFloat(document.getElementById('prSpecial').value)      || 0;
     var specNote = document.getElementById('prSpecialNote').value.trim();
-    var addition = parseFloat(document.getElementById('prAddition').value) || 0;
+    var addition = parseFloat(document.getElementById('prAddition').value)     || 0;
     var addNote  = document.getElementById('prAdditionNote').value.trim();
 
+    if(rentExt)  addRow('External Cash Income / الدخل الخارجي نقدي', rentExt, false);
     if(rent)     addRow('Room Rent / الإيجار', rent, true);
     if(salary)   addRow('Salary / الراتب المدفوع', salary, true);
     if(gosi)     addRow('GOSI / التأمينات الاجتماعية', gosi, true);
@@ -5708,12 +5738,27 @@ function prEditHistory(dr, mon){
     return r ? r.amount : 0;
   }
   var isShared = (rec.type === 'shared');
+  var isSP     = (rec.type === 'salary_perf');
+  if(isSP){
+    document.getElementById('prSpExternal').value = getRowAmount('External Cash Income') || getRowAmount('الدخل الخارجي نقدي') || 0;
+    var deductRowSP = rows.find(function(x){ return x.label && x.label.indexOf('الخصومات')>=0; });
+    if(deductRowSP){
+      document.getElementById('prSpDeductions').value = deductRowSP.amount;
+      var dnote = deductRowSP.label.replace(/^[−\-]\s*/,'').replace(/\s*\/\s*الخصومات.*/,'').trim();
+      document.getElementById('prSpDeductNote').value = dnote !== 'Materials & Expenses' ? dnote : '';
+    }
+    var addRowSP = rows.find(function(x){ return !x.deduct && x.label && (x.label.indexOf('Addition')>=0 || x.label.indexOf('إضافة')>=0) && !x.sub && !x.bold; });
+    if(addRowSP){ document.getElementById('prSpAddition').value = addRowSP.amount; document.getElementById('prSpAdditionNote').value = addRowSP.label.split('/')[0].trim(); }
+  }
   if(!isShared){
     document.getElementById('prRent').value    = getRowAmount('Room Rent') || getRowAmount('الإيجار');
     document.getElementById('prSalary').value  = getRowAmount('Salary') || getRowAmount('الراتب');
     document.getElementById('prGosi').value    = getRowAmount('GOSI') || getRowAmount('التأمينات');
+    document.getElementById('prRentExternal').value = getRowAmount('External Cash Income') || getRowAmount('الدخل الخارجي نقدي') || 0;
     var specRow = rows.find(function(x){ return x.deduct && x.label && x.label.indexOf('Gross')<0 && x.label.indexOf('VAT')<0 && x.label.indexOf('Refund')<0 && x.label.indexOf('Room')<0 && x.label.indexOf('Salary')<0 && x.label.indexOf('GOSI')<0 && x.label.indexOf('Tabby')<0; });
     if(specRow){ document.getElementById('prSpecial').value = specRow.amount; document.getElementById('prSpecialNote').value = specRow.label.split('/')[0].trim(); }
+    var addRowR = rows.find(function(x){ return !x.deduct && x.label && (x.label.indexOf('Addition')>=0 || x.label.indexOf('إضافة')>=0) && !x.sub && !x.bold; });
+    if(addRowR){ document.getElementById('prAddition').value = addRowR.amount; document.getElementById('prAdditionNote').value = addRowR.label.split('/')[0].trim(); }
   } else {
     document.getElementById('prSharedSalary').value = getRowAmount('Salary') || getRowAmount('الراتب');
     document.getElementById('prLab').value           = getRowAmount('Lab') || getRowAmount('المعمل');
@@ -5721,6 +5766,8 @@ function prEditHistory(dr, mon){
     document.getElementById('prExternal').value      = getRowAmount('External') || getRowAmount('الخارجي');
     var specRow2 = rows.find(function(x){ return x.deduct && x.label && x.label.indexOf('Lab')<0 && x.label.indexOf('Chair')<0 && x.label.indexOf('Salary')<0 && x.label.indexOf('Tabby')<0 && x.label.indexOf('VAT')<0 && x.label.indexOf('Refund')<0; });
     if(specRow2){ document.getElementById('prSharedSpecial').value = specRow2.amount; document.getElementById('prSharedSpecialNote').value = specRow2.label.split('/')[0].trim(); }
+    var addRow2 = rows.find(function(x){ return !x.deduct && x.label && x.label.indexOf('Addition')>=0 || (x.label && x.label.indexOf('إضافة')>=0 && !x.sub && !x.bold); });
+    if(addRow2){ document.getElementById('prSharedAddition').value = addRow2.amount; document.getElementById('prSharedAdditionNote').value = addRow2.label.split('/')[0].trim(); }
   }
   // Run calculation to show current values
   prCalc();
