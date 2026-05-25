@@ -1260,6 +1260,18 @@ tr:hover td{background:#f8fafc}
           <button class="btn bp" onclick="saveClinicName()">Save</button>
         </div>
       </div>
+
+      <!-- Auto Attendance Staff -->
+      <div class="card" style="margin-top:1.4rem">
+        <div class="ct">🌐 Remote Staff</div>
+        <p style="font-size:.83rem;color:var(--sm);margin-bottom:1rem">Staff listed here are remote employees. Their attendance is logged automatically every Sat–Thu. Vacation days are skipped automatically.</p>
+        <div id="autoStaffList" style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem"></div>
+        <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+          <input type="text" id="nAutoStaff" placeholder="Remote staff name (must match exactly)" style="max-width:260px">
+          <button class="btn bp" onclick="addAutoStaff()">+ Add</button>
+          <button class="btn bs" onclick="syncAllRemoteStaff()" title="Sync all remote staff to attendance module">🔄 Sync to Attendance</button>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -1569,6 +1581,7 @@ var vacReqs    = [];
 var itemCosts  = {};
 var annualDays = 21;
 var staffPasswords = {};
+var autoStaff = []; // names of GOSI staff with auto-attendance
 var empProfiles = {}; // { "Nurse Fatima": { contractStart:"2022-03-15", entitledDays:21, carryOverCap:10 } }
 var lists = {
   doctors:    [],
@@ -1586,7 +1599,7 @@ var staffPrivileges = {}; // { 'Name': ['entry','records','vacation'] } // stand
 async function loadConfig(){
   try{
     // ONE call to fetch all config keys at once instead of 9 separate calls
-    var keys = ['lists','itemCosts','annualDays','staffPasswords','adminPassword','empProfiles','shiftHours','staffPrivileges','emailjsConfig'];
+    var keys = ['lists','itemCosts','annualDays','staffPasswords','adminPassword','empProfiles','shiftHours','staffPrivileges','emailjsConfig','autoStaff'];
     var rows = await sbGet('ct_config', 'key=in.('+keys.join(',')+')');
     var map = {};
     rows.forEach(function(r){ map[r.key] = r.value; });
@@ -1594,6 +1607,7 @@ async function loadConfig(){
     if(map.itemCosts)       itemCosts       = map.itemCosts;
     if(map.annualDays)      annualDays      = parseInt(map.annualDays)||21;
     if(map.staffPasswords)  staffPasswords  = map.staffPasswords;
+    if(map.autoStaff)       autoStaff       = map.autoStaff||[];
     if(map.adminPassword)   adminPassword   = map.adminPassword;
     if(map.empProfiles)     empProfiles     = map.empProfiles;
     if(map.shiftHours)      shiftHours      = parseFloat(map.shiftHours)||8;
@@ -1616,7 +1630,7 @@ function populateLoginDropdown(){
   var cur = lu.value;
   lu.innerHTML = '<option value="">-- Select your name --</option><option value="admin">Admin (General Manager)</option>';
   if(!lists.staff) lists.staff=[];
-  var all = lists.doctors.concat(lists.nurses).concat(lists.staff);
+  var all = lists.doctors.concat(lists.nurses).concat(lists.staff).filter(function(n){ return autoStaff.indexOf(n)<0; });
   all.forEach(function(n){
     var opt = document.createElement('option');
     opt.value = n; opt.textContent = n;
@@ -1739,6 +1753,7 @@ async function startApp(){
 }
 
 function doLogout(){
+  clearVac(); clearNamePad();
   try{sessionStorage.removeItem('ct_page');}catch(e){}
   CU=null; records=[]; allRecords=[]; vacReqs=[];
   sessionStorage.removeItem('ct_cu');
@@ -1790,6 +1805,8 @@ function normRec(r){
   };
 }
 function normVac(r){
+  var selDates=[];
+  try{ if(r.selected_dates) selDates=JSON.parse(r.selected_dates); }catch(e){}
   return {
     id: r.id, employee: r.employee, from: r.from_date, to: r.to_date,
     days: r.days, type: r.type, note: r.note||'', reqDate: r.req_date,
@@ -1834,7 +1851,7 @@ function bootApp(){
   document.getElementById('btnExportVac').style.display = isGM()?'':'none';
 
   var vtabs = isGM()
-    ? [['pending','Pending'],['balances','Balances'],['history','History']]
+    ? [['submit','New Request'],['pending','Pending'],['balances','Balances'],['history','History']]
     : [['submit','Submit · تقديم'],['pending','My Requests · طلباتي'],['balances','My Balance · رصيدي'],['history','My History · سجلي']];
   var vh='';
   for(var j=0;j<vtabs.length;j++) vh+='<button class="vtab" onclick="showVTab(\''+vtabs[j][0]+'\',this)">'+vtabs[j][1]+'</button>';
@@ -1929,7 +1946,7 @@ function showPage(id,btn){
   if(id==='utilization') { renderUtilization(); }
   if(id==='vacation'){
     populateVacEmp();
-    showVTab(isGM()?'pending':'submit',document.querySelector('.vtab'));
+    showVTab('submit',document.querySelector('.vtab'));
     renderBalances(); renderStaffBalCard(); checkVacStatusAlerts();
     if(isGM()){
       var lsc=document.getElementById('leaveSummaryCard');
@@ -1955,7 +1972,7 @@ function showPage(id,btn){
     renderStaffBalCard();
     setTimeout(function(){ buildSearchSelect('areaSI', lists.areas||[], '', null); }, 30);
   }
-  if(id==='manage')    { renderManage(); renderPasswordGrid(); renderEmpProfiles(); renderManageShiftHours(); loadEmailjsConfig(); }
+  if(id==='manage')    { renderManage(); renderPasswordGrid(); renderEmpProfiles(); renderAutoStaffList(); renderManageShiftHours(); loadEmailjsConfig(); }
   if(id==='payroll')   {
     renderDrProfiles();
     var pm = document.getElementById('prMonth');
@@ -1991,7 +2008,7 @@ function populateDDL(){
 }
 function populateVacEmp(){
   if(!isGM()) return; // staff employee is locked at boot
-  var all=lists.doctors.concat(lists.nurses);
+  var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
   document.getElementById('vacEmp').innerHTML='<option value="">— Select —</option>'+all.map(function(e){return '<option>'+e+'</option>';}).join('');
 }
 
@@ -2396,7 +2413,7 @@ async function removeFromList(key, val){
 }
 
 function renderPasswordGrid(){
-  var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
+  var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]).filter(function(n){ return autoStaff.indexOf(n)<0; });
   var tb=document.getElementById('staffMgmtTable'); if(!tb)return;
   if(!all.length){tb.innerHTML='<tr><td colspan="7" class="norec">No staff added yet.</td></tr>';return;}
   tb.innerHTML='';
@@ -2947,9 +2964,13 @@ function exportRecXLS(){
   var fd=(document.getElementById('fDoc')||{value:''}).value||'';
   var fm=(document.getElementById('fMon')||{value:''}).value||'';
   var fn=(document.getElementById('fNur')||{value:''}).value||'';
+  var fi=(document.getElementById('fItem')||{value:''}).value||'';
+  var fp=(document.getElementById('fProc')||{value:''}).value||'';
   var filtered=records.filter(function(r){
     return(!q||(r.patient.toLowerCase().indexOf(q)>=0||r.doctor.toLowerCase().indexOf(q)>=0||r.procedure.toLowerCase().indexOf(q)>=0||(r.patientId&&r.patientId.toLowerCase().indexOf(q)>=0)))
-      &&(!fd||r.doctor===fd)&&(!fm||r.date.indexOf(fm)===0)&&(!fn||r.nurse===fn);
+      &&(!fd||r.doctor===fd)&&(!fm||r.date.indexOf(fm)===0)&&(!fn||r.nurse===fn)
+      &&(!fi||(Array.isArray(r.items)&&r.items.some(function(it){return(typeof it==='string'?it:it.name)===fi;})))
+      &&(!fp||r.procedure===fp);
   });
   // Build filename based on active filters
   var fname='Records';
@@ -3376,185 +3397,6 @@ function renderPending(){
   });
   el.innerHTML=html;
 }
-function generateVacPDF(id){
-  var r=null; for(var i=0;i<vacReqs.length;i++){if(vacReqs[i].id==id){r=vacReqs[i];break;}} if(!r)return;
-  var b=calcBalance(r.employee);
-  var cn=''; try{cn=localStorage.getItem('clinicName')||'Newderma1';}catch(e){cn='Newderma1';}
-  var typeAr={'Annual Leave':'إجازة سنوية','Sick Leave':'إجازة مرضية','Emergency Leave':'إجازة طارئة','Unpaid Leave':'إجازة بدون راتب','Maternity Leave':'إجازة أمومة','Other':'أخرى'}[r.type]||r.type;
-  var w=window.open('','_blank','width=794,height=1123');
-  if(!w)return;
-  w.document.write('<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8">'+
-    '<title>\u0625\u0630\u0646 \u0625\u062c\u0627\u0632\u0629</title>'+
-    '<style>'+
-    'body{font-family:Arial,sans-serif;margin:0;padding:40px;background:#fff;color:#1a1a1a}'+
-    '.header{text-align:center;border-bottom:3px solid #6abf4b;padding-bottom:20px;margin-bottom:30px}'+
-    '.clinic-name{font-size:26px;font-weight:bold;color:#1a1a1a;margin-bottom:4px}'+
-    '.doc-title{font-size:18px;color:#6abf4b;font-weight:bold;margin-top:8px}'+
-    '.doc-title-en{font-size:14px;color:#666;margin-top:2px}'+
-    '.stamp{display:inline-block;border:3px solid #6abf4b;border-radius:50%;padding:12px 18px;color:#6abf4b;font-weight:bold;font-size:20px;transform:rotate(-15deg);margin:10px}'+
-    '.stamp-rejected{border-color:#ef4444;color:#ef4444}'+
-    '.table{width:100%;border-collapse:collapse;margin:20px 0}'+
-    '.table td{padding:10px 14px;border:1px solid #e2e8f0;font-size:14px}'+
-    '.table td:first-child{background:#f8fafc;font-weight:bold;width:35%;color:#475569}'+
-    '.section-title{font-size:13px;font-weight:bold;color:#6abf4b;text-transform:uppercase;letter-spacing:1px;margin:24px 0 8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0}'+
-    '.footer{margin-top:40px;display:flex;justify-content:space-between;align-items:flex-end}'+
-    '.sig-block{text-align:center;min-width:200px}'+
-    '.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:6px;font-size:12px;color:#666}'+
-    '.balance-box{background:#f0fdf4;border:2px solid #6abf4b;border-radius:8px;padding:14px 20px;margin-top:20px;text-align:center}'+
-    '.balance-num{font-size:28px;font-weight:bold;color:#16a34a}'+
-    '.balance-lbl{font-size:12px;color:#666;margin-top:2px}'+
-    '@media print{body{padding:20px}.no-print{display:none}}'+
-    '</style></head><body>'+
-    '<div class="no-print" style="text-align:center;margin-bottom:20px">'+
-      '<button onclick="window.print()" style="background:#6abf4b;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:15px;cursor:pointer;margin-right:8px">🖨️ Print / Save PDF</button>'+
-      '<button onclick="window.close()" style="background:#f1f5f9;color:#475569;border:none;padding:10px 22px;border-radius:8px;font-size:15px;cursor:pointer">✕ Close</button>'+
-    '</div>'+
-    '<div class="header">'+
-      '<div class="clinic-name">'+cn+'</div>'+
-      '<div class="doc-title">إذن إجازة موظف</div>'+
-      '<div class="doc-title-en">Employee Leave Approval</div>'+
-      '<div style="margin-top:16px"><span class="stamp'+(r.status==='Approved'?'':' stamp-rejected')+'">'+(r.status==='Approved'?'معتمد\nApproved':'مرفوض\nRejected')+'</span></div>'+
-    '</div>'+
-    '<div class="section-title">بيانات الموظف | Employee Details</div>'+
-    '<table class="table">'+
-      '<tr><td>اسم الموظف | Employee</td><td>'+r.employee+'</td></tr>'+
-      '<tr><td>نوع الإجازة | Leave Type</td><td>'+typeAr+' &nbsp;|&nbsp; '+r.type+'</td></tr>'+
-      '<tr><td>من | From</td><td>'+fmtD(r.from)+'</td></tr>'+
-      '<tr><td>إلى | To</td><td>'+fmtD(r.to)+'</td></tr>'+
-      '<tr><td>عدد الأيام | Days</td><td><strong style="font-size:16px">'+r.days+' يوم | Days</strong></td></tr>'+
-      '<tr><td>تاريخ الطلب | Request Date</td><td>'+fmtD(r.reqDate)+'</td></tr>'+
-      (r.contact?'<tr><td>رقم التواصل | Contact</td><td>'+r.contact+'</td></tr>':'')+
-      (r.note?'<tr><td>السبب | Reason</td><td>'+r.note+'</td></tr>':'')+
-      '<tr><td>تاريخ القرار | Decision Date</td><td>'+(r.decidedAt?fmtD(r.decidedAt):'-')+'</td></tr>'+
-    '</table>'+
-    (r.type==='Annual Leave'?
-      '<div class="balance-box">'+
-        '<div class="balance-num">'+Math.max(0,b.available-r.days)+' يوم</div>'+
-        '<div class="balance-lbl">الرصيد المتبقي بعد هذه الإجازة | Remaining Balance After Leave</div>'+
-      '</div>':'')+(r.status==='Rejected'&&r.rejectReason?
-      '<div style="margin-top:20px;padding:12px 16px;background:#fee2e2;border-radius:8px;font-size:13px"><strong>سبب الرفض | Rejection Reason:</strong> '+r.rejectReason+'</div>':'')+
-    '<div class="footer">'+
-      '<div class="sig-block">'+
-        (r.signature?'<img src="'+r.signature+'" style="max-height:70px;max-width:180px">':'<div style="height:70px"></div>')+
-        '<div class="sig-line">توقيع الموظف | Employee Signature</div>'+
-      '</div>'+
-      '<div class="sig-block">'+
-        '<div style="height:70px"></div>'+
-        '<div class="sig-line">توقيع المدير | Manager Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>'+
-      '</div>'+
-    '</div>'+
-    '<div style="text-align:center;margin-top:30px;font-size:11px;color:#aaa">Document ID: VAC-'+id+' | Generated: '+new Date().toLocaleDateString('en-GB')+'</div>'+
-    '</body></html>');
-  w.document.close();
-}
-
-async function decideVac(id,status,reason){
-  var emp='';
-  for(var i=0;i<vacReqs.length;i++){ if(vacReqs[i].id===id){emp=vacReqs[i].employee;break;} }
-  var upd={status:status,decided_at:new Date().toISOString().slice(0,10)};
-  if(reason)upd.reject_reason=reason;
-  setSyncDot('syncing');
-  try{
-    await sbUpdate('ct_vacation','id=eq.'+id,upd);
-    for(var i=0;i<vacReqs.length;i++){ if(vacReqs[i].id===id){ vacReqs[i].status=status; if(reason)vacReqs[i].rejectReason=reason; break; } }
-    setSyncDot('on'); renderPending(); renderBalances();
-    toast((status==='Approved'?'Approved: ':'Rejected: ')+emp,status==='Approved');
-    // Refresh nav badge
-    var navTabs=document.getElementById('navTabs');
-    if(navTabs&&isGM()){
-      var pendLeft=vacReqs.filter(function(r){return r.status==='Pending';}).length;
-      var vacBtn=Array.from(navTabs.querySelectorAll('.ntab')).find(function(b){return b.textContent.indexOf('Vacation')>=0||b.textContent.indexOf('🏖️')>=0;});
-      if(vacBtn){
-        var span=vacBtn.querySelector('span');if(span)span.remove();
-        if(pendLeft>0){var ns=document.createElement('span');ns.style.cssText='background:#ef4444;color:#fff;border-radius:99px;font-size:.65rem;font-weight:800;padding:.1rem .45rem;vertical-align:middle;margin-left:.3rem';ns.textContent=pendLeft;vacBtn.appendChild(ns);}
-      }
-    }
-    // Send email notification if configured
-    var vr=null; for(var j=0;j<vacReqs.length;j++){if(vacReqs[j].id===id){vr=vacReqs[j];break;}}
-    if(vr) sendVacNotification(emp,status,vr.type,vr.from,vr.to,vr.days,reason||'');
-  }catch(e){ setSyncDot('off'); toast('Update failed: '+e.message,false); }
-}
-function staffDeletePending(id, emp){
-  // Staff can only cancel their own pending requests
-  if(isGM()) return;
-  if(emp !== CU.empName){ toast('You can only cancel your own requests.',false); return; }
-  showConfirm({
-    icon:'🗑️',
-    title:'Cancel Request?',
-    msg:'Cancel your '+emp+' vacation request? You can submit a new one.',
-    okLabel:'Yes, Cancel It',
-    okStyle:'var(--red)',
-    onOk: async function(){
-      try{
-        await sbDelete('ct_vacation','id=eq.'+id);
-        vacReqs=vacReqs.filter(function(r){return r.id!=id;});
-        renderPending(); renderBalances();
-        toast('Request cancelled. You can submit a new one.',true);
-      }catch(e){ toast('Failed: '+e.message,false); }
-    }
-  });
-}
-
-function openRejectModal(id){ document.getElementById('rejectId').value=id; document.getElementById('rejectReason').value=''; document.getElementById('rejectModal').classList.remove('hidden'); }
-function closeRejectModal(){ document.getElementById('rejectModal').classList.add('hidden'); }
-function confirmReject(){ var id=parseInt(document.getElementById('rejectId').value); var reason=document.getElementById('rejectReason').value.trim(); closeRejectModal(); decideVac(id,'Rejected',reason); }
-
-// ══════════════════════════════════════════
-//  VACATION HISTORY + PDF
-// ══════════════════════════════════════════
-function populateVacFilter(){
-  var sel=document.getElementById('vFEm'); if(!sel)return;
-  var cur=sel.value;
-  var names=isGM()?[...new Set(vacReqs.map(function(r){return r.employee;}))].sort():[];
-  sel.innerHTML='<option value="">All Staff</option>'+names.map(function(n){
-    return '<option'+(n===cur?' selected':'')+'>'+n+'</option>';
-  }).join('');
-}
-
-function renderVacH(){
-  var tb=document.getElementById('vacHBody'); if(!tb)return;
-  var q=(document.getElementById('vSrch')||{}).value||'';
-  var fSt=(document.getElementById('vFSt')||{}).value||'';
-  var fEm=(document.getElementById('vFEm')||{}).value||'';
-  var list=vacReqs.filter(function(r){
-    if(!isGM()&&r.employee!==CU.empName) return false;
-    if(fSt&&r.status!==fSt) return false;
-    if(fEm&&r.employee!==fEm) return false;
-    if(q){var ql=q.toLowerCase(); return r.employee.toLowerCase().indexOf(ql)>=0||r.type.toLowerCase().indexOf(ql)>=0||r.status.toLowerCase().indexOf(ql)>=0;}
-    return true;
-  }).sort(function(a,b){return b.reqDate.localeCompare(a.reqDate);});
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="norec">No records found.</td></tr>';return;}
-  tb.innerHTML=''; // build using DOM to avoid quoting issues
-  list.forEach(function(r){
-    var tr=document.createElement('tr');
-    var pdfBtn=r.status==='Approved'?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem" data-vid="'+r.id+'" onclick="generateVacPDF(this.dataset.vid)">📄 PDF</button>':'';
-    var attBtn=r.attachmentUrl?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem" data-aid="'+r.id+'" onclick="openAttachment(this.dataset.aid)">📎</button>':'';
-    var delBtn=isGM()?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem;color:var(--red);border-color:rgba(239,68,68,.3)" data-vid="'+r.id+'" data-vemp="'+esc(r.employee)+'" data-vstatus="'+r.status+'" onclick="confirmDeleteVacH(this)">🗑</button>':'';
-    tr.innerHTML=
-      '<td>'+esc(r.employee)+'</td>'+
-      '<td>'+esc(r.type)+'</td>'+
-      '<td>'+fmtD(r.from)+'</td>'+
-      '<td>'+fmtD(r.to)+'</td>'+
-      '<td style="text-align:center">'+r.days+'</td>'+
-      '<td>'+statusCell(r)+'</td>'+
-      '<td style="font-size:.78rem;color:var(--ss)">'+fmtD(r.reqDate)+(r.contact?'<br><span style="color:var(--sm)">📞 '+esc(r.contact)+'</span>':'')+'</td>'+
-      '<td style="display:flex;gap:.3rem;flex-wrap:wrap">'+pdfBtn+attBtn+delBtn+'</td>';
-    tb.appendChild(tr);
-  });
-}
-
-function statusCell(r){
-  var cls=r.status==='Approved'?'stbadge sta':r.status==='Rejected'?'stbadge str':'stbadge stp';
-  var html='<span class="'+cls+'">'+r.status+'</span>';
-  if(r.status==='Rejected'&&r.rejectReason){
-    html+='<br><span style="font-size:.72rem;color:#991b1b;display:block;margin-top:.25rem">❌ '+esc(r.rejectReason)+'</span>';
-  }
-  return html;
-}
-function toggleSickFields(){
-  // Future: show/hide sick-specific fields if needed
-}
-
 function generateVacPDF(vacId){
   var r=null;
   for(var i=0;i<vacReqs.length;i++){if(vacReqs[i].id==vacId){r=vacReqs[i];break;}}
@@ -3859,6 +3701,51 @@ function dismissVacAlert(key){
 // ══════════════════════════════════════════
 //  LEAVE SUMMARY
 // ══════════════════════════════════════════
+function renderVacH(){
+  var tbody=document.getElementById('vacHBody'); if(!tbody) return;
+  var srch=(document.getElementById('vSrch')||{}).value||'';
+  var fSt=(document.getElementById('vFSt')||{}).value||'';
+  var fEm=(document.getElementById('vFEm')||{}).value||'';
+  var rows=vacReqs.filter(function(r){
+    if(!isGM()&&r.employee!==CU.empName) return false;
+    if(fSt&&r.status!==fSt) return false;
+    if(fEm&&r.employee!==fEm) return false;
+    if(srch){var s=srch.toLowerCase();if((r.employee+r.type+r.status+(r.note||'')).toLowerCase().indexOf(s)<0)return false;}
+    return true;
+  });
+  tbody.innerHTML='';
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--ss);padding:2rem">No records found</td></tr>';return;}
+  rows.forEach(function(r,i){
+    var fromDisplay=r.selectedDates&&r.selectedDates.length?r.selectedDates.map(fmtD).join(', '):fmtD(r.from);
+    var toDisplay=r.selectedDates&&r.selectedDates.length?'—':fmtD(r.to);
+    var statusColor=r.status==='Approved'?'#16a34a':r.status==='Rejected'?'#dc2626':'#b45309';
+    var pdfBtn=r.status==='Approved'?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem" onclick="generateVacPDF(\''+r.id+'\')">📄 PDF</button>':'';
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td>'+
+      '<td>'+esc(r.employee)+'</td>'+
+      '<td>'+esc(r.type)+'</td>'+
+      '<td>'+fromDisplay+'</td>'+
+      '<td>'+toDisplay+'</td>'+
+      '<td>'+r.days+'</td>'+
+      '<td><span style="color:'+statusColor+';font-weight:600">'+r.status+'</span></td>'+
+      '<td style="font-size:.82rem;color:var(--ss)">'+esc(r.note||r.rejectReason||'')+'</td>'+
+      '<td style="font-size:.82rem;color:var(--ss)">'+fmtD(r.reqDate)+'</td>'+
+      '<td>'+pdfBtn+'</td>';
+    tbody.appendChild(tr);
+  });
+}
+function populateVacFilter(){
+  var sel=document.getElementById('vFEm'); if(!sel) return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">All Employees</option>';
+  if(isGM()){
+    var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
+    all.forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+  }
+  sel.value=cur;
+}
+
+// ══════════════════════════════════════════
 function exportLeaveSummaryXLS(){
   var rows=[['Employee','Role','Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Other','Total Days']];
   var tb=document.getElementById('leaveSummaryBody');
@@ -4065,7 +3952,7 @@ function calcBalance(emp) {
 }
 
 function renderBalances() {
-  var all = isGM() ? lists.doctors.concat(lists.nurses).concat(lists.staff||[]) : (CU.empName ? [CU.empName] : []);
+  var all = isGM() ? lists.doctors.concat(lists.nurses).concat(lists.staff||[]) : (CU.empName&&autoStaff.indexOf(CU.empName)<0 ? [CU.empName] : []);
   var g   = document.getElementById('balGrid');
   if (!all.length) { g.innerHTML = '<p class="norec">No employees.</p>'; return; }
   var html = '';
@@ -4144,9 +4031,9 @@ function renderEmpProfiles() {
   if (!g) return;
   if (!all.length) { g.innerHTML = '<p class="norec">Add employees first.</p>'; return; }
   var html = '';
-  all.forEach(function(emp) {
+  all.forEach(function(emp, idx) {
     var p   = empProfiles[emp] || {};
-    var eid = emp.replace(/[^a-zA-Z0-9]/g, '_');
+    var eid = 'emp_'+idx;
     var preview = '';
     if (p.contractStart) {
       var b = calcBalance(emp);
@@ -4170,8 +4057,8 @@ function renderEmpProfiles() {
 async function saveEmpProfiles() {
   var all      = lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
   var profiles = {};
-  all.forEach(function(emp) {
-    var eid = emp.replace(/[^a-zA-Z0-9]/g, '_');
+  all.forEach(function(emp, idx) {
+    var eid = 'emp_'+idx;
     var cs  = document.getElementById('ep-cs-' + eid);
     var ed  = document.getElementById('ep-ed-' + eid);
     var hu  = document.getElementById('ep-hu-' + eid);
@@ -4195,6 +4082,104 @@ async function saveEmpProfiles() {
 
 function saveAnnual(){ annualDays=parseInt(document.getElementById('annDays')?document.getElementById('annDays').value:21)||21; saveConfig('annualDays',annualDays); }
 function saveClinicName(){ var n=document.getElementById('clinicNameInput').value.trim(); if(n){localStorage.setItem('clinicName',n); document.getElementById('clinicName').textContent=n; toast('Clinic name saved!',true);} }
+
+// ══════════════════════════════════════════
+//  AUTO STAFF (GOSI) MANAGEMENT
+// ══════════════════════════════════════════
+function renderAutoStaffList(){
+  var el=document.getElementById('autoStaffList'); if(!el) return;
+  if(!autoStaff.length){ el.innerHTML='<div style="color:var(--ss);font-size:.83rem">No auto staff added yet.</div>'; return; }
+  el.innerHTML=autoStaff.map(function(name,i){
+    return '<div style="display:flex;align-items:center;gap:.6rem;background:var(--hover);border-radius:6px;padding:.4rem .75rem">'+
+      '<span style="font-size:.9rem;flex:1">'+esc(name)+'</span>'+
+      '<span style="font-size:.7rem;color:#6abf4b;font-weight:600">REMOTE</span>'+
+      '<button class="brm" onclick="removeAutoStaff('+i+')">×</button>'+
+    '</div>';
+  }).join('');
+}
+async function addAutoStaff(){
+  var inp=document.getElementById('nAutoStaff');
+  var name=inp.value.trim(); if(!name){ toast('Enter a name',false); return; }
+  if(autoStaff.indexOf(name)>=0){ toast('Already in list',false); return; }
+  autoStaff.push(name);
+  try{
+    await saveConfig('autoStaff', autoStaff);
+    // Mirror autoStaff list to att_config so attendance app can read it
+    await mirrorAutoStaffToAtt();
+    // Also add to attendance attStaff list (no PIN/password needed)
+    await addToAttStaff(name);
+    // Also add to Other Staff list if not already there
+    if((lists.staff||[]).indexOf(name)<0){
+      if(!lists.staff) lists.staff=[];
+      lists.staff.push(name);
+      await saveConfig('lists', lists);
+      renderManage(); populateDDL(); populateVacEmp();
+    }
+    // Also add blank vacation profile if not exists
+    if(!empProfiles[name]){
+      empProfiles[name]={contractStart:'',entitledDays:21,historicalUsed:0,email:''};
+      await saveConfig('empProfiles', empProfiles);
+      renderEmpProfiles();
+    }
+    renderAutoStaffList(); inp.value='';
+    toast('Remote staff added: '+name, true);
+  }catch(e){ toast('Error: '+e.message, false); autoStaff.pop(); }
+}
+async function syncAllRemoteStaff(){
+  if(!autoStaff.length){ toast('No remote staff to sync', false); return; }
+  toast('Syncing...', true);
+  var synced=0;
+  for(var i=0;i<autoStaff.length;i++){
+    var name=autoStaff[i];
+    await addToAttStaff(name);
+    // Add to Other Staff if missing
+    if((lists.staff||[]).indexOf(name)<0){
+      if(!lists.staff) lists.staff=[];
+      lists.staff.push(name);
+    }
+    // Add blank vacation profile if missing
+    if(!empProfiles[name]){
+      empProfiles[name]={contractStart:'',entitledDays:21,historicalUsed:0,email:''};
+    }
+    synced++;
+  }
+  await saveConfig('lists', lists);
+  await saveConfig('empProfiles', empProfiles);
+  await mirrorAutoStaffToAtt();
+  renderManage(); populateDDL(); populateVacEmp(); renderEmpProfiles();
+  toast('Synced '+synced+' remote staff to attendance!', true);
+}
+
+async function mirrorAutoStaffToAtt(){
+  try{
+    await sbUpsert('att_config', {key:'autoStaff', value:JSON.stringify(autoStaff)});
+  }catch(e){ console.warn('Mirror autoStaff to att_config failed:',e.message); }
+}
+
+async function addToAttStaff(name){
+  try{
+    // Load current attStaff from att_config
+    var rows = await sbGet('att_config','key=eq.attStaff');
+    var attStaffList=(rows&&rows[0])?JSON.parse(rows[0].value):[];
+    // Check if already exists
+    if(attStaffList.find(function(s){return s.name.toLowerCase()===name.toLowerCase();})) return;
+    // Generate a unique ID
+    var maxId=attStaffList.reduce(function(m,s){return Math.max(m,parseInt(s.id)||0);},0);
+    attStaffList.push({id:maxId+1, name:name, active:true, pin:'', password:''});
+    // Save back using sbUpsert
+    await sbUpsert('att_config', {key:'attStaff', value:JSON.stringify(attStaffList)});
+  }catch(e){ console.warn('addToAttStaff error:',e.message); throw e; }
+}
+async function removeAutoStaff(i){
+  var name=autoStaff[i];
+  autoStaff.splice(i,1);
+  try{
+    await saveConfig('autoStaff', autoStaff);
+    await mirrorAutoStaffToAtt();
+    renderAutoStaffList();
+    toast('Remote staff removed: '+name, true);
+  }catch(e){ toast('Error removing: '+e.message, false); autoStaff.splice(i,0,name); }
+}
 
 // ══════════════════════════════════════════
 //  UI HELPERS
