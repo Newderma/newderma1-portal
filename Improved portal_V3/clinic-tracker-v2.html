@@ -2561,7 +2561,7 @@ async function saveItemCosts(){
     var item=lists.items[parseInt(inputs[i].getAttribute('data-idx'))];
     if(item!==undefined) newCosts[item]=parseFloat(inputs[i].value)||0;
   }
-  // Recalc all record profits with new costs (in memory only first)
+  // Recalc all record profits with new costs
   var updatedRecs = records.map(function(rec){
     var r=Object.assign({},rec,{items:rec.items.map(function(it){return Object.assign({},it);})});
     var ts=0,tc=0;
@@ -2575,23 +2575,26 @@ async function saveItemCosts(){
   });
   setSyncDot('syncing');
   try{
-    // Save config first
+    // 1. Save config immediately
     await saveConfig('itemCosts', newCosts);
-    // Batch update all records (collect failures, report at end)
-    var failed=[];
-    for(var r=0;r<updatedRecs.length;r++){
-      var rec=updatedRecs[r];
-      try{
-        await sbUpdate('ct_records','id=eq.'+rec.id, {items:rec.items,total_cost:rec.totalCost,profit:rec.profit,margin:rec.margin});
-      }catch(e){ failed.push(rec.id); }
-    }
-    // Only commit to memory if all succeeded (or partial with warning)
-    itemCosts=newCosts;
-    records=updatedRecs;
+    itemCosts = newCosts;
+    records   = updatedRecs;
     setSyncDot('on');
-    if(failed.length){ toast('Costs saved. '+failed.length+' records failed to sync — refresh to retry.',false); }
-    else { toast('Costs saved & profits updated!',true); }
-  }catch(e){ setSyncDot('off'); toast('Sync error: '+e.message,false); }
+    toast('Costs saved! Syncing records in background…', true);
+    renderRecords();
+    // 2. Fire all record updates in parallel (chunks of 20 to avoid overload)
+    var CHUNK = 20;
+    var failed = [];
+    for(var c=0; c<updatedRecs.length; c+=CHUNK){
+      var chunk = updatedRecs.slice(c, c+CHUNK);
+      var results = await Promise.allSettled(chunk.map(function(rec){
+        return sbUpdate('ct_records','id=eq.'+rec.id, {items:rec.items,total_cost:rec.totalCost,profit:rec.profit,margin:rec.margin});
+      }));
+      results.forEach(function(res,i){ if(res.status==='rejected') failed.push(chunk[i].id); });
+    }
+    if(failed.length){ toast('Costs saved. '+failed.length+' records failed to sync — refresh to retry.', false); }
+    else { toast('All costs & profits synced!', true); }
+  }catch(e){ setSyncDot('off'); toast('Save error: '+e.message, false); }
 }
 
 // ══════════════════════════════════════════
