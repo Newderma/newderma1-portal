@@ -2922,6 +2922,83 @@ function confirmDeleteVacH(btn){
   document.getElementById('deleteVacModal').classList.remove('hidden');
 }
 function closeDeleteVacModal(){ document.getElementById('deleteVacModal').classList.add('hidden'); }
+
+// ── Vacation: Approve / Reject ──
+async function decideVac(id, decision){
+  setSyncDot('syncing');
+  try {
+    var today = new Date().toISOString().slice(0,10);
+    await sbUpdate('ct_vacation', 'id=eq.'+id, { status: decision, decided_at: today });
+    for(var i=0;i<vacReqs.length;i++){
+      if(vacReqs[i].id==id){
+        vacReqs[i].status    = decision;
+        vacReqs[i].decidedAt = today;
+        break;
+      }
+    }
+    setSyncDot('on');
+    renderPending(); renderBalances(); renderVacH();
+    toast(decision === 'Approved' ? 'Request approved! ✅' : 'Request rejected.', decision === 'Approved');
+    // Show approval letter when approved
+    if(decision === 'Approved') showApprovalLetter(id);
+  } catch(e) {
+    setSyncDot('off');
+    toast('Failed to update: ' + e.message, false);
+  }
+}
+
+function openRejectModal(id){
+  document.getElementById('rejectId').value = id;
+  document.getElementById('rejectReason').value = '';
+  document.getElementById('rejectModal').classList.remove('hidden');
+}
+
+function closeRejectModal(){
+  document.getElementById('rejectModal').classList.add('hidden');
+  document.getElementById('rejectId').value = '';
+  document.getElementById('rejectReason').value = '';
+}
+
+async function confirmReject(){
+  var id     = parseInt(document.getElementById('rejectId').value);
+  var reason = document.getElementById('rejectReason').value.trim();
+  closeRejectModal();
+  setSyncDot('syncing');
+  try {
+    var today = new Date().toISOString().slice(0,10);
+    await sbUpdate('ct_vacation', 'id=eq.'+id, { status: 'Rejected', reject_reason: reason, decided_at: today });
+    for(var i=0;i<vacReqs.length;i++){
+      if(vacReqs[i].id==id){
+        vacReqs[i].status       = 'Rejected';
+        vacReqs[i].rejectReason = reason;
+        vacReqs[i].decidedAt    = today;
+        break;
+      }
+    }
+    setSyncDot('on');
+    renderPending(); renderBalances(); renderVacH();
+    toast('Request rejected.', true);
+  } catch(e) {
+    setSyncDot('off');
+    toast('Rejection failed: ' + e.message, false);
+  }
+}
+
+async function staffDeletePending(id, empName){
+  id = parseInt(id);
+  if(!confirm('Cancel this vacation request for ' + empName + '?')) return;
+  setSyncDot('syncing');
+  try {
+    await sbDelete('ct_vacation', 'id=eq.'+id);
+    vacReqs = vacReqs.filter(function(r){ return r.id !== id; });
+    setSyncDot('on');
+    renderPending(); renderBalances(); populateVacFilter(); renderVacH();
+    toast('Request cancelled.', true);
+  } catch(e) {
+    setSyncDot('off');
+    toast('Cancel failed: ' + e.message, false);
+  }
+}
 async function deleteVac(){
   var id = parseInt(document.getElementById('deleteVacId').value);
   closeDeleteVacModal();
