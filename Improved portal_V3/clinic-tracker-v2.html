@@ -861,7 +861,7 @@ tr:hover td{background:#f8fafc}
                 <input type="number" id="prLab" min="0" step="0.01" placeholder="0">
               </div>
               <div>
-                <label>Chair Rent / إيجار الكرسي SAR <span style="font-size:.7rem;color:var(--ss)">(0 if deferred)</span></label>
+                <label>Dental Chair Deduction / خصم كرسي الأسنان SAR <span style="font-size:.7rem;color:var(--ss)">(0 if deferred)</span></label>
                 <input type="number" id="prChair" min="0" step="0.01" placeholder="0">
               </div>
               <div>
@@ -5263,7 +5263,7 @@ function prCalc() {
     total = halfShare;
 
     if(lab)      { rows.push({label:'Lab Fees 50% / أتعاب المعمل ٥٠٪',          amount:lab,      deduct:true}); total -= lab; }
-    if(chair)    { rows.push({label:'Chair Rent / إيجار الكرسي',                 amount:chair,    deduct:true}); total -= chair; }
+    if(chair)    { rows.push({label:'Dental Chair Deduction / خصم كرسي الأسنان',                 amount:chair,    deduct:true}); total -= chair; }
     if(salary2)  { rows.push({label:'Salary / الراتب المدفوع',                   amount:salary2,  deduct:true}); total -= salary2; }
     if(special2) { rows.push({label:(specNote2 ? specNote2+' / خصم' : 'Special Deduction / خصم خاص'), amount:special2, deduct:true}); total -= special2; }
     if(addition2){ rows.push({label:(addNote2  ? addNote2+' / إضافة' : 'Addition / إضافة مستحقة'),    amount:addition2, deduct:false}); total += addition2; }
