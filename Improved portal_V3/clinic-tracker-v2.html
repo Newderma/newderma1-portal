@@ -1835,7 +1835,7 @@ function bootApp(){
   if(cn){ document.getElementById('clinicName').textContent=cn; var ci=document.getElementById('clinicNameInput'); if(ci)ci.value=cn; }
 
   var tabs = isGM()
-    ? [['costs','Costs','💰'],['records','Records','📋'],['dashboard','Dashboard','📊'],['utilization','Utilization','📈'],['vacation','Vacation','🏖️'],['payroll','Payroll','🦷'],['finance','Finance','🏦'],['manage','Manage','⚙️']]
+    ? [['costs','Costs','💰'],['records','Records','📋'],['dashboard','Dashboard','📊'],['utilization','Utilization','📈'],['vacation','Vacation','🏖️'],['payroll','Payroll','🦷'],['manage','Manage','⚙️']]
     : getStaffTabs();
   var h='', bh='';
   for(var i=0;i<tabs.length;i++){
@@ -1846,6 +1846,11 @@ function bootApp(){
     }
     h+='<button class="ntab" onclick="showPage(\''+tabs[i][0]+'\',this)">'+tabLabel+'</button>';
     bh+='<button class="btab" onclick="showPage(\''+tabs[i][0]+'\',this)" data-page="'+tabs[i][0]+'"><span class="btico">'+tabs[i][2]+'</span>'+tabs[i][1]+'</button>';
+  }
+  if(isGM()){
+    var finBtn='<button class="ntab" onclick="openFinance()">🏦 Finance</button>';
+    var manageIdx=h.lastIndexOf('<button class="ntab" onclick="showPage(\'manage\'');
+    if(manageIdx>=0){ h=h.slice(0,manageIdx)+finBtn+h.slice(manageIdx); } else { h+=finBtn; }
   }
   document.getElementById('navTabs').innerHTML=h;
   document.getElementById('bottomNav').innerHTML=bh;
@@ -1916,6 +1921,7 @@ function bootApp(){
   }, 50);
 }
 
+function openFinance(){ window.open('https://newderma1.netlify.app/finance.html','_blank'); }
 function showPage(id,btn){
   if(id==='finance') return; // handled as direct link
   // Clear vacation alert when switching tabs
