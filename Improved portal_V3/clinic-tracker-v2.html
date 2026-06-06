@@ -5474,7 +5474,7 @@ function renderPayrollHistory() {
   });
   // Summary bar
   var sumEl = document.getElementById('prHistSummary');
-  if(sumEl && filtered.length){
+  if(sumEl && filtered.length && !drFilter){
     var totalOwed=0, totalPaidAll=0, totalRemaining=0;
     filtered.forEach(function(h){ var ps=prPaymentStatus(h); totalOwed+=h.netOwed||0; totalPaidAll+=ps.totalPaid; totalRemaining+=ps.remaining>0?ps.remaining:0; });
     sumEl.style.display='';
@@ -5483,7 +5483,7 @@ function renderPayrollHistory() {
     var owedSummaryClr   = totalOwed>=0?'#16a34a':'#dc2626';
     var owedSummaryLbl   = totalOwed>=0?'Clinic Owes Doctors / مستحق للأطباء':'Doctors Owe Clinic / مستحق على الأطباء';
     sumEl.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem">'
-      +'<div style="background:'+owedSummaryBg+';border:1px solid '+owedSummaryBdr+';border-radius:7px;padding:.55rem .8rem"><div style="font-size:.62rem;color:'+owedSummaryClr+';font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem">'+owedSummaryLbl+'</div><div style="font-size:.95rem;font-weight:700;color:'+owedSummaryClr+'">SAR '+fmtSAR(totalOwed)+'</div></div>'
+      +'<div style="background:'+owedSummaryBg+';border:1px solid '+owedSummaryBdr+';border-radius:7px;padding:.55rem .8rem"><div style="font-size:.62rem;color:'+owedSummaryClr+';font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem">'+owedSummaryLbl+'</div><div style="font-size:.95rem;font-weight:700;color:'+owedSummaryClr+'">SAR '+fmtSAR(Math.abs(totalOwed))+'</div></div>'
       +'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.55rem .8rem"><div style="font-size:.62rem;color:#1d4ed8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem">Total Paid / المدفوع</div><div style="font-size:.95rem;font-weight:700;color:#1d4ed8">SAR '+fmtSAR(totalPaidAll)+'</div></div>'
       +(totalRemaining>0.01?'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:.55rem .8rem"><div style="font-size:.62rem;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem">Remaining / المتبقي</div><div style="font-size:.95rem;font-weight:700;color:#dc2626">SAR '+fmtSAR(totalRemaining)+'</div></div>':'')
       +'</div>';
