@@ -1917,6 +1917,7 @@ function bootApp(){
 }
 
 function showPage(id,btn){
+  if(id==='finance') return; // handled as direct link
   // Clear vacation alert when switching tabs
   if(id!=='vacation'){
     var va=document.getElementById('vacStatusAlert');
