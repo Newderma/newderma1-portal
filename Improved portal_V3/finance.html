@@ -356,7 +356,7 @@ tr.row-mismatch td{background:#fffef0;}
     </label>
   </div>
 
-  <button class="run-btn" id="btn-run" onclick="runReconciliation()" disabled></button>
+  <button class="run-btn" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;margin-right:.5rem" onclick="resetAll()">🔄 Reset</button><button class="run-btn" id="btn-run" onclick="runReconciliation()" disabled></button>
   <div class="error-box" id="error-box" style="display:none;"></div>
   <div class="info-panel" id="info-panel" style="display:none;"></div>
   <div id="alert-box"></div>
@@ -582,17 +582,25 @@ const round2=v=>Math.round(v*100)/100;
 const SAR=n=>n===0?'–':n.toLocaleString('en-SA',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 function detectBankColumns(rows){
-  if(!rows.length)return{creditIdx:2,debitIdx:3,descIdx:4,refIdx:8,dateIdx:12};
-  const keys=Object.keys(rows[0]);const m={creditIdx:-1,debitIdx:-1,descIdx:-1,refIdx:-1,dateIdx:-1};
+  // Auto-detects both OLD format (separate credit/debit) and NEW format (combined amount)
+  if(!rows.length)return{combined:true,amountIdx:1,descIdx:2,refIdx:6,dateIdx:8};
+  const keys=Object.keys(rows[0]);
+  const m={combined:false,amountIdx:-1,creditIdx:-1,debitIdx:-1,descIdx:-1,refIdx:-1,dateIdx:-1};
   keys.forEach((k,i)=>{const kl=k.toLowerCase();
-    if(m.creditIdx<0&&(kl.includes('credit')||kl.includes('دائن')))m.creditIdx=i;
-    if(m.debitIdx<0&&(kl.includes('debit')||kl.includes('مدين')))m.debitIdx=i;
+    if(m.amountIdx<0&&(kl.includes('credit/debit')||kl.includes('دائن/مدين')||kl.includes('مدين/دائن'))){m.amountIdx=i;m.combined=true;}
+    if(!m.combined&&m.creditIdx<0&&kl.includes('credit')&&!kl.includes('/'))m.creditIdx=i;
+    if(!m.combined&&m.debitIdx<0&&kl.includes('debit')&&!kl.includes('/'))m.debitIdx=i;
     if(m.descIdx<0&&(kl.includes('description')||kl.includes('تفاصيل')))m.descIdx=i;
     if(m.refIdx<0&&(kl.includes('reference')||kl.includes('مرجع')))m.refIdx=i;
-    if(m.dateIdx<0&&(kl.includes('transaction date')||kl.includes('تاريخ العملية')))m.dateIdx=i;
+    if(m.dateIdx<0&&(kl.includes('transaction date')||kl.includes('تاريخ العملية')||kl.includes('date')))m.dateIdx=i;
   });
-  if(m.creditIdx<0)m.creditIdx=2;if(m.debitIdx<0)m.debitIdx=3;
-  if(m.descIdx<0)m.descIdx=4;if(m.refIdx<0)m.refIdx=8;if(m.dateIdx<0)m.dateIdx=12;
+  if(m.combined){
+    if(m.amountIdx<0)m.amountIdx=1;
+    if(m.descIdx<0)m.descIdx=2;if(m.refIdx<0)m.refIdx=6;if(m.dateIdx<0)m.dateIdx=8;
+  } else {
+    if(m.creditIdx<0)m.creditIdx=2;if(m.debitIdx<0)m.debitIdx=3;
+    if(m.descIdx<0)m.descIdx=4;if(m.refIdx<0)m.refIdx=8;if(m.dateIdx<0)m.dateIdx=12;
+  }
   return m;
 }
 function detectInternalColumns(rows){
@@ -610,29 +618,76 @@ function detectInternalColumns(rows){
 const REF_RE=/\b(ATMTOT[A-Z0-9]+|FT[A-Z0-9]{8,}|LD[A-Z0-9]{5,}|[A-Z]{2,}[0-9]{6,}[A-Z0-9]*)\b/g;
 const extractRefs=s=>[...String(s).matchAll(REF_RE)].map(m=>m[1]);
 const BANK_PFX={SPANMRC:'POS_MADA',SFEEMRC:'FEE_MADA',VISAMRC:'POS_VISA',VFEEMRC:'FEE_VISA',BNETMRC:'POS_MASTER',BFEEMRC:'FEE_MASTER'};
-function bankTxType(d){const p=d.match(/^([A-Z]+MRC)/);if(p&&BANK_PFX[p[1]])return BANK_PFX[p[1]];if(d.startsWith('ATMTOT')&&(d.includes('ضريبة')||d.includes('ضريبه')))return 'VAT';return 'OTHER';}
+function bankTxType(d){
+  // Check anywhere in description (new format has machine# before the code)
+  const p=d.match(/\b(SPANMRC|SFEEMRC|VISAMRC|VFEEMRC|BNETMRC|BFEEMRC)\b/);
+  if(p&&BANK_PFX[p[1]])return BANK_PFX[p[1]];
+  if(d.startsWith('ATMTOT')&&(d.includes('ضريبة')||d.includes('ضريبه')))return 'VAT';
+  return 'OTHER';
+}
 function internalTxType(d,ic){
-  if(d.includes('فواتير مدى'))return 'POS_MADA';if(d.includes('فواتير فيزا'))return 'POS_VISA';
-  if(d.includes('فواتير ماستر'))return 'POS_MASTER';if(d.includes('فواتير تحويل'))return 'TRANSFER';
+  if(d.includes('فواتير مدى'))return 'POS_MADA';
+  if(d.includes('فواتير فيزا'))return 'POS_VISA';
+  if(d.includes('فواتير ماستر'))return 'POS_MASTER';
+  if(d.includes('فواتير تحويل'))return 'OTHER';// Daily income via bank transfer — matched in OTHER section by FT ref
   if(d.includes('عمولة')&&(d.includes('نقاط البيع')||d.includes('نقاط البيه')))return 'FEE';
   if((d.includes('ضريبه')||d.includes('ضريبة'))&&(d.includes('نقاط البيع')||d.includes('نقاط البيه')))return 'VAT';
   if(/^قيد\s*\S*\s*رقم\s*\d+\s+ATMTOT/.test(d)||/^قيد يومية رقم\d+\s+ATMTOT/.test(d))return 'VAT';
-  if(ic&&(d.includes('تحويل')||d.includes('FT')||d.includes('تابي')||d.includes('تمارا')||d.includes('طبيب')))return 'TRANSFER_IN';
-  if(!ic&&(d.includes('تحويل')||d.includes('FT')||d.includes('حوالة')))return 'TRANSFER_OUT';
+  // All other entries (expenses, refunds, salaries) matched by ref — ignore credit/debit direction
+  // Internal records outgoing payments as credit in expense accounts; bank shows as debit
   return 'OTHER';
 }
 function detectMachines(bankRows){const map={};const seen=[];for(const r of bankRows){const m=String(r.desc||'').match(/\b(\d{16})\b/);if(m&&!map[m[1]]){seen.push(m[1]);map[m[1]]='POS'+seen.length;}}return map;}
 function parseBank(rows){
   const c=detectBankColumns(rows);const out=[];
   for(const r of rows){const v=Object.values(r);
-    const credit=parseNum(v[c.creditIdx]),debit=parseNum(v[c.debitIdx]);
-    const desc=String(v[c.descIdx]||'').trim(),ref=String(v[c.refIdx]||'').trim(),date=fmtDate(v[c.dateIdx]);
-    if(!isValidDate(date)||!ref||ref==='nan')continue;
-    const amount=credit!==0?credit:Math.abs(debit);if(amount===0)continue;
-    const txType=bankTxType(desc);let valueDate=date;
-    const vd=desc.match(/Value Dated (\d{8})/);if(vd){const s=vd[1];valueDate=`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;}
-    out.push({bankDate:date,valueDate,ref,desc,amount,isCredit:credit!==0,txType});
-  }return out;
+    let amount,isCredit;
+    if(c.combined){
+      const raw=parseNum(v[c.amountIdx]);
+      if(raw===0)continue;
+      isCredit=raw>0;amount=Math.abs(raw);
+    } else {
+      const credit=parseNum(v[c.creditIdx]),debit=parseNum(v[c.debitIdx]);
+      amount=credit!==0?credit:Math.abs(debit);if(amount===0)continue;
+      isCredit=credit!==0;
+    }
+    const desc=String(v[c.descIdx]||'').trim();
+    const ref=String(v[c.refIdx]||'').trim();
+    const date=fmtDate(v[c.dateIdx]);
+    if(!isValidDate(date)||!ref||ref==='nan'||ref==='undefined')continue;
+    const txType=bankTxType(desc);
+    let valueDate=date;
+    const vdPfx=desc.match(/^(\d{8})\s/);
+    if(vdPfx){const s=vdPfx[1];valueDate=`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;}
+    const vdOld=desc.match(/Value Dated (\d{8})/);
+    if(vdOld){const s=vdOld[1];valueDate=`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;}
+    let matchRef=ref;
+    if(/^\d{8}[A-Z]/.test(ref)){
+      const ftInDesc=desc.match(/(FT[A-Z0-9]{8,}|LD[A-Z0-9]{5,})/);
+      if(ftInDesc)matchRef=ftInDesc[1];
+    }
+    out.push({bankDate:date,valueDate,ref:matchRef,rawRef:ref,desc,amount,isCredit,txType});
+  }
+
+  // Auto-detect last date in bank file
+  // If the bank file includes the 1st of the next month (for POS boundary matching),
+  // only keep POS rows and incoming credit transfers from that last day.
+  // If the last day is the natural month end, keep everything.
+  const dates=out.map(r=>r.bankDate).filter(Boolean).sort();
+  const lastDate=dates[dates.length-1];
+  const firstDate=dates[0];
+  // Detect if last day is the 1st of a month (i.e. it's an extra day added for boundary)
+  const lastIsFirstOfMonth=lastDate&&lastDate.slice(8)==='01';
+  if(lastIsFirstOfMonth){
+    return out.filter(r=>{
+      if(r.bankDate!==lastDate)return true;
+      // On the extra last day: only POS sales and incoming transfers
+      const isPOS=['POS_MADA','POS_VISA','POS_MASTER'].includes(r.txType);
+      const isIncomingTransfer=r.txType==='OTHER'&&r.isCredit;
+      return isPOS||isIncomingTransfer;
+    });
+  }
+  return out;
 }
 function parseInternal(rows){
   const c=detectInternalColumns(rows);const out=[];
@@ -673,11 +728,13 @@ function reconcile(bankRows,intRows){
     results.push({category:'Fee / VAT',clinicDate:s?.clinicDate||'',bankDate:b?.bankDate||'',type:'Fee+VAT',bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:ref,sysRefs:ref,note:status!=='Match'?`Bank: ${SAR(bAmt)} | Sys: ${SAR(sAmt)}`:''});
   }
   const iOther={};
-  for(const r of intRows){if(!['TRANSFER','TRANSFER_IN','TRANSFER_OUT','OTHER'].includes(r.txType))continue;for(const ref of r.refs)iOther[ref]=r;}
+  for(const r of intRows){if(!['OTHER'].includes(r.txType))continue;for(const ref of r.refs)iOther[ref]=r;}
   for(const r of bankRows.filter(r=>r.txType==='OTHER')){
-    const m=iOther[r.ref];const bAmt=round2(r.amount),sAmt=round2(m?.amount||0),diff=round2(bAmt-sAmt);
+    const m=iOther[r.ref];
+    // Use absolute amounts — internal may record outgoing payments as credit (expense accounting)
+    const bAmt=round2(r.amount),sAmt=round2(m?.amount||0),diff=round2(bAmt-sAmt);
     const status=m?(Math.abs(diff)<0.02?'Match':'Amount Mismatch'):'Missing in System';
-    results.push({category:'Other',clinicDate:m?.clinicDate||'',bankDate:r.bankDate,type:r.isCredit?'Credit In':'Debit Out',bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:r.ref,sysRefs:m?.refs?.join(', ')||'',note:status!=='Match'?r.desc.slice(0,80):''});
+    results.push({category:'Other',clinicDate:m?.clinicDate||'',bankDate:r.bankDate,type:r.isCredit?t('creditIn'):t('debitOut'),bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:r.ref,sysRefs:m?.refs?.join(', ')||'',note:status!=='Match'?r.desc.slice(0,80):''});
   }
   return results.sort((a,b)=>{const ai=a.status!=='Match'?0:1,bi=b.status!=='Match'?0:1;if(ai!==bi)return ai-bi;return(a.bankDate||a.clinicDate).localeCompare(b.bankDate||b.clinicDate);});
 }
@@ -815,6 +872,11 @@ function loadFile(inputEl,which){
       const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
       if(which==='bank'){bankData=rows;bankLoaded=true;markLoaded('bank',file.name);}
       else{internalData=rows;intLoaded=true;markLoaded('internal',file.name);}
+      // Clear old results when new file uploaded — prevents stale data confusion
+      allResults=[];
+      document.getElementById('results-area').style.display='none';
+      document.getElementById('alert-box').innerHTML='';
+      document.getElementById('summary-badges').innerHTML='';
       const btn=document.getElementById('btn-run');
       if(bankData&&internalData){btn.disabled=false;}
       showError('');
@@ -831,6 +893,21 @@ function markLoaded(w,name){
   document.getElementById(w==='bank'?'upload-bank-sub':'upload-int-sub').textContent=name+' — '+t('fileLoaded');
 }
 
+function resetAll(){
+  bankData=null;internalData=null;bankLoaded=false;intLoaded=false;allResults=[];
+  document.getElementById('file-bank').value='';
+  document.getElementById('file-internal').value='';
+  document.getElementById('results-area').style.display='none';
+  document.getElementById('alert-box').innerHTML='';
+  document.getElementById('summary-badges').innerHTML='';
+  document.getElementById('btn-run').disabled=true;
+  // Reset upload boxes
+  ['bank','internal'].forEach(function(w){
+    var box=document.getElementById('box-'+w);
+    if(box) box.classList.remove('loaded');
+  });
+  showError('');
+}
 document.getElementById('file-bank').addEventListener('change',e=>loadFile(e.target,'bank'));
 document.getElementById('file-internal').addEventListener('change',e=>loadFile(e.target,'internal'));
 
