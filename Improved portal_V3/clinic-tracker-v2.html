@@ -6004,7 +6004,8 @@ function prOpenPrintWindow(r){
     var col=row.deduct?'#dc2626':'#16a34a'; var sign=row.deduct?'&minus;&nbsp;':'';
     return '<tr><td>'+enLbl+'</td><td class="ar-cell">'+arLbl+'</td><td class="amt" style="color:'+col+';font-weight:600">'+sign+'SAR&nbsp;'+fmtSAR(row.amount)+'</td></tr>';
   }).join('');
-  var netColor=r.netOwed>=0?'#16a34a':'#dc2626';
+  var _pdfTotal = (r.grandTotal !== undefined) ? r.grandTotal : r.netOwed;
+  var netColor=_pdfTotal>=0?'#16a34a':'#dc2626';
   var w=window.open('','_blank','width=820,height=1050');
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Payout — '+r.doctor+' '+r.month+'</title>');
   w.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">');
@@ -6097,10 +6098,10 @@ function prOpenPrintWindow(r){
   w.document.write('<tbody>');
   w.document.write(rowsHtml);
   w.document.write('<tr class="total-row">');
-  var netLabelEn = r.netOwed >= 0 ? 'Clinic Owes Doctor' : 'Doctor Owes Clinic';
-  var netLabelAr = r.netOwed >= 0 ? 'المبلغ المستحق للطبيب' : 'المبلغ المستحق على الطبيب';
+  var netLabelEn = _pdfTotal >= 0 ? 'Clinic Owes Doctor' : 'Doctor Owes Clinic';
+  var netLabelAr = _pdfTotal >= 0 ? 'المبلغ المستحق للطبيب' : 'المبلغ المستحق على الطبيب';
   w.document.write('<td colspan="2"><strong>'+netLabelEn+'</strong> <span style="font-family:Noto Sans Arabic,Arial,sans-serif;font-size:.78rem;color:#475569;font-weight:500">/ '+netLabelAr+'</span></td>');
-  w.document.write('<td class="amt" style="color:'+netColor+'"><strong>SAR&nbsp;'+fmtSAR(Math.abs(r.netOwed))+'</strong></td>');
+  w.document.write('<td class="amt" style="color:'+netColor+'"><strong>SAR&nbsp;'+fmtSAR(Math.abs(_pdfTotal))+'</strong></td>');
   w.document.write('</tr></tbody></table>');
 
   // Acknowledgment
