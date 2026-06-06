@@ -5997,7 +5997,14 @@ function prPrintHistory(idx){
   prOpenPrintWindow(r);
 }
 function prOpenPrintWindow(r){
-  var rows = r.rows || [];
+  var rows = (r.rows || []).map(function(row){
+    // Normalize old saved labels to current labels
+    var labelMap = {
+      'Chair Rent / إيجار الكرسي': 'Dental Chair Deduction / خصم كرسي الأسنان'
+    };
+    if(row.label && labelMap[row.label]) row = Object.assign({}, row, {label: labelMap[row.label]});
+    return row;
+  });
   var rowsHtml = rows.map(function(row){
     var parts = row.label.split(' / ');
     var enLbl = parts[0] || row.label;
