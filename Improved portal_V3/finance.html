@@ -214,10 +214,17 @@ input[type=file]{display:none;}
 
 /* Filters */
 .filters{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
-.filter-btn{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;border:1.5px solid var(--border);color:var(--text2);background:var(--surface);}
+.filter-bar{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);}
+.filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.filter-row-label{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;min-width:80px;flex-shrink:0;}
+.filter-btn{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;border:1.5px solid var(--border);color:var(--text2);background:var(--bg);cursor:pointer;transition:all .15s;font-family:inherit;}
 .filter-btn:hover{border-color:var(--accent);color:var(--accent);}
-.filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
-.filter-btn.cat.active{background:var(--text);border-color:var(--text);color:#fff;}
+.filter-btn.active.status{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.filter-btn.active.cat{background:var(--text);border-color:var(--text);color:#fff;font-weight:600;}
+.filter-btn.reset-btn{color:var(--text3);border-color:var(--border);font-size:10px;padding:4px 10px;}
+.filter-btn.reset-btn:hover{color:var(--red);border-color:var(--red);}
+.filter-divider{width:100%;height:1px;background:var(--border);}
+.filter-hint{font-size:10px;color:var(--text3);margin-inline-start:auto;}
 .filter-sep{width:1px;height:20px;background:var(--border);align-self:center;margin:0 2px;}
 .row-count{margin-inline-start:auto;font-size:11px;color:var(--text3);}
 
@@ -387,6 +394,7 @@ const T={
     allMatch:'✅  All transactions matched — no discrepancies found',
     discFound:'Discrepancies Found',itemsNeedAttn:'item(s) need attention',
     machines:'POS machines',bareRefs:'entries with ref-only descriptions (Fee/VAT)',
+    truncatedRefs:'internal entries have truncated ATMTOT refs (less than 30 chars) — accountant must re-enter full reference',
     noRef:'⚠ Bank file: reference numbers not detected',
     noPOS:'⚠ Internal file: no POS invoice entries found',
     uploadFirst:'Please upload both files first.',
@@ -437,6 +445,7 @@ const T={
     allMatch:'✅  جميع المعاملات مطابقة — لا توجد فروقات',
     discFound:'تم اكتشاف فروقات',itemsNeedAttn:'بند يحتاج مراجعة',
     machines:'أجهزة POS',bareRefs:'قيد بمرجع فقط (عمولة/ضريبة)',
+    truncatedRefs:'قيود في النظام الداخلي تحتوي على رقم مرجع ATMTOT مقطوع (أقل من 30 خانة) — يجب على المحاسب إعادة إدخال الرقم كاملاً',
     noRef:'⚠ الملف البنكي: لم يتم اكتشاف أرقام المراجع',
     noPOS:'⚠ الملف الداخلي: لم يتم العثور على قيود POS',
     uploadFirst:'يرجى رفع كلا الملفين أولاً.',
@@ -681,10 +690,17 @@ function parseBank(rows){
   if(lastIsFirstOfMonth){
     return out.filter(r=>{
       if(r.bankDate!==lastDate)return true;
-      // On the extra last day: only POS sales and incoming transfers
-      const isPOS=['POS_MADA','POS_VISA','POS_MASTER'].includes(r.txType);
-      const isIncomingTransfer=r.txType==='OTHER'&&r.isCredit;
-      return isPOS||isIncomingTransfer;
+      // On June 1 (boundary day): POS sales + Fee/VAT linked to those POS only
+      // Everything else excluded — deposits, transfers, salary all belong to June
+      const posTypes=['POS_MADA','POS_VISA','POS_MASTER'];
+      const feeVatTypes=['FEE_MADA','FEE_VISA','FEE_MASTER','VAT'];
+      const lastDayPosPrefixes=new Set(
+        out.filter(x=>x.bankDate===lastDate&&posTypes.includes(x.txType))
+           .map(x=>x.ref.slice(0,25))
+      );
+      if(posTypes.includes(r.txType)) return true;
+      if(feeVatTypes.includes(r.txType)&&lastDayPosPrefixes.has(r.ref.slice(0,25))) return true;
+      return false;
     });
   }
   return out;
@@ -713,7 +729,7 @@ function reconcile(bankRows,intRows){
     const bAmt=round2(bt),sAmt=round2(ir.amount),diff=round2(bAmt-sAmt);
     const bDate=bd[0]||'';
     const status=(!ir.refs.length||!found.length)?'Missing in Bank':miss.length?'Amount Mismatch':Math.abs(diff)<0.02?'Match':'Amount Mismatch';
-    results.push({category:'POS Sales',clinicDate:ir.clinicDate,bankDate:bDate,type:ir.txType.replace('POS_',''),bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:found.join('\n'),sysRefs:ir.refs.join('\n'),note:miss.length?t('noteNotInBank')+': '+miss.join(', '):status!=='Match'?`Bank: ${SAR(bAmt)} | Sys: ${SAR(sAmt)}`:''});
+    results.push({category:'POS Sales',clinicDate:ir.clinicDate,bankDate:bDate,type:ir.txType.replace('POS_',''),bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:found.join('\n'),sysRefs:ir.refs.join('\n'),note:miss.length?t('noteNotInBank')+': '+miss.join(', '):status!=='Match'?`‪Bank: ${SAR(bAmt)} | Sys: ${SAR(sAmt)}‬`:''});
   }
   for(const r of bankRows){
     if(!['POS_MADA','POS_VISA','POS_MASTER'].includes(r.txType)||matched.has(r.ref))continue;
@@ -725,7 +741,7 @@ function reconcile(bankRows,intRows){
   for(const ref of new Set([...Object.keys(bFV),...Object.keys(iFV)])){
     const b=bFV[ref],s=iFV[ref];const bAmt=round2(b?.total||0),sAmt=round2(s?.total||0),diff=round2(bAmt-sAmt);
     const status=Math.abs(diff)<0.02?'Match':b&&!s?'Missing in System':!b&&s?'Missing in Bank':'Amount Mismatch';
-    results.push({category:'Fee / VAT',clinicDate:s?.clinicDate||'',bankDate:b?.bankDate||'',type:'Fee+VAT',bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:ref,sysRefs:ref,note:status!=='Match'?`Bank: ${SAR(bAmt)} | Sys: ${SAR(sAmt)}`:''});
+    results.push({category:'Fee / VAT',clinicDate:s?.clinicDate||'',bankDate:b?.bankDate||'',type:'Fee+VAT',bankAmt:bAmt,sysAmt:sAmt,diff,status,bankRefs:ref,sysRefs:ref,note:status!=='Match'?`‪Bank: ${SAR(bAmt)} | Sys: ${SAR(sAmt)}‬`:''});
   }
   const iOther={};
   for(const r of intRows){if(!['OTHER'].includes(r.txType))continue;for(const ref of r.refs)iOther[ref]=r;}
@@ -749,11 +765,32 @@ function renderInfoPanel(bankRows,intRows){
   const bare=intRows.filter(r=>/^قيد\s*\S*\s*رقم\s*\d+\s+ATMTOT/.test(r.desc||'')||/^قيد يومية رقم\d+\s+ATMTOT/.test(r.desc||'')).length;
   const hasRef=bankRows.some(r=>String(r.ref||'').includes('ATMTOT')||String(r.ref||'').includes('FT'));
   const hasPOS=intRows.some(r=>['POS_MADA','POS_VISA','POS_MASTER'].includes(r.txType));
+  // Detect truncated ATMTOT refs in internal system
+  // Bank ATMTOT refs are always exactly 33 characters — flag anything shorter
+  // Also detect stray characters before ATMTOT in description (e.g. "5ATMTOT...")
+  const truncatedRows=[];
+  const ATMTOT_FULL_LEN=33;
+  for(const r of intRows){
+    // Check for stray chars before ATMTOT in description
+    if(/[A-Z0-9]ATMTOT/.test(r.desc)) truncatedRows.push({ref:'(stray char before ATMTOT)',desc:r.desc.slice(0,70)});
+    for(const ref of r.refs){
+      if(ref.startsWith('ATMTOT')&&ref.length<ATMTOT_FULL_LEN){
+        truncatedRows.push({ref,desc:r.desc.slice(0,70)});
+      }
+    }
+  }
   const chips=[];
   if(machList) chips.push(`<span class="info-chip">💳 ${t('machines')}: ${machList}</span>`);
   if(bare>0)   chips.push(`<span class="info-chip">📋 ${bare} ${t('bareRefs')}</span>`);
   if(!hasRef)  chips.push(`<span class="info-chip warn">${t('noRef')}</span>`);
   if(!hasPOS)  chips.push(`<span class="info-chip warn">${t('noPOS')}</span>`);
+  if(truncatedRows.length>0){
+    const listItems=truncatedRows.map(r=>`<li style="margin-top:4px;font-family:'Courier New',monospace;font-size:10px;word-break:break-all;">${r.ref}<br><span style="font-family:inherit;font-size:10px;color:#94a3b8;">${r.desc}</span></li>`).join('');
+    chips.push(`<div style="width:100%;background:var(--red-light);border:1px solid var(--red-border);border-radius:8px;padding:10px 14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:6px;">✂️ ${lang==='ar'?'مراجع ATMTOT مقطوعة أو تالفة — يجب تصحيحها قبل المطابقة':'Truncated or corrupted ATMTOT refs — must be fixed before reconciliation'}</div>
+      <ul style="padding-inline-start:16px;color:var(--red);">${listItems}</ul>
+    </div>`);
+  }
   if(!chips.length){panel.style.display='none';return;}
   panel.style.display='flex';
   panel.innerHTML=chips.join('');
@@ -782,7 +819,7 @@ function renderAlert(){
       <span style="color:var(--text2);min-width:90px;flex-shrink:0;font-size:11px;">${r.category}</span>
       <span style="color:var(--text2);min-width:70px;flex-shrink:0;font-size:11px;">${r.type==='Credit In'?t('creditIn'):r.type==='Debit Out'?t('debitOut'):r.type==='Fee+VAT'?t('feeVat'):r.type}</span>
       <span style="color:${c.tc};min-width:130px;flex-shrink:0;font-size:11px;font-weight:600;">${t(STATUS_KEY[r.status])}</span>
-      <span style="color:var(--red);font-size:11px;">Bank: ${SAR(r.bankAmt)} | Sys: ${SAR(r.sysAmt)}</span>
+      <span style="color:var(--red);font-size:11px;" dir="ltr">Bank: ${SAR(r.bankAmt)} | Sys: ${SAR(r.sysAmt)}</span>
     </div>`;
   }
   el.innerHTML=`<div class="alert-issues">
@@ -792,19 +829,41 @@ function renderAlert(){
 }
 
 function renderFilters(){
-  const statuses=[['All','statAll'],['Match','statMatch'],['Missing in System','statMissSys'],['Missing in Bank','statMissBank'],['Amount Mismatch','statMismatch']];
-  const cats=[['All','catAll'],['POS Sales','catPOS'],['Fee / VAT','catFee'],['Other','catOther']];
-  let html='';
-  for(const [s,tk] of statuses){
+  const statuses=[
+    ['All','statAll','🔍'],
+    ['Match','statMatch','✅'],
+    ['Missing in System','statMissSys','❌'],
+    ['Missing in Bank','statMissBank','🔶'],
+    ['Amount Mismatch','statMismatch','⚠️']
+  ];
+  const cats=[
+    ['All','catAll','📋'],
+    ['POS Sales','catPOS','🏧'],
+    ['Fee / VAT','catFee','💸'],
+    ['Other','catOther','🔀']
+  ];
+  const hasFilter=statusFilter!=='All'||catFilter!=='All';
+  let html=`<div class="filter-bar">`;
+  // Row 1: Status filter
+  html+=`<div class="filter-row">
+    <span class="filter-row-label">${lang==='ar'?'الحالة':'Status'}</span>`;
+  for(const [s,tk,icon] of statuses){
     const a=statusFilter===s;
-    html+=`<button class="filter-btn${a?' active':''}" onclick="setStatusFilter('${s}')">${t(tk)}</button>`;
+    html+=`<button class="filter-btn status${a?' active':''}" onclick="setStatusFilter('${s}')">${icon} ${t(tk)}</button>`;
   }
-  html+='<div class="filter-sep"></div>';
-  for(const [c,tk] of cats){
+  html+=`</div><div class="filter-divider"></div>`;
+  // Row 2: Category filter
+  html+=`<div class="filter-row">
+    <span class="filter-row-label">${lang==='ar'?'الفئة':'Category'}</span>`;
+  for(const [c,tk,icon] of cats){
     const a=catFilter===c;
-    html+=`<button class="filter-btn cat${a?' active':''}" onclick="setCatFilter('${c}')">${t(tk)}</button>`;
+    html+=`<button class="filter-btn cat${a?' active':''}" onclick="setCatFilter('${c}')">${icon} ${t(tk)}</button>`;
   }
-  html+=`<span class="row-count" id="row-count"></span>`;
+  if(hasFilter){
+    html+=`<button class="filter-btn reset-btn" onclick="resetFilters()">✕ ${lang==='ar'?'مسح الفلتر':'Clear filters'}</button>`;
+  }
+  html+=`<span class="filter-hint" id="row-count"></span>`;
+  html+=`</div></div>`;
   document.getElementById('filters').innerHTML=html;
   const cols=[
     {k:'colClinic',num:false},{k:'colBank',num:false},{k:'colCat',num:false},{k:'colType',num:false},
@@ -861,6 +920,7 @@ function renderTable(){
 function toggleExpand(i){const el=document.getElementById('exp-'+i);if(el)el.style.display=el.style.display==='none'?'table-row':'none';}
 function setStatusFilter(s){statusFilter=s;renderFilters();renderTable();}
 function setCatFilter(c){catFilter=c;renderFilters();renderTable();}
+function resetFilters(){statusFilter='All';catFilter='All';renderFilters();renderTable();}
 
 function loadFile(inputEl,which){
   const file=inputEl.files[0];if(!file)return;
