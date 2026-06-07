@@ -5502,6 +5502,18 @@ function renderPayrollHistory() {
 
     html += '<div style="background:var(--w);border:1px solid var(--border);border-radius:10px;overflow:hidden">';
 
+    // Month banner — prominent top strip
+    var _monParts = h.month ? h.month.split('-') : ['',''];
+    var _monNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var _monArNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    var _monIdx = parseInt(_monParts[1]||1)-1;
+    var _monEnFull = (_monNames[_monIdx]||'') + ' ' + (_monParts[0]||'');
+    var _monArFull = (_monArNames[_monIdx]||'') + ' ' + (_monParts[0]||'');
+    html += '<div style="background:#1e293b;padding:.5rem 1.1rem;display:flex;justify-content:space-between;align-items:center">';
+    html += '<div style="font-size:.78rem;font-weight:700;color:#f8fafc;letter-spacing:.04em">📅 '+_monEnFull+'</div>';
+    html += '<div style="font-size:.75rem;font-weight:600;color:#94a3b8;font-family:Arial,sans-serif">'+_monArFull+'</div>';
+    html += '</div>';
+
     // Header row
     html += '<div style="padding:.9rem 1.1rem;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;border-bottom:1px solid var(--border)">';
     html += '<div>';
@@ -5509,28 +5521,52 @@ function renderPayrollHistory() {
     html += '<span style="font-size:.95rem;font-weight:700;color:var(--sl)">'+esc(h.doctor)+'</span>';
     var _drp=drProfiles[h.doctor]||{};
     if(_drp.arName) html += '<span style="font-size:.8rem;color:var(--ss);font-family:Arial,sans-serif;direction:rtl;margin-left:.5rem">'+esc(_drp.arName)+'</span>';
-    html += statusBadge;
     html += '</div>';
-    html += '<div style="font-size:.72rem;color:var(--ss);margin-top:.2rem">'+h.month+' &nbsp;|&nbsp; '+(h.type==='shared'?'PT / نسبة':'RT')+'</div>';
+    html += '<div style="font-size:.72rem;color:var(--ss);margin-top:.2rem">'+(h.type==='shared'?'PT / نسبة':'RT')+'</div>';
     html += '</div>';
     html += '<div style="text-align:right">';
-    var owedLbl = h.netOwed>=0 ? 'Clinic Owes Doctor / مستحق للطبيب' : 'Doctor Owes Clinic / مستحق على الطبيب';
-    var displayAmt = (h.grandTotal !== undefined) ? h.grandTotal : h.netOwed;
-    html += '<div style="font-size:1.1rem;font-weight:800;color:'+owedColor+'">SAR '+fmtSAR(Math.abs(displayAmt))+'</div>';
-    html += '<div style="font-size:.68rem;color:'+owedColor+';font-weight:600">'+owedLbl+'</div>';
+    html += statusBadge;
     html += '</div></div>';
 
-    // Payment summary bar
-    if((h.payments||[]).length > 0){
-      html += '<div style="padding:.6rem 1.1rem;background:var(--bg);border-bottom:1px solid var(--border);display:flex;gap:1.2rem;flex-wrap:wrap">';
-      html += '<div style="font-size:.75rem"><span style="color:var(--ss)">Paid / المدفوع: </span><span style="font-weight:700;color:#16a34a">SAR '+fmtSAR(ps.totalPaid)+'</span></div>';
-      if(ps.remaining > 0.01){
-        html += '<div style="font-size:.75rem"><span style="color:var(--ss)">Remaining / المتبقي: </span><span style="font-weight:700;color:#dc2626">SAR '+fmtSAR(ps.remaining)+'</span></div>';
-      }
-      html += '</div>';
+    // 3-card summary: Total Owed | Paid | Remaining
+    var owedLbl = h.netOwed>=0 ? 'Clinic Owes Doctor / مستحق للطبيب' : 'Doctor Owes Clinic / مستحق على الطبيب';
+    var displayAmt = (h.grandTotal !== undefined) ? h.grandTotal : h.netOwed;
+    var remColor = Math.abs(ps.remaining)<=0.01 ? '#16a34a' : '#dc2626';
+    var remBg    = Math.abs(ps.remaining)<=0.01 ? '#f0fdf4' : '#fef2f2';
+    var remBdr   = Math.abs(ps.remaining)<=0.01 ? '#bbf7d0' : '#fecaca';
+    var remLbl   = Math.abs(ps.remaining)<=0.01 ? 'Settled / تمت التسوية' : 'Remaining / المتبقي';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border)">';
+    // Card 1: Total Owed
+    html += '<div style="padding:.7rem 1.1rem;border-right:1px solid var(--border)">';
+    html += '<div style="font-size:.6rem;font-weight:700;color:var(--ss);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.25rem">Total Owed / المستحق</div>';
+    html += '<div style="font-size:1rem;font-weight:800;color:'+owedColor+'">SAR '+fmtSAR(Math.abs(displayAmt))+'</div>';
+    html += '<div style="font-size:.6rem;color:'+owedColor+';margin-top:.1rem">'+owedLbl+'</div>';
+    html += '</div>';
+    // Card 2: Paid
+    html += '<div style="padding:.7rem 1.1rem;border-right:1px solid var(--border);background:#f8fafc">';
+    html += '<div style="font-size:.6rem;font-weight:700;color:var(--ss);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.25rem">Paid / المدفوع</div>';
+    html += '<div style="font-size:1rem;font-weight:800;color:#1d4ed8">SAR '+fmtSAR(ps.totalPaid)+'</div>';
+    html += '</div>';
+    // Card 3: Remaining
+    html += '<div style="padding:.7rem 1.1rem;background:'+remBg+';border:1px solid '+remBdr+';border-top:none;border-bottom:none;border-right:none">';
+    html += '<div style="font-size:.6rem;font-weight:700;color:'+remColor+';text-transform:uppercase;letter-spacing:.07em;margin-bottom:.25rem">'+remLbl+'</div>';
+    html += '<div style="font-size:1rem;font-weight:800;color:'+remColor+'">SAR '+fmtSAR(Math.abs(ps.remaining))+'</div>';
+    html += '</div>';
+    html += '</div>';
 
-      // Payments list
-      html += '<div style="padding:.5rem 1.1rem;border-bottom:1px solid var(--border)">';
+    // Payment history + Add payment — table with shared header bar
+    html += '<div style="border-bottom:1px solid var(--border)">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;background:#f8fafc;border-bottom:1px solid var(--border)">';
+    html += '<div style="padding:.42rem 1.1rem;border-right:1px solid var(--border);font-size:.62rem;font-weight:700;color:var(--ss);text-transform:uppercase;letter-spacing:.07em">Payment History / سجل الدفعات</div>';
+    html += '<div style="padding:.42rem 1.1rem;font-size:.62rem;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em">Add Payment / إضافة دفعة</div>';
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr">';
+
+    // Left: Payment history
+    html += '<div style="padding:.65rem 1.1rem;border-right:1px solid var(--border);min-height:80px">';
+    if((h.payments||[]).length === 0){
+      html += '<div style="font-size:.72rem;color:var(--ss);font-style:italic;padding:.3rem 0">No payments recorded yet.</div>';
+    } else {
       (h.payments||[]).forEach(function(p, pi){
         html += '<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid #f8fafc;flex-wrap:wrap">';
         html += '<span style="font-size:.72rem;color:var(--ss);min-width:80px">'+esc(p.date)+'</span>';
@@ -5538,39 +5574,44 @@ function renderPayrollHistory() {
         html += '<span style="font-size:.7rem;background:var(--bg);padding:.1rem .45rem;border-radius:99px;color:var(--sm)">'+esc(p.method)+'</span>';
         if(p.ref) html += '<span style="font-size:.68rem;color:var(--ss)">Ref: '+esc(p.ref)+'</span>';
         if(p.note) html += '<span style="font-size:.68rem;color:var(--ss);font-style:italic">'+esc(p.note)+'</span>';
-        html += '<button class="btn btn-sm" onclick="prRemovePayment(\''+esc(h.doctor)+'\',\''+h.month+'\','+pi+')" style="margin-left:auto;font-size:.65rem;padding:.1rem .4rem;background:var(--redb);color:var(--red);border:1.5px solid rgba(239,68,68,.3)">✕</button>';
+        html += '<button class="btn btn-sm" onclick="prConfirmRemovePayment(\''+esc(h.doctor)+'\',\''+h.month+'\','+pi+')" style="margin-left:auto;font-size:.65rem;padding:.1rem .5rem;background:#fff;color:#94a3b8;border:1.5px solid #e2e8f0" title="Remove payment">✕</button>';
         html += '</div>';
       });
-      html += '</div>';
     }
-
-    // Add payment form (inline, always visible)
-    html += '<div style="padding:.7rem 1.1rem;background:#f8fafc;border-bottom:1px solid var(--border)">';
-    html += '<div style="font-size:.68rem;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Add Payment / إضافة دفعة</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.4rem;margin-bottom:.4rem">';
-    html += '<div><label style="font-size:.65rem;color:var(--sm);display:block;margin-bottom:.2rem">Date / التاريخ</label><input type="date" id="pp-date-'+idx+'" style="width:100%;padding:.35rem .5rem;font-size:.75rem;border:1.5px solid #e2e8f0;border-radius:6px;font-family:inherit" value="'+new Date().toISOString().slice(0,10)+'"></div>';
-    html += '<div><label style="font-size:.65rem;color:var(--sm);display:block;margin-bottom:.2rem">Amount / المبلغ SAR</label><input type="number" id="pp-amt-'+idx+'" min="0" step="0.01" placeholder="0" style="width:100%;padding:.35rem .5rem;font-size:.75rem;border:1.5px solid #e2e8f0;border-radius:6px;font-family:inherit"></div>';
-    html += '<div><label style="font-size:.65rem;color:var(--sm);display:block;margin-bottom:.2rem">Method / الطريقة</label><select id="pp-method-'+idx+'" style="width:100%;padding:.35rem .5rem;font-size:.75rem;border:1.5px solid #e2e8f0;border-radius:6px;font-family:inherit"><option>Bank Transfer</option><option>WPS</option><option>Cash / نقدي</option><option>Cheque</option></select></div>';
-    html += '<div><label style="font-size:.65rem;color:var(--sm);display:block;margin-bottom:.2rem">Ref / Note</label><input type="text" id="pp-ref-'+idx+'" placeholder="Optional…" style="width:100%;padding:.35rem .5rem;font-size:.75rem;border:1.5px solid #e2e8f0;border-radius:6px;font-family:inherit"></div>';
-    html += '</div>';
-    html += '<button class="btn bp btn-sm" onclick="prAddPayment(\''+esc(h.doctor)+'\',\''+h.month+'\','+idx+')" style="font-size:.75rem">+ Add Payment / إضافة دفعة</button>';
     html += '</div>';
 
-    // Action buttons
-    html += '<div style="padding:.6rem 1.1rem;display:flex;gap:.4rem;flex-wrap:wrap">';
+    // Right: Add payment form
+    html += '<div style="padding:.65rem 1.1rem;background:#fafbfc">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.4rem">';
+    html += '<div><label style="font-size:.63rem;color:var(--sm);display:block;margin-bottom:.2rem">Date / التاريخ</label><input type="date" id="pp-date-'+idx+'" style="width:100%;padding:.32rem .5rem;font-size:.75rem;border:1.5px solid #e2e8f0;border-radius:6px;font-family:inherit" value="'+new Date().toISOString().slice(0,10)+'"></div>';
+    html += '<div><label style="font-size:.63rem;color:var(--sm);display:block;margin-bottom:.2rem">Amount SAR / المبلغ</label><input type="number" id="pp-amt-'+idx+'" min="0" step="0.01" placeholder="0" style="width:100%;padding:.32rem .5rem;font-size:.75rem;border:1.5px solid #e2e8f0;border-radius:6px;font-family:inherit"></div>';
+    html += '<div><label style="font-size:.63rem;color:var(--sm);display:block;margin-bottom:.2rem">Method / الطريقة</label><select id="pp-method-'+idx+'" style="width:100%;padding:.32rem .5rem;font-size:.75rem;border:1.5px solid #e2e8f0;border-radius:6px;font-family:inherit"><option>Bank Transfer</option><option>WPS</option><option>Cash / نقدي</option><option>Cheque</option></select></div>';
+    html += '<div><label style="font-size:.63rem;color:var(--sm);display:block;margin-bottom:.2rem">Ref / Note</label><input type="text" id="pp-ref-'+idx+'" placeholder="Optional…" style="width:100%;padding:.32rem .5rem;font-size:.75rem;border:1.5px solid #e2e8f0;border-radius:6px;font-family:inherit"></div>';
+    html += '</div>';
+    html += '<button class="btn bp btn-sm" onclick="prAddPayment(\''+esc(h.doctor)+'\',\''+h.month+'\','+idx+')" style="font-size:.75rem;width:100%">+ Add Payment / إضافة دفعة</button>';
+    html += '</div>';
+    html += '</div></div>'; // end content row + section wrapper
+
+    // Action buttons — grouped logically
+    html += '<div style="padding:.6rem 1.1rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">';
+    // Primary actions
     html += '<button class="btn bs btn-sm" onclick="prEditHistory(\''+esc(h.doctor)+'\',\''+h.month+'\')">✏️ Edit</button>';
     html += '<button class="btn bs btn-sm" onclick="prPrintHistory('+idx+')">🖨 Print</button>';
+    // XLS
     if(h.xlsPath){
       html += '<button class="btn bs btn-sm" onclick="prViewXls(\''+esc(h.doctor)+'\',\''+h.month+'\')" style="color:#1d4ed8;border-color:#bfdbfe">👁 View XLS</button>';
       html += '<button class="btn bs btn-sm" onclick="prDownloadXls(\''+esc(h.doctor)+'\',\''+h.month+'\')" style="color:#16a34a;border-color:#bbf7d0">📥 Download XLS</button>';
     } else {
       html += '<label class="btn bs btn-sm" style="cursor:pointer;margin:0;color:#64748b">📎 Attach XLS<input type="file" accept=".xlsx,.xls" style="display:none" onchange="prAttachXls(this,\''+esc(h.doctor)+'\',\''+h.month+'\')"></label>';
     }
-    html += '<label class="btn bs btn-sm" style="cursor:pointer;margin:0">📎 Attach Signed<input type="file" accept="image/*,.pdf" style="display:none" onchange="prAttachSigned(this,\''+esc(h.doctor)+'\',\''+h.month+'\')"></label>';
+    // Signed copy
     if(h.signedCopy){
       html += '<button class="btn bs btn-sm" onclick="prViewSigned(\''+esc(h.doctor)+'\',\''+h.month+'\')" style="color:#16a34a;border-color:#bbf7d0">✓ View Signed</button>';
       html += '<button class="btn btn-sm" onclick="prRemoveSigned(\''+esc(h.doctor)+'\',\''+h.month+'\')" style="font-size:.72rem;padding:.2rem .55rem;background:var(--redb);color:var(--red);border:1.5px solid rgba(239,68,68,.3)">Remove</button>';
+    } else {
+      html += '<label class="btn bs btn-sm" style="cursor:pointer;margin:0">📎 Attach Signed<input type="file" accept="image/*,.pdf" style="display:none" onchange="prAttachSigned(this,\''+esc(h.doctor)+'\',\''+h.month+'\')"></label>';
     }
+    // Delete — pushed to far right
     html += '<button class="btn btn-sm" style="margin-left:auto;background:var(--redb);color:var(--red);border:1.5px solid rgba(239,68,68,.3)" onclick="prDeleteHistory(\''+esc(h.doctor)+'\',\''+h.month+'\')">🗑 Delete</button>';
     html += '</div>';
 
@@ -5592,6 +5633,20 @@ async function prAddPayment(dr, mon, idx){
   rec.payments.push({ date:date, amount:amt, method:method, ref:ref, addedAt:new Date().toISOString() });
   try { await savePayrollHistory(); renderPayrollHistory(); toast('Payment recorded!',true); }
   catch(e){ rec.payments.pop(); toast('Save failed: '+e.message,false); }
+}
+
+function prConfirmRemovePayment(dr, mon, pi){
+  // Show inline confirmation — replace button with confirm/cancel
+  var btn = event.target;
+  btn.textContent = 'Delete?';
+  btn.style.cssText = 'margin-left:auto;font-size:.65rem;padding:.1rem .55rem;background:var(--redb);color:var(--red);border:1.5px solid rgba(239,68,68,.5);border-radius:4px;cursor:pointer';
+  btn.onclick = function(){ prRemovePayment(dr, mon, pi); };
+  // Auto-cancel after 3 seconds
+  var cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = 'font-size:.65rem;padding:.1rem .5rem;background:#fff;color:#64748b;border:1.5px solid #e2e8f0;border-radius:4px;cursor:pointer;margin-left:.3rem';
+  cancelBtn.onclick = function(){ renderPayrollHistory(); };
+  btn.parentNode.appendChild(cancelBtn);
 }
 
 async function prRemovePayment(dr, mon, pi){
@@ -6115,7 +6170,17 @@ function prOpenPrintWindow(r){
   var netLabelAr = _pdfTotal >= 0 ? 'المبلغ المستحق للطبيب' : 'المبلغ المستحق على الطبيب';
   w.document.write('<td colspan="2"><strong>'+netLabelEn+'</strong> <span style="font-family:Noto Sans Arabic,Arial,sans-serif;font-size:.78rem;color:#475569;font-weight:500">/ '+netLabelAr+'</span></td>');
   w.document.write('<td class="amt" style="color:'+netColor+'"><strong>SAR&nbsp;'+fmtSAR(Math.abs(_pdfTotal))+'</strong></td>');
-  w.document.write('</tr></tbody></table>');
+  w.document.write('</tr>');
+  // Payment summary — show paid and remaining if any payment recorded
+  var _ps = prPaymentStatus(r);
+  if(_ps.totalPaid > 0.01){
+    w.document.write('<tr style="background:#f0f9ff;"><td style="padding:.35rem .65rem;font-size:.75rem;color:#0369a1;">Already Paid <span style="font-family:Noto Sans Arabic,Arial,sans-serif;color:#64748b">/ المدفوع</span></td><td></td><td class="amt" style="color:#0369a1;font-size:.75rem;">− SAR&nbsp;'+fmtSAR(_ps.totalPaid)+'</td></tr>');
+    var _remColor = Math.abs(_ps.remaining) <= 0.01 ? '#16a34a' : '#dc2626';
+    var _remLblEn = Math.abs(_ps.remaining) <= 0.01 ? 'Fully Settled' : (_pdfTotal >= 0 ? 'Remaining Balance' : 'Still Owed by Doctor');
+    var _remLblAr = Math.abs(_ps.remaining) <= 0.01 ? 'تمت التسوية' : (_pdfTotal >= 0 ? 'الرصيد المتبقي' : 'المتبقي على الطبيب');
+    w.document.write('<tr style="background:#f0fdf4;border-top:1.5px solid #bbf7d0"><td style="padding:.45rem .65rem;font-size:.8rem;font-weight:700;color:'+_remColor+'">'+_remLblEn+' <span style="font-family:Noto Sans Arabic,Arial,sans-serif;font-size:.72rem;font-weight:500;color:'+_remColor+'">/ '+_remLblAr+'</span></td><td></td><td class="amt" style="color:'+_remColor+';font-size:.85rem;font-weight:700;">SAR&nbsp;'+fmtSAR(Math.abs(_ps.remaining))+'</td></tr>');
+  }
+  w.document.write('</tbody></table>');
 
   // Acknowledgment
   w.document.write('<div class="ack">');
