@@ -1292,9 +1292,10 @@ async function runAutoAttendance(){
       if(r.clock_out) existingSet[(r.staff_name+'|'+r.date)]=true;
     });
 
-    // 6. Loop dates from earliest to yesterday
+    // 6. Loop dates from earliest to yesterday (never today)
     var yesterday = new Date();
-    var yStr = yesterday.toISOString().slice(0,10); // include today
+    yesterday.setDate(yesterday.getDate()-1);
+    var yStr = yesterday.toISOString().slice(0,10);
     var cur = new Date(earliest);
     var toInsert = [];
 
