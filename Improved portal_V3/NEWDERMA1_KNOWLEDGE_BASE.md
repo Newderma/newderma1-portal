@@ -252,7 +252,7 @@ similar logic against workEnd
 - Runs on every app load via `runAutoAttendance()` (silent, background)
 - Reads `autoStaffNames` from `att_config` key `autoStaff`
 - Finds earliest date in `att_records` (fallback: 60 days ago)
-- Loops every day from earliest to TODAY (including today)
+- Loops every day from earliest to **YESTERDAY** (never includes today)
 - Skips: Fridays (`getDay() === 5`), existing complete records, approved vacation days
 - Clock-in: **1:50–2:10 PM** random (UTC+3 adjusted)
 - Clock-out: **9:50–10:05 PM** random (max 10:05)
@@ -362,6 +362,10 @@ Match internal accounting system entries against bank statements to find discrep
 12. Monthly Expenses doubled on edit → excluded from `specRow` search
 13. `prOnMonthChange()` → `prEditHistory()` for saved, `prResetToProfileDefaults()` for new
 14. Summary bar showed negative → absolute value, hidden for specific doctor filter
+
+---
+
+15. Remote staff auto-attendance included today → loop ceiling was `new Date()` (today) instead of `yesterday - 1 day`; remote staff records appeared on live board same day. Fixed to stop at yesterday only.
 
 ---
 
