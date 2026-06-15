@@ -988,7 +988,7 @@ tr:hover td{background:#f8fafc}
             </select>
             <button class="btn bs" onclick="document.getElementById('prHistDr').value='';document.getElementById('prHistMon').value='';document.getElementById('prHistStatus').value='';renderPayrollHistory()">Clear</button>
             <button class="btn bp" onclick="prExportHistory()" style="margin-left:auto">Export ⬇</button>
-            <button class="btn bs" onclick="exportAllData()" style="background:#1e293b;color:#fff;border-color:#1e293b">💾 Full Backup</button>
+
           </div>
           <div id="prHistSummary" style="display:none;margin-bottom:.9rem"></div>
           <div id="prHistoryList"><p class="norec">No history yet.</p></div>
@@ -1275,6 +1275,29 @@ tr:hover td{background:#f8fafc}
           <button class="btn bs" onclick="syncAllRemoteStaff()" title="Sync all remote staff to attendance module">🔄 Sync to Attendance</button>
         </div>
       </div>
+
+      <!-- DATA BACKUP & RESTORE -->
+      <div class="card" style="margin-top:1.4rem;border:2px solid #1e293b">
+        <div class="ct">🗄️ Data Backup & Restore</div>
+        <p style="font-size:.83rem;color:var(--sm);margin-bottom:1rem">
+          Download a full backup of all clinic data — staff profiles, contract dates, vacation history, payroll, and records.<br>
+          <strong>Recommended: download once a week and save to Google Drive.</strong>
+        </p>
+        <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
+          <button class="btn bp" onclick="exportAllData()" style="background:#1e293b;color:#fff;border-color:#1e293b;font-size:.88rem;padding:.55rem 1.1rem">
+            💾 Download Backup
+          </button>
+          <button class="btn bp" onclick="document.getElementById('restoreFileInput').click()" style="background:#166534;color:#fff;border-color:#166534;font-size:.88rem;padding:.55rem 1.1rem">
+            ♻️ Restore from Backup
+          </button>
+          <input type="file" id="restoreFileInput" accept=".xlsx" style="display:none" onchange="restoreFromBackup(this)">
+        </div>
+        <div style="background:#f8fafc;border-radius:8px;padding:.8rem 1rem;font-size:.78rem;color:var(--sm);line-height:1.7">
+          <strong>Backup includes:</strong> Employee profiles (contract dates, leave history) · Staff list · Vacation requests · Payroll history · Procedure records · Doctor profiles<br>
+          <strong>To restore:</strong> Click "Restore from Backup" → select your backup .xlsx file → confirm → data restores instantly
+        </div>
+        <div style="margin-top:.75rem;font-size:.75rem;color:var(--ss)" id="lastBackupLabel">Last backup: not recorded in this session</div>
+      </div>
     </div>
 
   </main>
@@ -1473,6 +1496,80 @@ tr:hover td{background:#f8fafc}
     </div>
   </div>
 </div>
+
+<!-- ══════════ HR TAB (GM only — READ ONLY, no Supabase writes) ══════════ -->
+<div class="page" id="page-hr">
+  <div class="ph"><h2>HR · الموارد البشرية</h2><p>Staff directory · HR letters · Saudization</p></div>
+
+  <!-- Sub-tabs -->
+  <div style="display:flex;gap:.4rem;margin-bottom:1.2rem;border-bottom:1px solid var(--brd);padding-bottom:.6rem;flex-wrap:wrap">
+    <button class="btn bp" id="hr-tab-staff"   onclick="hrShowTab('staff')"   style="font-size:.78rem">👥 Staff directory</button>
+    <button class="btn"    id="hr-tab-letters" onclick="hrShowTab('letters')" style="font-size:.78rem">📝 HR letters</button>
+    <button class="btn"    id="hr-tab-nitaqat" onclick="hrShowTab('nitaqat')" style="font-size:.78rem">🛡️ Nitaqat</button>
+  </div>
+
+  <!-- STAFF DIRECTORY -->
+  <div id="hr-panel-staff">
+    <div style="display:flex;gap:.5rem;margin-bottom:.9rem;flex-wrap:wrap;align-items:center">
+      <select id="hrRoleFilter" onchange="hrRenderStaff()" style="padding:.42rem .7rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
+        <option value="">All roles</option>
+        <option value="Doctor">Doctors</option>
+        <option value="Nurse">Nurses</option>
+        <option value="Staff">Other staff</option>
+      </select>
+      <input id="hrStaffSearch" placeholder="Search name…" oninput="hrRenderStaff()" style="flex:1;min-width:160px;padding:.42rem .7rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
+    </div>
+    <div id="hrStaffGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.8rem"></div>
+  </div>
+
+  <!-- HR LETTERS -->
+  <div id="hr-panel-letters" style="display:none">
+    <div class="mgg" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.6rem;margin-bottom:1.2rem">
+      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('experience')">🎖️<br><small>Experience cert.<br>شهادة خبرة</small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('salary')">💰<br><small>Salary cert.<br>شهادة راتب</small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('leave')">✅<br><small>Leave approval<br>موافقة إجازة</small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('warning')">⚠️<br><small>Warning letter<br>خطاب تحذير</small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('eod')">👋<br><small>End of service<br>نهاية خدمة</small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('memo')">📨<br><small>Internal memo<br>مذكرة داخلية</small></button>
+    </div>
+
+    <div class="card" id="hrLetterForm" style="display:none">
+      <div class="ct" id="hrLetterTitle">Letter</div>
+      <div id="hrLetterFields" style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem"></div>
+      <div class="brow" style="margin-top:.9rem">
+        <button class="btn bp" onclick="hrGenerateLetter()">📄 Generate · توليد</button>
+        <button class="btn bx" onclick="document.getElementById('hrLetterForm').style.display='none'">Cancel</button>
+      </div>
+      <div id="hrLetterOutput" style="display:none;margin-top:1rem">
+        <div id="hrLetterText" style="background:var(--bg);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;font-size:.82rem;line-height:1.85;white-space:pre-wrap;direction:auto;max-height:340px;overflow-y:auto"></div>
+        <div class="brow" style="margin-top:.6rem">
+          <button class="btn bp" onclick="hrCopyLetter()">📋 Copy · نسخ</button>
+          <button class="btn" onclick="hrPrintLetter()">🖨️ Print / PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NITAQAT -->
+  <div id="hr-panel-nitaqat" style="display:none">
+    <div class="mgg" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.7rem;margin-bottom:1.1rem" id="hrNitaqatStats"></div>
+    <div class="card">
+      <div class="ct">Nitaqat band · نطاقات</div>
+      <div style="display:flex;border-radius:var(--r);overflow:hidden;height:38px;margin-bottom:.8rem">
+        <div id="nit-platinum" style="flex:1;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Platinum<br><span style="font-size:.58rem">&gt;40%</span></div>
+        <div id="nit-green"    style="flex:1;background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Green<br><span style="font-size:.58rem">&gt;20%</span></div>
+        <div id="nit-yellow"   style="flex:1;background:#ca8a04;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Yellow<br><span style="font-size:.58rem">&gt;7%</span></div>
+        <div id="nit-red"      style="flex:1;background:#dc2626;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Red<br><span style="font-size:.58rem">Below</span></div>
+      </div>
+      <p id="hrNitaqatDesc" style="font-size:.82rem;color:var(--sm)"></p>
+    </div>
+    <div class="card">
+      <div class="ct">Staff breakdown</div>
+      <div id="hrNitaqatList"></div>
+    </div>
+  </div>
+</div>
+<!-- ══════════ END HR TAB ══════════ -->
 
 <div id="toast"></div>
 
@@ -1835,7 +1932,7 @@ function bootApp(){
   if(cn){ document.getElementById('clinicName').textContent=cn; var ci=document.getElementById('clinicNameInput'); if(ci)ci.value=cn; }
 
   var tabs = isGM()
-    ? [['costs','Costs','💰'],['records','Records','📋'],['dashboard','Dashboard','📊'],['utilization','Utilization','📈'],['vacation','Vacation','🏖️'],['payroll','Payroll','🦷'],['manage','Manage','⚙️']]
+    ? [['costs','Costs','💰'],['records','Records','📋'],['dashboard','Dashboard','📊'],['utilization','Utilization','📈'],['vacation','Vacation','🏖️'],['payroll','Payroll','🦷'],['hr','HR','👥'],['manage','Manage','⚙️']]
     : getStaffTabs();
   var h='', bh='';
   for(var i=0;i<tabs.length;i++){
@@ -5900,9 +5997,36 @@ async function exportAllData(){
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(vacData), 'Vacation Requests');
   } catch(e){}
 
+  // 7. Employee Profiles — CRITICAL BACKUP (contract dates, historicalUsed, emails)
+  try {
+    var epData = [['Name','Contract Start','Entitled Days','Historical Used','Email']];
+    Object.keys(empProfiles).forEach(function(n){
+      var p=empProfiles[n]||{};
+      epData.push([n, p.contractStart||'', p.entitledDays||21, p.historicalUsed||0, p.email||'']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(epData), 'Employee Profiles');
+  } catch(e){}
+
+  // 8. JSON Restore Sheet — paste value column into Supabase to restore instantly
+  try {
+    var jsonSheet = [
+      ['Key','Value — paste into Supabase ct_config to restore'],
+      ['empProfiles', JSON.stringify(empProfiles)],
+      ['lists', JSON.stringify(lists)],
+      ['annualDays', String(annualDays)],
+      ['backup_date', new Date().toISOString()]
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(jsonSheet), 'JSON Restore Data');
+  } catch(e){}
+
   var fname = 'Newderma1_Full_Backup_'+new Date().toISOString().slice(0,10)+'.xlsx';
   XLSX.writeFile(wb, fname);
   toast('Export complete: '+fname, true);
+  try{
+    localStorage.setItem('nd_last_backup', new Date().toLocaleString());
+    var lbl=document.getElementById('lastBackupLabel');
+    if(lbl) lbl.textContent='Last backup: '+new Date().toLocaleString();
+  }catch(e){}
 }
 
 async function prDeleteHistory(dr, mon){
@@ -6351,6 +6475,401 @@ async function prpDelete(name){
   }catch(e){}
   populateLoginDropdown();
   document.getElementById('loginScreen').classList.remove('hidden');
+
+// ══════════════════════════════════════════
+//  HR MODULE — READ ONLY — NO SUPABASE WRITES
+// ══════════════════════════════════════════
+
+// ── Sub-tab switching ──────────────────────
+function hrShowTab(tab) {
+  ['staff','letters','nitaqat'].forEach(function(t){
+    document.getElementById('hr-panel-'+t).style.display = t===tab?'':'none';
+    var btn=document.getElementById('hr-tab-'+t);
+    if(btn){ btn.className = t===tab?'btn bp':'btn'; }
+  });
+  if(tab==='staff')   hrRenderStaff();
+  if(tab==='nitaqat') hrRenderNitaqat();
+}
+
+// ── Staff directory ────────────────────────
+function hrRenderStaff() {
+  var roleF = (document.getElementById('hrRoleFilter')||{}).value||'';
+  var q     = ((document.getElementById('hrStaffSearch')||{}).value||'').toLowerCase();
+  var all   = (lists.doctors||[]).map(function(n){return{name:n,role:'Doctor'};})
+    .concat((lists.nurses||[]).map(function(n){return{name:n,role:'Nurse'};}))
+    .concat((lists.staff||[]).map(function(n){return{name:n,role:'Staff'};}));
+  var emps = all.filter(function(e){
+    return (!roleF||e.role===roleF) && (!q||e.name.toLowerCase().indexOf(q)>=0);
+  });
+  var html = '';
+  emps.forEach(function(e){
+    var p = empProfiles[e.name]||{};
+    var b = p.contractStart ? calcBalance(e.name) : null;
+    var balHtml = b
+      ? '<div style="font-size:.78rem;margin-top:.35rem"><span style="font-weight:600;color:var(--teal)">'+b.available+'d</span> <span style="color:var(--ss)">available of '+b.entitled+'</span></div>'
+        +'<div style="height:3px;background:var(--brd);border-radius:4px;margin-top:4px"><div style="height:100%;width:'+Math.min(100,b.available/b.entitled*100)+'%;background:var(--teal);border-radius:4px"></div></div>'
+      : '<div style="font-size:.74rem;color:var(--ss);margin-top:.3rem">No contract date set</div>';
+    var roleColor = e.role==='Doctor'?'#dbeafe;color:#1e40af':e.role==='Nurse'?'#d1fae5;color:#065f46':'#f1f5f9;color:#475569';
+    // Drive link stored in localStorage — no Supabase
+    var driveKey = 'hr_drive_'+e.name;
+    var driveUrl = '';
+    try{ driveUrl=localStorage.getItem(driveKey)||''; }catch(ex){}
+    var driveHtml = driveUrl
+      ? '<a href="'+driveUrl+'" target="_blank" style="font-size:.74rem;color:#4285F4;display:inline-flex;align-items:center;gap:.2rem;margin-top:.5rem;text-decoration:none">📁 Open Drive folder</a>'
+        +'<button onclick="hrEditDrive(\''+e.name.replace(/'/g,"\\'")+'\')" style="background:none;border:none;color:var(--ss);font-size:.72rem;cursor:pointer;padding:0 .3rem">edit</button>'
+      : '<button onclick="hrEditDrive(\''+e.name.replace(/'/g,"\\'")+'\')" style="background:none;border:1px dashed var(--brd);border-radius:4px;color:var(--ss);font-size:.72rem;cursor:pointer;padding:2px 7px;margin-top:.5rem">+ Link Drive folder</button>';
+    html += '<div class="card" style="padding:.9rem">'
+      +'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">'
+      +'<span style="font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:9px;background:'+roleColor+'">'+e.role+'</span>'
+      +'<span style="font-size:.88rem;font-weight:600;color:var(--sl)">'+e.name+'</span>'
+      +'</div>'
+      +balHtml
+      +'<div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">'
+      +'<button class="btn" style="font-size:.72rem;padding:.25rem .55rem" onclick="hrOpenLetterFor(\''+e.name.replace(/'/g,"\\'")+'\',\'experience\')">📝 Exp. cert</button>'
+      +'<button class="btn" style="font-size:.72rem;padding:.25rem .55rem" onclick="hrOpenLetterFor(\''+e.name.replace(/'/g,"\\'")+'\',\'leave\')">✅ Leave</button>'
+      +'<button class="btn" style="font-size:.72rem;padding:.25rem .55rem" onclick="hrOpenLetterFor(\''+e.name.replace(/'/g,"\\'")+'\',\'salary\')">💰 Salary</button>'
+      +'</div>'
+      +driveHtml
+      +'</div>';
+  });
+  var grid=document.getElementById('hrStaffGrid');
+  if(grid) grid.innerHTML=html||'<p class="norec">No staff found</p>';
+}
+
+// Drive link — saves to localStorage only, zero Supabase
+function hrEditDrive(empName){
+  var key='hr_drive_'+empName;
+  var cur='';try{cur=localStorage.getItem(key)||'';}catch(ex){}
+  var url=prompt('Paste Google Drive folder URL for '+empName+'\n(right-click folder → Get link → Copy)\nLeave blank to remove:', cur);
+  if(url===null) return; // cancelled
+  try{
+    if(url.trim()) localStorage.setItem(key,url.trim());
+    else localStorage.removeItem(key);
+  }catch(ex){}
+  hrRenderStaff();
+}
+
+// ── Letter generation (local templates, no API) ─
+var _hrLetterType = '';
+var _hrLetterConfigs = {
+  experience:{ title:'Experience Certificate · شهادة خبرة', fields:[
+    {id:'emp',l:'Employee · الموظف',t:'emp'},
+    {id:'position',l:'Position · المسمى',t:'text',p:'e.g. Nurse'},
+    {id:'from',l:'From date · من',t:'date'},
+    {id:'to',l:'To date · إلى',t:'date'}
+  ]},
+  salary:{ title:'Salary Certificate · شهادة راتب', fields:[
+    {id:'emp',l:'Employee · الموظف',t:'emp'},
+    {id:'salary',l:'Monthly salary (SAR) · الراتب الشهري',t:'number',p:'e.g. 8000'},
+    {id:'date',l:'Date · التاريخ',t:'date'}
+  ]},
+  leave:{ title:'Leave Approval · موافقة إجازة', fields:[
+    {id:'emp',l:'Employee · الموظف',t:'emp'},
+    {id:'ltype',l:'Leave type · نوع الإجازة',t:'text',p:'Annual Leave'},
+    {id:'days',l:'Days · الأيام',t:'number',p:'e.g. 10'},
+    {id:'from',l:'From · من',t:'date'},
+    {id:'to',l:'To · إلى',t:'date'}
+  ]},
+  warning:{ title:'Warning Letter · خطاب تحذير', fields:[
+    {id:'emp',l:'Employee · الموظف',t:'emp'},
+    {id:'violation',l:'Reason / violation · سبب التحذير',t:'textarea'},
+    {id:'date',l:'Date · التاريخ',t:'date'}
+  ]},
+  eod:{ title:'End of Service · نهاية خدمة', fields:[
+    {id:'emp',l:'Employee · الموظف',t:'emp'},
+    {id:'position',l:'Position · المسمى',t:'text'},
+    {id:'endDate',l:'End date · تاريخ الانتهاء',t:'date'},
+    {id:'reason',l:'Reason · السبب',t:'textarea'}
+  ]},
+  memo:{ title:'Internal Memo · مذكرة داخلية', fields:[
+    {id:'to',l:'To · إلى',t:'text',p:'All staff / جميع الموظفين'},
+    {id:'subject',l:'Subject · الموضوع',t:'text'},
+    {id:'body',l:'Body · النص',t:'textarea'},
+    {id:'date',l:'Date · التاريخ',t:'date'}
+  ]}
+};
+
+function hrOpenLetter(type){ hrOpenLetterFor('',type); }
+function hrOpenLetterFor(empName,type){
+  if(type) hrShowTab('letters');
+  _hrLetterType=type;
+  var cfg=_hrLetterConfigs[type]; if(!cfg) return;
+  document.getElementById('hrLetterTitle').textContent=cfg.title;
+  var all=(lists.doctors||[]).concat(lists.nurses||[]).concat(lists.staff||[]);
+  var html='';
+  cfg.fields.forEach(function(f){
+    html+='<div style="display:flex;flex-direction:column;gap:.25rem"><label style="font-size:.74rem;font-weight:600;color:var(--sm)">'+f.l+'</label>';
+    if(f.t==='emp'){
+      html+='<select id="hrf-'+f.id+'" style="padding:.42rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">'
+        +'<option value="">— Select —</option>'
+        +all.map(function(n){return '<option'+(n===empName?' selected':'')+'>'+n+'</option>';}).join('')
+        +'</select>';
+    } else if(f.t==='textarea'){
+      html+='<textarea id="hrf-'+f.id+'" placeholder="'+(f.p||'')+'" style="padding:.42rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl);min-height:70px;resize:vertical"></textarea>';
+    } else {
+      var isDate=f.t==='date';
+      html+='<input type="'+(f.t||'text')+'" id="hrf-'+f.id+'" '+(isDate?'value="'+new Date().toISOString().split('T')[0]+'"':'placeholder="'+(f.p||'')+'"')+' style="padding:.42rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">';
+    }
+    html+='</div>';
+  });
+  document.getElementById('hrLetterFields').innerHTML=html;
+  document.getElementById('hrLetterOutput').style.display='none';
+  document.getElementById('hrLetterForm').style.display='block';
+  document.getElementById('hrLetterForm').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function hrGetVal(id){ var el=document.getElementById('hrf-'+id); return el?el.value:''; }
+function hrFmtAR(d){ try{return new Date(d).toLocaleDateString('ar-SA-u-nu-latn',{year:'numeric',month:'long',day:'numeric'});}catch(e){return d;} }
+function hrFmtEN(d){ try{return new Date(d).toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'});}catch(e){return d;} }
+
+function hrGenerateLetter(){
+  var type=_hrLetterType;
+  var clinic='عيادة نيو ديرما سنتر'; var clinicEN='New Derma Center';
+  var city='جدة، المملكة العربية السعودية'; var cityEN='Jeddah, Saudi Arabia';
+  var today=new Date();
+  var todayAR=hrFmtAR(today.toISOString().split('T')[0]);
+  var todayEN=hrFmtEN(today.toISOString().split('T')[0]);
+  var SEP='\n'+'─'.repeat(50)+'\n\n';
+  var txt='';
+  var emp=hrGetVal('emp');
+
+  if(type==='experience'){
+    var fAR=hrFmtAR(hrGetVal('from')), tAR=hrFmtAR(hrGetVal('to'));
+    var fEN=hrFmtEN(hrGetVal('from')), tEN=hrFmtEN(hrGetVal('to'));
+    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+todayAR,'','شهادة خبرة','━'.repeat(38),'',
+    'تشهد إدارة '+clinic+' بأن الموظف/ة:','',
+    'الاسم:           '+emp,'المسمى الوظيفي:  '+hrGetVal('position'),'فترة العمل:      من '+fAR+' إلى '+tAR,'',
+    'قد أدى/أدت مهامه/ها بكفاءة وإخلاص. نتمنى له/لها التوفيق.','',
+    'صدر في جدة بتاريخ: '+todayAR,'','الختم والتوقيع',clinic,
+    SEP,'In the Name of Allah, the Most Gracious, the Most Merciful','',
+    clinicEN+' — '+cityEN,'Date: '+todayEN,'','EXPERIENCE CERTIFICATE','━'.repeat(38),'',
+    'This is to certify that:','',
+    'Name:      '+emp,'Position:  '+hrGetVal('position'),'Period:    From '+fEN+' to '+tEN,'',
+    'Has been employed at '+clinicEN+' and performed their duties diligently. We wish them continued success.','',
+    'Issued in Jeddah on: '+todayEN,'','Stamp & Signature',clinicEN].join('\n');
+  } else if(type==='salary'){
+    var dAR=hrFmtAR(hrGetVal('date')), dEN=hrFmtEN(hrGetVal('date'));
+    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+dAR,'','شهادة راتب','━'.repeat(38),'',
+    'تفيد إدارة '+clinic+' بأن:','',
+    'الاسم:         '+emp,'الراتب الشهري: '+hrGetVal('salary')+' ريال سعودي','',
+    'صدرت هذه الشهادة بناءً على طلبه/طلبها لتُقدَّم لمن يلزم.','',
+    'التاريخ: '+dAR,'','الختم والتوقيع',clinic,
+    SEP,clinicEN+' — '+cityEN,'Date: '+dEN,'','SALARY CERTIFICATE','━'.repeat(38),'',
+    'Name:           '+emp,'Monthly Salary: SAR '+hrGetVal('salary'),'',
+    'This certificate is issued upon the employee\'s request.','',
+    'Date: '+dEN,'','Stamp & Signature',clinicEN].join('\n');
+  } else if(type==='leave'){
+    var fAR=hrFmtAR(hrGetVal('from')), tAR=hrFmtAR(hrGetVal('to'));
+    var fEN=hrFmtEN(hrGetVal('from')), tEN=hrFmtEN(hrGetVal('to'));
+    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+todayAR,'','موافقة إجازة','━'.repeat(38),'',
+    'إلى: '+emp,'',
+    'نوع الإجازة: '+(hrGetVal('ltype')||'سنوية'),'من:          '+fAR,'إلى:         '+tAR,'عدد الأيام:  '+hrGetVal('days')+' يوم','',
+    'تمت الموافقة على طلب الإجازة. نتمنى لكم إجازة سعيدة.','',
+    'إدارة '+clinic,
+    SEP,clinicEN+' — '+cityEN,'Date: '+todayEN,'','LEAVE APPROVAL','━'.repeat(38),'',
+    'To: '+emp,'',
+    'Leave Type: '+(hrGetVal('ltype')||'Annual Leave'),'From:       '+fEN,'To:         '+tEN,'Days:       '+hrGetVal('days'),'',
+    'Your leave request has been approved. Have a pleasant leave.','',
+    'Management, '+clinicEN].join('\n');
+  } else if(type==='warning'){
+    var dAR=hrFmtAR(hrGetVal('date')), dEN=hrFmtEN(hrGetVal('date'));
+    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+dAR,'','خطاب تحذير رسمي','━'.repeat(38),'',
+    'إلى: '+emp,'',
+    'يُشعركم هذا الخطاب بأن الإدارة قد رصدت المخالفة التالية:','',hrGetVal('violation'),'',
+    'نحذركم رسمياً بضرورة الالتزام بلوائح العمل. تكرار هذه المخالفة قد يعرضكم لعقوبات وفقاً لنظام العمل السعودي.','',
+    'التاريخ: '+dAR,'','إدارة '+clinic,
+    SEP,clinicEN+' — '+cityEN,'Date: '+dEN,'','FORMAL WARNING LETTER','━'.repeat(38),'',
+    'To: '+emp,'',
+    'This letter serves as a formal warning regarding:','',hrGetVal('violation'),'',
+    'You are formally warned to comply with workplace policies. Repetition may result in further disciplinary action per Saudi Labor Law.','',
+    'Date: '+dEN,'','Management, '+clinicEN].join('\n');
+  } else if(type==='eod'){
+    var eAR=hrFmtAR(hrGetVal('endDate')), eEN=hrFmtEN(hrGetVal('endDate'));
+    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+todayAR,'','خطاب نهاية خدمة','━'.repeat(38),'',
+    'الاسم:   '+emp,'المسمى: '+hrGetVal('position'),'تاريخ الانتهاء: '+eAR,'السبب:   '+hrGetVal('reason'),'',
+    'نشكركم على جهودكم وعطائكم ونتمنى لكم التوفيق.','',
+    'إدارة '+clinic,
+    SEP,clinicEN+' — '+cityEN,'Date: '+todayEN,'','END OF SERVICE LETTER','━'.repeat(38),'',
+    'Name:     '+emp,'Position: '+hrGetVal('position'),'End Date: '+eEN,'Reason:   '+hrGetVal('reason'),'',
+    'We thank you for your service and wish you all the best.','',
+    'Management, '+clinicEN].join('\n');
+  } else if(type==='memo'){
+    var dAR=hrFmtAR(hrGetVal('date')), dEN=hrFmtEN(hrGetVal('date'));
+    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+dAR,'','مذكرة داخلية','━'.repeat(38),'',
+    'إلى:     '+hrGetVal('to'),'الموضوع: '+hrGetVal('subject'),'',hrGetVal('body'),'',
+    'إدارة '+clinic,
+    SEP,clinicEN+' — '+cityEN,'Date: '+dEN,'','INTERNAL MEMO','━'.repeat(38),'',
+    'To:      '+hrGetVal('to'),'Subject: '+hrGetVal('subject'),'',hrGetVal('body'),'',
+    'Management, '+clinicEN].join('\n');
+  }
+
+  var out=document.getElementById('hrLetterOutput');
+  var textEl=document.getElementById('hrLetterText');
+  textEl.textContent=txt;
+  out.style.display='block';
+  out.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function hrCopyLetter(){
+  var el=document.getElementById('hrLetterText'); if(!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function(){toast('Copied · تم النسخ',true);}).catch(function(){toast('Copy failed',false);});
+}
+function hrPrintLetter(){
+  var el=document.getElementById('hrLetterText'); if(!el) return;
+  var w=window.open('','_blank');
+  w.document.write('<html><body style="font-family:Arial;padding:2cm;line-height:1.85;white-space:pre-wrap;direction:auto;font-size:13px">'+el.textContent.replace(/</g,'&lt;')+'</body></html>');
+  w.document.close(); w.print();
+}
+
+// ── Nitaqat ───────────────────────────────
+function hrRenderNitaqat(){
+  var all=(lists.doctors||[]).concat(lists.nurses||[]).concat(lists.staff||[]);
+  var total=all.length;
+  // Nationality stored in empProfiles (added by HR portal) — graceful fallback
+  var saudis=all.filter(function(n){ var p=empProfiles[n]||{}; return p.nationality==='Saudi'; }).length;
+  var pct=total>0?Math.round((saudis/total)*100):0;
+  var needGreen=Math.max(0,Math.ceil(0.2*total)-saudis);
+  var band=pct>=40?'platinum':pct>=20?'green':pct>=7?'yellow':'red';
+  var bandLabel=pct>=40?'Platinum 🟣':pct>=20?'Green 🟢':pct>=7?'Yellow 🟡':'Red 🔴';
+
+  // Stats
+  var stats=[
+    {n:total,l:'Total employees · إجمالي الموظفين'},
+    {n:saudis,l:'Saudi nationals · سعوديون'},
+    {n:pct+'%',l:'Saudization % · نسبة السعودة'},
+    {n:needGreen,l:'Needed for Green · للوصول للأخضر'}
+  ];
+  var sh='';
+  stats.forEach(function(s){
+    sh+='<div class="card" style="text-align:center;padding:.9rem"><div style="font-size:1.6rem;font-weight:300;color:var(--sl)">'+s.n+'</div><div style="font-size:.72rem;color:var(--ss);margin-top:.2rem">'+s.l+'</div></div>';
+  });
+  document.getElementById('hrNitaqatStats').innerHTML=sh;
+
+  // Band highlight
+  ['platinum','green','yellow','red'].forEach(function(b){
+    var el=document.getElementById('nit-'+b);
+    if(el) el.style.outline=b===band?'3px solid #1e293b':'none';
+  });
+
+  document.getElementById('hrNitaqatDesc').textContent=
+    'Current: '+pct+'% Saudization ('+saudis+' of '+total+'). Band: '+bandLabel+'. '
+    +(pct>=20?'Good standing.':'Need '+needGreen+' more Saudi employee'+(needGreen!==1?'s':'')+' to reach Green (~20% for healthcare sector).');
+
+  // Staff list
+  var lh='<table style="width:100%;border-collapse:collapse;font-size:.82rem">'
+    +'<thead><tr><th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.7rem;color:var(--ss);text-transform:uppercase">Name</th>'
+    +'<th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.7rem;color:var(--ss);text-transform:uppercase">Role</th>'
+    +'<th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.7rem;color:var(--ss);text-transform:uppercase">Nationality</th></tr></thead><tbody>';
+  all.forEach(function(n){
+    var role=(lists.doctors||[]).indexOf(n)>=0?'Doctor':(lists.nurses||[]).indexOf(n)>=0?'Nurse':'Staff';
+    var p=empProfiles[n]||{};
+    var nat=p.nationality||'—';
+    lh+='<tr><td style="padding:7px 8px;border-bottom:1px solid var(--brd)">'+n+'</td>'
+      +'<td style="padding:7px 8px;border-bottom:1px solid var(--brd)"><span style="font-size:.7rem;padding:2px 7px;border-radius:8px;background:#dbeafe;color:#1e40af">'+role+'</span></td>'
+      +'<td style="padding:7px 8px;border-bottom:1px solid var(--brd)">'+(nat==='Saudi'?'🇸🇦 Saudi':'🌐 '+nat)+'</td></tr>';
+  });
+  lh+='</tbody></table>';
+  document.getElementById('hrNitaqatList').innerHTML=lh;
+}
+
+// ══════════════════════════════════════════
+//  RESTORE FROM BACKUP
+// ══════════════════════════════════════════
+function restoreFromBackup(input){
+  var file = input.files[0];
+  if(!file){ return; }
+  if(typeof XLSX==='undefined'){ toast('Excel library not loaded.',false); return; }
+
+  var reader = new FileReader();
+  reader.onload = async function(e){
+    try{
+      var wb = XLSX.read(e.target.result, {type:'array'});
+
+      // Try JSON Restore Data sheet first (most reliable)
+      var jsonSheet = wb.Sheets['JSON Restore Data'];
+      if(jsonSheet){
+        var rows = XLSX.utils.sheet_to_json(jsonSheet, {header:1});
+        var map = {};
+        rows.slice(1).forEach(function(r){ if(r[0]&&r[1]) map[r[0]]=r[1]; });
+
+        if(!map.empProfiles){ toast('Could not find empProfiles in backup file.',false); return; }
+
+        // Confirm before overwriting
+        var confirmMsg = 'RESTORE BACKUP - This will overwrite empProfiles and lists from backup dated: ' + (map.backup_date ? new Date(map.backup_date).toLocaleString() : 'unknown') + ' - Are you sure?';
+        var confirm1 = confirm(confirmMsg);
+        if(!confirm1){ input.value=''; return; }
+
+        toast('Restoring from backup…');
+
+        // Parse and restore empProfiles
+        var ep = typeof map.empProfiles === 'string' ? JSON.parse(map.empProfiles) : map.empProfiles;
+        await saveConfig('empProfiles', ep);
+        empProfiles = ep;
+
+        // Parse and restore lists if present
+        if(map.lists){
+          var ls = typeof map.lists === 'string' ? JSON.parse(map.lists) : map.lists;
+          await saveConfig('lists', ls);
+          lists = ls;
+        }
+
+        toast('✅ Restore complete! Reloading data…', true);
+        setTimeout(function(){ window.location.reload(); }, 1500);
+
+      } else {
+        // Fallback: try Employee Profiles sheet
+        var epSheet = wb.Sheets['Employee Profiles'];
+        if(!epSheet){ toast('No restore data found in this file.',false); return; }
+
+        var epRows = XLSX.utils.sheet_to_json(epSheet, {header:1});
+        var restored = {};
+        epRows.slice(1).forEach(function(r){
+          if(!r[0]) return;
+          restored[r[0]] = {
+            contractStart: r[1]||'',
+            entitledDays: parseInt(r[2])||21,
+            historicalUsed: parseFloat(r[3])||0,
+            email: r[4]||''
+          };
+        });
+
+        if(Object.keys(restored).length === 0){ toast('No employee data found.',false); return; }
+
+        var confirm2 = confirm('Restore '+Object.keys(restored).length+' employee profiles from backup? This overwrites current data.');
+        if(!confirm2){ input.value=''; return; }
+
+        toast('Restoring employee profiles…');
+        await saveConfig('empProfiles', restored);
+        empProfiles = restored;
+        toast('✅ Employee profiles restored! Reloading…', true);
+        setTimeout(function(){ window.location.reload(); }, 1500);
+      }
+    } catch(err){
+      toast('Restore failed: '+err.message, false);
+      console.error('Restore error:', err);
+    }
+    input.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Show last backup date in Manage tab
+function updateBackupLabel(){
+  try{
+    var last=localStorage.getItem('nd_last_backup');
+    var lbl=document.getElementById('lastBackupLabel');
+    if(lbl) lbl.textContent='Last backup: '+(last||'never');
+  }catch(e){}
+}
+
+// Hook into showPage to init HR tab
+var _origShowPage=showPage;
+showPage=function(id,btn){
+  _origShowPage(id,btn);
+  if(id==='hr') hrShowTab('staff');
+  if(id==='manage') updateBackupLabel();
+};
+
   // Refresh from Supabase silently — but ONLY update dropdown if user hasn't selected yet
   loadConfig().then(function(){
     var lu=document.getElementById('lu');
