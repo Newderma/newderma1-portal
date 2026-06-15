@@ -17,13 +17,90 @@
 | `attendance.html` | Attendance module | `NEWDERMA1-ATT-RESET` |
 | `finance.html` | Bank reconciliation tool | N/A |
 
+## BACKUP STRATEGY (CRITICAL — learned from June 2026 incident)
+There are THREE things to back up:
+
+### 1. HTML files (weekly — save to Google Drive)
+- Download latest `clinic-tracker-v2.html` from GitHub
+- Download latest `attendance.html` from GitHub
+- Download latest `finance.html` from GitHub
+- Store in Google Drive folder: `Newderma1 Backups/HTML Files/YYYY-MM-DD/`
+- These contain all the code and logic
+
+### 2. Supabase data (weekly — use built-in backup button)
+- Log in as GM → Manage tab → scroll to bottom
+- Click **💾 Download Backup** → saves Excel file
+- Store in Google Drive folder: `Newderma1 Backups/Data Backups/`
+- Excel file contains 8 sheets including Employee Profiles and JSON Restore Data
+- To restore: click **♻️ Restore from Backup** → select Excel file → confirm
+
+### 3. What the Excel backup contains
+| Sheet | Contents |
+|-------|---------|
+| Payroll History | Doctor payroll records |
+| Payments Detail | Payment entries |
+| Doctor Profiles | Doctor salary/rent settings |
+| Staff List | Names and roles |
+| Procedure Records | All patient records |
+| Vacation Requests | All leave requests |
+| Employee Profiles | Contract dates, historicalUsed, emails ← CRITICAL |
+| JSON Restore Data | Raw JSON — paste into Supabase to restore instantly |
+
+### 4. GitHub is also a code backup
+- Every push to GitHub saves a snapshot of the HTML files
+- Go to github.com/Newderma1/newderma1-portal → commits → click any commit to restore old version
+
+---
+
 ## SESSION WORKFLOW
-1. Paste this file content (or upload it)
+1. Upload this knowledge base file
 2. Upload latest `clinic-tracker-v2.html` → Claude copies to `/home/claude/clinic-tracker-v4.html`
 3. Upload latest `attendance.html` → Claude copies to `/home/claude/attendance-v2.html`
 4. Upload `finance.html` if needed
 5. State the issue clearly
 6. Claude edits, JS syntax checks, copies to `/mnt/user-data/outputs/`
+
+---
+
+## ⛔ CRITICAL DATA SAFETY RULES — ENFORCE IN EVERY SESSION
+
+### Rule 1 — empProfiles STRICT MERGE RULE
+**NEVER reconstruct empProfiles from scratch. ALWAYS read first, merge one field, write back full object.**
+
+```javascript
+// CORRECT
+var p = empProfiles[name] || {};
+p.newField = newValue;
+empProfiles[name] = p;
+await saveConfig('empProfiles', empProfiles);
+
+// WRONG — destroys contractStart, historicalUsed, email, etc.
+empProfiles[name] = { contractStart, entitledDays, newField }; // ❌
+```
+
+**Fields that must always be preserved:**
+- `contractStart` — leave balance depends on this
+- `entitledDays` — leave entitlement
+- `historicalUsed` — pre-app leave days (critical for balance)
+- `email` — vacation notification emails
+
+### Rule 2 — New tools are READ-ONLY by default
+- Any new feature connecting to Supabase: read only unless explicitly confirmed
+- If a write is needed: state exactly what table, key, and fields will be written
+- Never call saveConfig from new code without GM confirmation
+
+### Rule 3 — New features go INSIDE the tracker as tabs
+- No separate HTML portals that share the same Supabase
+- Separate files only for truly independent tools (finance.html, attendance.html)
+- The HR portal incident (June 2026): separate file wrote to empProfiles, wiped all email and contract data
+
+### Rule 4 — Safe isolated config keys for new features
+- `hr_driveLinks` — Drive folder URLs per employee (localStorage only, not Supabase)
+- Never write to: `lists`, `empProfiles`, `staffPasswords`, `adminPassword`, `staffPrivileges`, `annualDays` from new code
+
+### Rule 5 — Test before production
+- If new code must write to Supabase, test with a throwaway key first
+- Always syntax-check JS with node before delivering
 
 ---
 
@@ -39,9 +116,11 @@
 - Staff login: select name → staff password
 
 ## Navigation (GM only)
-`Costs · Records · Dashboard · Utilization · Vacation · Payroll · Finance (link) · Manage`
+`Costs · Records · Dashboard · Utilization · Vacation · Payroll · HR · Manage`
 
-Finance tab opens `https://newderma1.netlify.app/finance.html` in new tab using `window.open()` via `openFinance()` function — it's NOT part of showPage system.
+Finance tab opens `https://newderma1.netlify.app/finance.html` in new tab using `window.open()` via `openFinance()` function — NOT part of showPage system.
+
+HR tab added June 2026 — GM only, read-only, no Supabase writes.
 
 ## Database Tables
 | Table | Contents |
@@ -58,10 +137,10 @@ Finance tab opens `https://newderma1.netlify.app/finance.html` in new tab using 
 ```javascript
 lists = { doctors:[], nurses:[], procedures:[], items:[], areas:[], staff:[], logo:'' }
 empProfiles = { "Name": { contractStart, entitledDays, historicalUsed, email } }
-staffPrivileges = { "Name": ["entry","records","vacation"] } // tabs allowed
+staffPrivileges = { "Name": ["entry","records","vacation"] }
 itemCosts = { "ItemName": costPerMl }
 drProfiles = { "Name": { type, rent, salary, gosi, sharedSalary, baseSalary, threshold, perfPct } }
-autoStaff = ["Name1","Name2"] // remote staff — stored in BOTH ct_config AND att_config
+autoStaff = ["Name1","Name2"] // remote staff
 ```
 
 ## Employee Profile IDs
@@ -69,12 +148,21 @@ autoStaff = ["Name1","Name2"] // remote staff — stored in BOTH ct_config AND a
 Both `renderEmpProfiles()` and `saveEmpProfiles()` use `all.forEach(function(emp, idx)`.
 Arabic names would collide if name-based IDs were used.
 
+## Arabic Name Matching — CRITICAL
+empProfiles keys must match lists.staff/doctors/nurses EXACTLY including:
+- ة vs ه (taa marbuta vs haa)
+- ى vs ي (alef maqsura vs yaa)
+- Spacing differences
+- ق vs ف differences
+
+Always verify with: `console.log(JSON.stringify(lists.staff))` and `console.log(JSON.stringify(Object.keys(empProfiles)))` to compare spelling before fixing.
+
 ## Records System
 - Items stored as objects: `{name, qty, sellPerMl, costPerMl, totalSell, totalCost, profit}`
 - Patient history filtered by `patientId` (file number) first, falls back to name
 - `openPatientHistory(name, pid)` — takes both params
 - Edit modal: `costPerMl` falls back to `itemCosts[name]` if 0/missing
-- Filters: Search · Doctor · Nurse · Month · Item (from `lists.items`) · Procedure (from `lists.procedures`)
+- Filters: Search · Doctor · Nurse · Month · Item · Procedure
 - `exportRecXLS()` respects ALL active filters
 
 ## Vacation System
@@ -85,7 +173,7 @@ Arabic names would collide if name-based IDs were used.
 | Annual Leave | ✅ Yes |
 | Emergency Leave | ✅ Yes |
 | Unpaid Leave | ✅ Yes |
-| Sick Leave | ❌ No (tracked separately) |
+| Sick Leave | ❌ No |
 | Maternity Leave | ❌ No (up to 70 days paid separately) |
 
 ### Balance Formula
@@ -118,83 +206,43 @@ Generated by `generateVacPDF(vacId)` — opens in new window.
 | **Shared Partner** | Net×50% − Lab − Chair − Salary − Special + External + Addition + CarryForward. **Tabby deducted** |
 | **Salary+Performance** | if Net+SpExternal > Threshold: (Excess × Perf%) + BaseSalary − Deductions + Addition. **Tabby NOT deducted** |
 
-### External Cash Fields
-- Renting: `prRentExternal`
-- Shared: `prExternal`
-- Salary+Perf: `prSpExternal`
-
-### Carry-Forward (Balance from Previous Months)
-- Stored as: `prCarryDeduct` (hidden input) and `prCarryAdd` (hidden input)
-- Shown as dedicated rows in payout summary with yellow background
+### Carry-Forward
+- Stored as: `prCarryDeduct` and `prCarryAdd` (hidden inputs)
 - `netOwed` = this-month only (for ledger running balance)
 - `grandTotal` = including carry-forward (for PDF and history display)
-- Banner hidden when editing existing record (`_prEditingExisting = true`)
-- `prOnMonthChange()` → if saved record exists → `prEditHistory()` → else reset + `prCheckCarryForward()`
-
-### Payout Summary Layout
-```
-Gross / VAT (sub-rows)
-Net Income
-Deductions (Monthly Expenses, Salary, GOSI, etc.)
-─────────────────────────
-This Month Subtotal (dashed separator — only shown if carry-forward exists)
-Balance from Previous Months (yellow bg — deduct or add)
-─────────────────────────
-Clinic Owes Doctor / Doctor Owes Clinic (grand total)
-```
-
-### Ledger
-- Running balance strips carry-forward from old records automatically
-- Net Owed column shows: "▲ Clinic owes SAR X" or "▼ Dr owes SAR X"
-- Status: `netOwed = 0` → "Paid" (not Unpaid)
-- Summary bar shows only when "All Doctors" selected (hidden for specific doctor)
 
 ### Saved Record Structure
 ```javascript
 { doctor, month, type, gross, vat, net, tabbyIncome, tabbyFee,
-  netOwed,      // this-month only (for ledger math)
-  grandTotal,   // including carry-forward (for display/PDF)
-  rows,         // breakdown rows array
-  savedAt, baseSalary, perfBonus }
+  netOwed, grandTotal, rows, savedAt, baseSalary, perfBonus }
 ```
 
-### Restore on Edit (specRow exclusions)
-When restoring saved records, Special Deduction search excludes:
-`'Monthly Expenses', 'مصاريف', 'Balance from Previous Months', 'Gross', 'VAT', 'Room', 'Salary', 'GOSI', 'Tabby', 'Refund'`
+## HR Tab (added June 2026)
+- GM only, read-only — zero Supabase writes
+- Staff directory with leave balance cards
+- HR letter generator (6 types, bilingual AR/EN, local templates — no API)
+- Nitaqat/Saudization tracker
+- Drive folder links stored in localStorage only (not Supabase)
+
+## Backup & Restore (added June 2026)
+- Location: Manage tab → bottom card "🗄️ Data Backup & Restore"
+- **💾 Download Backup** → exports 8-sheet Excel file
+- **♻️ Restore from Backup** → reads JSON Restore Data sheet → restores empProfiles + lists to Supabase
+- Records last backup time in localStorage
 
 ## Remote Staff System
-
-### What It Is
-Staff on GOSI who are never physically present. Attendance auto-generated daily.
-Called "Remote Staff" in UI — never called "GOSI" anywhere visible.
 
 ### Storage
 - `autoStaff` array stored in BOTH `ct_config` AND `att_config`
 - `mirrorAutoStaffToAtt()` writes to `att_config` whenever list changes
 
-### Behavior
-| Location | Visibility |
-|----------|-----------|
-| CT login dropdown | ❌ Hidden |
-| CT staff management table | ❌ Hidden |
-| CT vacation form (non-GM) | ❌ Hidden |
-| CT vacation balances (non-GM) | ❌ Hidden |
-| CT vacation form (GM) | ✅ Visible |
-| CT vacation balances (GM) | ✅ Visible |
-| ATT login dropdown | ❌ Hidden |
-| ATT live board cards | ✅ Visible |
-| ATT reports | ✅ Visible |
-
-### Adding Remote Staff (One Action — Auto-syncs Everything)
+### Adding Remote Staff
 `addAutoStaff()` does ALL of:
 1. Adds to `autoStaff` → saves to `ct_config`
-2. Mirrors to `att_config` via `mirrorAutoStaffToAtt()`
-3. Adds to Other Staff list (`lists.staff`)
+2. Mirrors to `att_config`
+3. Adds to Other Staff list
 4. Creates blank `empProfile`
-5. Adds to attendance `attStaff` list (no PIN/password) via `addToAttStaff()`
-
-### Manual Sync Button
-`syncAllRemoteStaff()` → "🔄 Sync to Attendance" button in Manage → Remote Staff card
+5. Adds to attendance `attStaff` list
 
 ---
 
@@ -208,165 +256,62 @@ Called "Remote Staff" in UI — never called "GOSI" anywhere visible.
 ## Supabase Tables
 | Table | Contents |
 |-------|---------|
-| `att_records` | Clock-in/out records (`staff_id`, `staff_name`, `date`, `clock_in`, `clock_out`) |
-| `att_config` | Staff list (`attStaff`), settings (`attConfig`), remote staff (`autoStaff`) |
-| `ct_vacation` | Read-only — used by auto-attendance to skip approved vacation days |
-
-## Config Object (`cfg`)
-```javascript
-cfg = {
-  adminPass, staffPass, recoveryKey: 'NEWDERMA1-ATT-RESET',
-  clinicLat, clinicLng, radiusM: 150,  // GPS radius in meters
-  workStart, workEnd,                   // e.g. "14:00", "22:00"
-  graceMin: 10,                         // grace period minutes
-  phoneStamps: []
-}
-```
-
-## Staff Object (`staffList`)
-```javascript
-{ id, name, active: true, pin: '', password: '' }
-// Remote staff: pin and password are empty — never log in
-```
-
-## Clock-in/out Rules
-- GPS check: distance must be ≤ `radiusM` (150m default) from clinic coordinates
-- Admin bypasses GPS entirely
-- Remote staff bypass GPS entirely (`selectRemoteStaff(id)`)
-- Clock-out uses Supabase RPC: `clock_out_record({record_id})`
-- Grace period: `graceMin` (default 10 min) — within grace = "On Time", else "Late X min"
-
-## Arrival Badge Logic (`calcArr`)
-```javascript
-// Clock IN:
-diff = clockIn - (workStart on same day, adjusted for overnight shifts)
-if |diff| < graceMin → "On Time"
-if diff > graceMin  → "Late X min"
-if diff < -graceMin → "Early X min"
-
-// Clock OUT:
-similar logic against workEnd
-```
+| `att_records` | Clock-in/out records |
+| `att_config` | Staff list, settings, remote staff |
+| `ct_vacation` | Read-only — skip approved vacation days |
 
 ## Auto-Attendance (Remote Staff)
-- Runs on every app load via `runAutoAttendance()` (silent, background)
-- Reads `autoStaffNames` from `att_config` key `autoStaff`
-- Finds earliest date in `att_records` (fallback: 60 days ago)
-- Loops every day from earliest to **YESTERDAY** (never includes today)
-- Skips: Fridays (`getDay() === 5`), existing complete records, approved vacation days
-- Clock-in: **1:50–2:10 PM** random (UTC+3 adjusted)
-- Clock-out: **9:50–10:05 PM** random (max 10:05)
-- Inserts in batches of 50
-- Vacation check: reads `ct_vacation` for approved leaves, builds date set
-
-## Live Board
-- Shows ALL active staff including remote staff
-- Regular staff: `selectStaff(id)` → opens PIN modal
-- Remote staff: `selectRemoteStaff(id)` → force clock in/out NO PIN
-- `renderLive()` detects remote staff via `autoStaffNames.indexOf(s.name)>=0`
-
-## Reports
-- **Logs:** Full history with date range + staff filters, Export XLS
-- **Monthly:** Days worked, total hours, on leave, absent, late/early arrivals, penalty minutes
+- Runs on every app load via `runAutoAttendance()`
+- Skips Fridays, existing records, approved vacation days
+- Clock-in: 1:50–2:10 PM random · Clock-out: 9:50–10:05 PM random
+- Loop ceiling: YESTERDAY only (never includes today)
 
 ---
 
 # MODULE 3 — BANK RECONCILIATION (`finance.html`)
 
 ## Purpose
-Match internal accounting system entries against bank statements to find discrepancies.
+Match internal accounting (M3N) entries against bank statements.
 
-## File Requirements
-| File | Period | Columns |
-|------|--------|---------|
-| Bank Statement | Exact month (e.g. May 1–31) | Date · Reference · Description · Debit/Credit |
-| Internal System | Same month ±1 day overlap (Apr 30 – Jun 1) | Entry No · Date · Description · Debit · Credit |
-
-**Important:** Internal file includes last day of previous month + first day of next month. This is intentional to catch POS transactions that cross month boundaries. These overlap days are used for MATCHING ONLY — they are NOT reported as discrepancies.
-
-## Transaction Classification
-
-### Bank Statement (`bankTxType`)
-| Prefix | Type |
-|--------|------|
-| `SPANMRC` | POS_MADA |
-| `SFEEMRC` | FEE_MADA |
-| `VISAMRC` | POS_VISA |
-| `VFEEMRC` | FEE_VISA |
-| `BNETMRC` | POS_MASTER |
-| `BFEEMRC` | FEE_MASTER |
-| `ATMTOT` + ضريبة | VAT |
-| Other | OTHER |
-
-### Internal System (`internalTxType`)
-| Arabic keyword | Type |
-|----------------|------|
-| فواتير مدى | POS_MADA |
-| فواتير فيزا | POS_VISA |
-| فواتير ماستر | POS_MASTER |
-| عمولة + نقاط البيع | FEE |
-| ضريبة + نقاط البيع | VAT |
-| تحويل/FT (credit) | TRANSFER_IN |
-| تحويل/FT (debit) | TRANSFER_OUT |
-
-## Matching Logic (3 Sections)
-1. **POS Sales:** Match by reference number (`REF_RE` regex extracts refs from description)
-2. **Fee/VAT:** Group by ref, compare totals
-3. **Other:** Match bank OTHER entries to internal TRANSFER/OTHER by ref
-
-## Reference Regex
-```javascript
-/\b(ATMTOT[A-Z0-9]+|FT[A-Z0-9]{8,}|LD[A-Z0-9]{5,}|[A-Z]{2,}[0-9]{6,}[A-Z0-9]*)\b/g
-```
-
-## Discrepancy Statuses
-- **Match** — amounts match within SAR 0.02
-- **Missing in Bank** — in internal but no bank entry (within bank month only, not overlap)
-- **Missing in System** — in bank but no internal entry
-- **Amount Mismatch** — ref found but amounts differ
-
-## UI Features
-- Filter by status and category
-- Reset button clears all data for new month
-- Auto-clears results when new file uploaded
-- EN/AR language toggle
-- Export results to XLS
+## Matching Logic
+1. POS Sales — match by reference number
+2. Fee/VAT — group by ref, compare totals
+3. Other — match bank OTHER entries to internal TRANSFER/OTHER
 
 ---
 
-# WORKING DAY RULES (All Modules)
-- **Working days:** Saturday – Thursday
-- **Day off:** Friday (always skipped, `getDay() === 5`)
-- **Remote staff shift:** 2:00 PM – 10:00 PM (UTC+3)
-- **Default entitled days:** 21 days/year
-- **Tabby fee:** 10% of Tabby/Tamara income
-- **Tabby deducted:** Renting + Shared Partner ONLY (NOT Salary+Performance)
-- **GPS radius:** 150 meters default
-- **Grace period:** 10 minutes default
-- **Accrual period:** 334 days (11 months)
+# WORKING DAY RULES
+- Working days: Saturday – Thursday
+- Day off: Friday (getDay() === 5)
+- Remote staff shift: 2:00 PM – 10:00 PM (UTC+3)
+- Default entitled days: 21 days/year
+- Tabby fee: 10% of Tabby/Tamara income
+- GPS radius: 150 meters default
+- Grace period: 10 minutes default
+- Accrual period: 334 days (11 months)
 
 ---
 
-# KNOWN BUGS FIXED (Reference)
-1. Arabic names in empProfiles → use index IDs (`emp_0`, `emp_1`)
-2. Duplicate `generateVacPDF` → old Arabic version removed
-3. `normVac` wasn't parsing `selected_dates` → fixed
-4. `exportRecXLS` ignored item/procedure filters → fixed
-5. Vacation form not cleared between users → `clearVac()` in `doLogout` and `startApp`
-6. Request date used form field → now always `new Date()` on submit
-7. `saveItemCosts` was sequential → now parallel batches of 20
-8. Patient history matched by name only → now matches by `patientId` first
+# KNOWN BUGS FIXED
+1. Arabic names in empProfiles → use index IDs (emp_0, emp_1)
+2. Duplicate generateVacPDF → old Arabic version removed
+3. normVac wasn't parsing selected_dates → fixed
+4. exportRecXLS ignored item/procedure filters → fixed
+5. Vacation form not cleared between users → clearVac() in doLogout and startApp
+6. Request date used form field → now always new Date() on submit
+7. saveItemCosts was sequential → now parallel batches of 20
+8. Patient history matched by name only → now matches by patientId first
 9. SP deductions resetting to 0 on edit → fixed label matching
-10. Finance tab blanking page → `openFinance()` function outside `showPage` system
+10. Finance tab blanking page → openFinance() outside showPage system
 11. Ledger double-counting carry-forward → strips carry-forward rows automatically
-12. Monthly Expenses doubled on edit → excluded from `specRow` search
-13. `prOnMonthChange()` → `prEditHistory()` for saved, `prResetToProfileDefaults()` for new
+12. Monthly Expenses doubled on edit → excluded from specRow search
+13. prOnMonthChange() → prEditHistory() for saved, prResetToProfileDefaults() for new
 14. Summary bar showed negative → absolute value, hidden for specific doctor filter
-
----
-
-15. Remote staff auto-attendance included today → loop ceiling was `new Date()` (today) instead of `yesterday - 1 day`; remote staff records appeared on live board same day. Fixed to stop at yesterday only.
+15. Remote staff auto-attendance included today → fixed to stop at yesterday only
+16. HR portal (June 2026) overwrote empProfiles → wiped contractStart and email for all staff. Recovered from localStorage hr_portal_cache. Safety rules added.
+17. Arabic name mismatches between lists and empProfiles → ة/ه, ى/ي, ق/ف differences cause "No contract date set". Fix by renaming empProfiles keys to match lists exactly via console.
 
 ---
 
 *Last updated: June 2026 — Newderma1 Medical Center, Jeddah KSA*
+*Major update: HR portal incident recovery + backup system added*
