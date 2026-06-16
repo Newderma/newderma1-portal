@@ -1499,77 +1499,78 @@ tr:hover td{background:#f8fafc}
 
 <!-- ══════════ HR TAB (GM only — READ ONLY, no Supabase writes) ══════════ -->
 <div class="page" id="page-hr">
-  <div class="ph"><h2>HR · الموارد البشرية</h2><p>Staff directory · HR letters · Saudization</p></div>
+  <div class="ph"><h2>HR · الموارد البشرية</h2><p>Staff directory · documents · letters · Saudization</p></div>
 
-  <!-- Sub-tabs -->
-  <div style="display:flex;gap:.4rem;margin-bottom:1.2rem;border-bottom:1px solid var(--brd);padding-bottom:.6rem;flex-wrap:wrap">
-    <button class="btn bp" id="hr-tab-staff"   onclick="hrShowTab('staff')"   style="font-size:.78rem">👥 Staff directory</button>
-    <button class="btn"    id="hr-tab-letters" onclick="hrShowTab('letters')" style="font-size:.78rem">📝 HR letters</button>
-    <button class="btn"    id="hr-tab-nitaqat" onclick="hrShowTab('nitaqat')" style="font-size:.78rem">🛡️ Nitaqat</button>
+  <div style="display:flex;gap:.4rem;margin-bottom:1.1rem;border-bottom:1px solid var(--brd);padding-bottom:.6rem;flex-wrap:wrap">
+    <button class="btn bp" id="hr-tab-staff"   onclick="hrTab('staff')"   >👥 Staff</button>
+    <button class="btn"    id="hr-tab-letters" onclick="hrTab('letters')" >📝 Letters</button>
+    <button class="btn"    id="hr-tab-nitaqat" onclick="hrTab('nitaqat')" >🛡 Nitaqat</button>
   </div>
 
-  <!-- STAFF DIRECTORY -->
+  <!-- STAFF -->
   <div id="hr-panel-staff">
-    <div style="display:flex;gap:.5rem;margin-bottom:.9rem;flex-wrap:wrap;align-items:center">
-      <select id="hrRoleFilter" onchange="hrRenderStaff()" style="padding:.42rem .7rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
+    <div style="display:flex;gap:.5rem;margin-bottom:.85rem;flex-wrap:wrap;align-items:center">
+      <select id="hrRoleF" onchange="hrRenderGrid()" style="padding:.4rem .65rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
         <option value="">All roles</option>
         <option value="Doctor">Doctors</option>
         <option value="Nurse">Nurses</option>
         <option value="Staff">Other staff</option>
       </select>
-      <input id="hrStaffSearch" placeholder="Search name…" oninput="hrRenderStaff()" style="flex:1;min-width:160px;padding:.42rem .7rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
+      <input id="hrSearch" placeholder="Search name..." oninput="hrRenderGrid()" style="flex:1;min-width:150px;padding:.4rem .65rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
     </div>
-    <div id="hrStaffGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.8rem"></div>
+    <div id="hrStaffGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.7rem;margin-bottom:1rem"></div>
+    <div id="hrDetail"></div>
   </div>
 
-  <!-- HR LETTERS -->
+  <!-- LETTERS -->
   <div id="hr-panel-letters" style="display:none">
-    <div class="mgg" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.6rem;margin-bottom:1.2rem">
-      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('experience')">🎖️<br><small>Experience cert.<br>شهادة خبرة</small></button>
-      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('salary')">💰<br><small>Salary cert.<br>شهادة راتب</small></button>
-      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('leave')">✅<br><small>Leave approval<br>موافقة إجازة</small></button>
-      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('warning')">⚠️<br><small>Warning letter<br>خطاب تحذير</small></button>
-      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('eod')">👋<br><small>End of service<br>نهاية خدمة</small></button>
-      <button class="card" style="cursor:pointer;text-align:center;padding:.9rem .5rem;border:1.5px solid var(--brd)" onclick="hrOpenLetter('memo')">📨<br><small>Internal memo<br>مذكرة داخلية</small></button>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.55rem;margin-bottom:1.1rem">
+      <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('experience')">&#127894;<br><small>Experience cert.<br><span style="color:var(--ss)">&#1588;&#1607;&#1575;&#1583;&#1577; &#1582;&#1576;&#1585;&#1577;</span></small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('salary')">&#128176;<br><small>Salary cert.<br><span style="color:var(--ss)">&#1588;&#1607;&#1575;&#1583;&#1577; &#1585;&#1575;&#1578;&#1576;</span></small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('leave')">&#9989;<br><small>Leave approval<br><span style="color:var(--ss)">&#1605;&#1608;&#1575;&#1601;&#1602;&#1577; &#1573;&#1580;&#1575;&#1586;&#1577;</span></small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('warning')">&#9888;<br><small>Warning letter<br><span style="color:var(--ss)">&#1582;&#1591;&#1575;&#1576; &#1578;&#1581;&#1584;&#1610;&#1585;</span></small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('eod')">&#128075;<br><small>End of service<br><span style="color:var(--ss)">&#1606;&#1607;&#1575;&#1610;&#1577; &#1582;&#1583;&#1605;&#1577;</span></small></button>
+      <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('memo')">&#128232;<br><small>Internal memo<br><span style="color:var(--ss)">&#1605;&#1584;&#1603;&#1585;&#1577; &#1583;&#1575;&#1582;&#1604;&#1610;&#1577;</span></small></button>
     </div>
-
     <div class="card" id="hrLetterForm" style="display:none">
       <div class="ct" id="hrLetterTitle">Letter</div>
-      <div id="hrLetterFields" style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem"></div>
-      <div class="brow" style="margin-top:.9rem">
-        <button class="btn bp" onclick="hrGenerateLetter()">📄 Generate · توليد</button>
+      <div id="hrLetterFields" style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem"></div>
+      <div class="brow" style="margin-top:.85rem">
+        <button class="btn bp" onclick="hrGenerate()">Generate</button>
         <button class="btn bx" onclick="document.getElementById('hrLetterForm').style.display='none'">Cancel</button>
       </div>
-      <div id="hrLetterOutput" style="display:none;margin-top:1rem">
-        <div id="hrLetterText" style="background:var(--bg);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;font-size:.82rem;line-height:1.85;white-space:pre-wrap;direction:auto;max-height:340px;overflow-y:auto"></div>
-        <div class="brow" style="margin-top:.6rem">
-          <button class="btn bp" onclick="hrCopyLetter()">📋 Copy · نسخ</button>
-          <button class="btn" onclick="hrPrintLetter()">🖨️ Print / PDF</button>
+      <div id="hrLetterOut" style="display:none;margin-top:.9rem">
+        <div id="hrLetterTxt" style="background:var(--bg);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;font-size:.82rem;line-height:1.85;white-space:pre-wrap;direction:auto;max-height:320px;overflow-y:auto"></div>
+        <div class="brow" style="margin-top:.55rem">
+          <button class="btn bp" onclick="hrCopy()">Copy</button>
+          <button class="btn" onclick="hrPrint()">Print / PDF</button>
+          <button class="btn bs" id="hrSaveBtn" onclick="hrSave()">Save letter</button>
         </div>
       </div>
+    </div>
+    <div class="card" id="hrSavedCard" style="display:none;margin-top:.9rem">
+      <div class="ct">Saved letters</div>
+      <div id="hrSavedList"></div>
     </div>
   </div>
 
   <!-- NITAQAT -->
   <div id="hr-panel-nitaqat" style="display:none">
-    <div class="mgg" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.7rem;margin-bottom:1.1rem" id="hrNitaqatStats"></div>
+    <div class="mgg" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.65rem;margin-bottom:1rem" id="hrNitStats"></div>
     <div class="card">
-      <div class="ct">Nitaqat band · نطاقات</div>
-      <div style="display:flex;border-radius:var(--r);overflow:hidden;height:38px;margin-bottom:.8rem">
-        <div id="nit-platinum" style="flex:1;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Platinum<br><span style="font-size:.58rem">&gt;40%</span></div>
-        <div id="nit-green"    style="flex:1;background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Green<br><span style="font-size:.58rem">&gt;20%</span></div>
-        <div id="nit-yellow"   style="flex:1;background:#ca8a04;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Yellow<br><span style="font-size:.58rem">&gt;7%</span></div>
-        <div id="nit-red"      style="flex:1;background:#dc2626;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Red<br><span style="font-size:.58rem">Below</span></div>
+      <div class="ct">Nitaqat band</div>
+      <div style="display:flex;border-radius:var(--r);overflow:hidden;height:36px;margin-bottom:.7rem">
+        <div id="nit-platinum" style="flex:1;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Platinum<br><span style="font-size:.56rem">&gt;40%</span></div>
+        <div id="nit-green"    style="flex:1;background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Green<br><span style="font-size:.56rem">&gt;20%</span></div>
+        <div id="nit-yellow"   style="flex:1;background:#ca8a04;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Yellow<br><span style="font-size:.56rem">&gt;7%</span></div>
+        <div id="nit-red"      style="flex:1;background:#dc2626;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:rgba(255,255,255,.85);flex-direction:column">Red<br><span style="font-size:.56rem">Below</span></div>
       </div>
-      <p id="hrNitaqatDesc" style="font-size:.82rem;color:var(--sm)"></p>
+      <p id="hrNitDesc" style="font-size:.81rem;color:var(--sm)"></p>
     </div>
-    <div class="card">
-      <div class="ct">Staff breakdown</div>
-      <div id="hrNitaqatList"></div>
-    </div>
+    <div class="card" style="margin-top:.8rem"><div class="ct">Staff breakdown</div><div id="hrNitList"></div></div>
   </div>
 </div>
-<!-- ══════════ END HR TAB ══════════ -->
+<!-- HR END -->
 
 <div id="toast"></div>
 
@@ -6480,377 +6481,515 @@ async function prpDelete(name){
 //  HR MODULE — READ ONLY — NO SUPABASE WRITES
 // ══════════════════════════════════════════
 
-// ── Sub-tab switching ──────────────────────
-function hrShowTab(tab) {
-  ['staff','letters','nitaqat'].forEach(function(t){
-    document.getElementById('hr-panel-'+t).style.display = t===tab?'':'none';
-    var btn=document.getElementById('hr-tab-'+t);
-    if(btn){ btn.className = t===tab?'btn bp':'btn'; }
+var HR_DOCS = [
+  {id:'iqama',    label:'Iqama copy'},
+  {id:'passport', label:'Passport copy'},
+  {id:'contract', label:'Employment contract'},
+  {id:'training', label:'Training certificates'},
+  {id:'council',  label:'Saudi Council cert.'},
+  {id:'moh',      label:'MOH practicing license'},
+  {id:'photo',    label:'Personal photo'},
+  {id:'insurance',label:'Malpractice insurance'}
+];
+
+var _hrEmp    = null;
+var _hrLetType = '';
+var _hrLetEmp  = '';
+
+function hrLsKey(n, sfx) {
+  var safe = '';
+  try { safe = btoa(unescape(encodeURIComponent(n))); } catch(x) { safe = String(n.length); }
+  return 'hr_' + safe + '_' + sfx;
+}
+function hrGetDocs(n)    { try { return JSON.parse(localStorage.getItem(hrLsKey(n,'docs')) || '{}'); } catch(x) { return {}; } }
+function hrSaveDocs(n,d) { try { localStorage.setItem(hrLsKey(n,'docs'), JSON.stringify(d)); } catch(x) {} }
+function hrGetUrl(n)     { try { return localStorage.getItem(hrLsKey(n,'url')) || ''; } catch(x) { return ''; } }
+function hrSetUrl(n,u)   { try { localStorage.setItem(hrLsKey(n,'url'), u); } catch(x) {} }
+function hrGetLets(n)    { try { return JSON.parse(localStorage.getItem(hrLsKey(n,'lets')) || '[]'); } catch(x) { return []; } }
+function hrSaveLets(n,a) { try { localStorage.setItem(hrLsKey(n,'lets'), JSON.stringify(a)); } catch(x) {} }
+
+function hrTab(t) {
+  ['staff','letters','nitaqat'].forEach(function(x) {
+    var p = document.getElementById('hr-panel-' + x);
+    if (p) p.style.display = (x === t) ? '' : 'none';
+    var b = document.getElementById('hr-tab-' + x);
+    if (b) b.className = (x === t) ? 'btn bp' : 'btn';
   });
-  if(tab==='staff')   hrRenderStaff();
-  if(tab==='nitaqat') hrRenderNitaqat();
+  if (t === 'staff')   hrRenderGrid();
+  if (t === 'nitaqat') hrNitaqat();
+  if (t === 'letters') hrShowSaved();
 }
 
-// ── Staff directory ────────────────────────
-function hrRenderStaff() {
-  var roleF = (document.getElementById('hrRoleFilter')||{}).value||'';
-  var q     = ((document.getElementById('hrStaffSearch')||{}).value||'').toLowerCase();
-  var all   = (lists.doctors||[]).map(function(n){return{name:n,role:'Doctor'};})
-    .concat((lists.nurses||[]).map(function(n){return{name:n,role:'Nurse'};}))
-    .concat((lists.staff||[]).map(function(n){return{name:n,role:'Staff'};}));
-  var emps = all.filter(function(e){
-    return (!roleF||e.role===roleF) && (!q||e.name.toLowerCase().indexOf(q)>=0);
-  });
-  var html = '';
-  emps.forEach(function(e){
-    var p = empProfiles[e.name]||{};
-    var b = p.contractStart ? calcBalance(e.name) : null;
-    var balHtml = b
-      ? '<div style="font-size:.78rem;margin-top:.35rem"><span style="font-weight:600;color:var(--teal)">'+b.available+'d</span> <span style="color:var(--ss)">available of '+b.entitled+'</span></div>'
-        +'<div style="height:3px;background:var(--brd);border-radius:4px;margin-top:4px"><div style="height:100%;width:'+Math.min(100,b.available/b.entitled*100)+'%;background:var(--teal);border-radius:4px"></div></div>'
-      : '<div style="font-size:.74rem;color:var(--ss);margin-top:.3rem">No contract date set</div>';
-    var roleColor = e.role==='Doctor'?'#dbeafe;color:#1e40af':e.role==='Nurse'?'#d1fae5;color:#065f46':'#f1f5f9;color:#475569';
-    // Drive link stored in localStorage — no Supabase
-    var driveKey = 'hr_drive_'+e.name;
-    var driveUrl = '';
-    try{ driveUrl=localStorage.getItem(driveKey)||''; }catch(ex){}
-    var driveHtml = driveUrl
-      ? '<a href="'+driveUrl+'" target="_blank" style="font-size:.74rem;color:#4285F4;display:inline-flex;align-items:center;gap:.2rem;margin-top:.5rem;text-decoration:none">📁 Open Drive folder</a>'
-        +'<button onclick="hrEditDrive(\''+e.name.replace(/'/g,"\\'")+'\')" style="background:none;border:none;color:var(--ss);font-size:.72rem;cursor:pointer;padding:0 .3rem">edit</button>'
-      : '<button onclick="hrEditDrive(\''+e.name.replace(/'/g,"\\'")+'\')" style="background:none;border:1px dashed var(--brd);border-radius:4px;color:var(--ss);font-size:.72rem;cursor:pointer;padding:2px 7px;margin-top:.5rem">+ Link Drive folder</button>';
-    html += '<div class="card" style="padding:.9rem">'
-      +'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">'
-      +'<span style="font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:9px;background:'+roleColor+'">'+e.role+'</span>'
-      +'<span style="font-size:.88rem;font-weight:600;color:var(--sl)">'+e.name+'</span>'
-      +'</div>'
-      +balHtml
-      +'<div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">'
-      +'<button class="btn" style="font-size:.72rem;padding:.25rem .55rem" onclick="hrOpenLetterFor(\''+e.name.replace(/'/g,"\\'")+'\',\'experience\')">📝 Exp. cert</button>'
-      +'<button class="btn" style="font-size:.72rem;padding:.25rem .55rem" onclick="hrOpenLetterFor(\''+e.name.replace(/'/g,"\\'")+'\',\'leave\')">✅ Leave</button>'
-      +'<button class="btn" style="font-size:.72rem;padding:.25rem .55rem" onclick="hrOpenLetterFor(\''+e.name.replace(/'/g,"\\'")+'\',\'salary\')">💰 Salary</button>'
-      +'</div>'
-      +driveHtml
-      +'</div>';
-  });
-  var grid=document.getElementById('hrStaffGrid');
-  if(grid) grid.innerHTML=html||'<p class="norec">No staff found</p>';
+function hrAllEmps() {
+  var r = [];
+  (lists.doctors || []).forEach(function(n) { r.push({name:n, role:'Doctor'}); });
+  (lists.nurses  || []).forEach(function(n) { r.push({name:n, role:'Nurse'}); });
+  (lists.staff   || []).forEach(function(n) { r.push({name:n, role:'Staff'}); });
+  return r;
 }
 
-// Drive link — saves to localStorage only, zero Supabase
-function hrEditDrive(empName){
-  var key='hr_drive_'+empName;
-  var cur='';try{cur=localStorage.getItem(key)||'';}catch(ex){}
-  var url=prompt('Paste Google Drive folder URL for '+empName+'\n(right-click folder → Get link → Copy)\nLeave blank to remove:', cur);
-  if(url===null) return; // cancelled
-  try{
-    if(url.trim()) localStorage.setItem(key,url.trim());
-    else localStorage.removeItem(key);
-  }catch(ex){}
-  hrRenderStaff();
+function hrRenderGrid() {
+  // If lists not loaded yet, retry after 500ms
+  if (!lists.doctors || !lists.doctors.length && !lists.nurses.length && !lists.staff.length) {
+    setTimeout(hrRenderGrid, 500);
+    return;
+  }
+  var rf = (document.getElementById('hrRoleF') || {}).value || '';
+  var q  = ((document.getElementById('hrSearch') || {}).value || '').toLowerCase();
+  var emps = hrAllEmps().filter(function(e) {
+    return (!rf || e.role === rf) && (!q || e.name.toLowerCase().indexOf(q) >= 0);
+  });
+  var rows = [];
+  emps.forEach(function(e) {
+    var p   = empProfiles[e.name] || {};
+    var b   = p.contractStart ? calcBalance(e.name) : null;
+    var sel = (_hrEmp === e.name);
+    var ini = e.name.split(' ').slice(0,2).map(function(w) { return w[0] || ''; }).join('').toUpperCase();
+    var abg = e.role === 'Doctor' ? '#dbeafe' : (e.role === 'Nurse' ? '#d1fae5' : '#f1f5f9');
+    var atx = e.role === 'Doctor' ? '#1e40af' : (e.role === 'Nurse' ? '#065f46' : '#475569');
+    var docs    = hrGetDocs(e.name);
+    var present = HR_DOCS.filter(function(d) { return docs[d.id]; }).length;
+    var dots    = HR_DOCS.map(function(d) {
+      var c = docs[d.id] ? '#16a34a' : '#ef4444';
+      return '<span title="' + esc(d.label) + '" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + c + ';margin:1px"></span>';
+    }).join('');
+    var balTxt = b ? (b.available + 'd of ' + b.entitled) : 'No contract';
+    var balCol = b ? (b.available/b.entitled > 0.4 ? '#16a34a' : (b.available/b.entitled > 0.2 ? '#ca8a04' : '#dc2626')) : '#94a3b8';
+    var barW   = b ? Math.min(100, b.available/b.entitled*100) : 0;
+    var bdr    = sel ? 'border:2px solid var(--teal)' : 'border:1px solid var(--brd)';
+    var card   = '<div data-empname="' + esc(e.name) + '" onclick="hrSelectEl(this)" style="background:var(--w);' + bdr + ';border-radius:var(--r);padding:.85rem;cursor:pointer">'
+      + '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">'
+      + '<div style="width:32px;height:32px;border-radius:50%;background:' + abg + ';color:' + atx + ';display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;flex-shrink:0">' + ini + '</div>'
+      + '<div style="flex:1;min-width:0"><div style="font-size:.87rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(e.name) + '</div>'
+      + '<span style="font-size:.67rem;padding:1px 5px;border-radius:5px;background:' + abg + ';color:' + atx + '">' + e.role + '</span></div></div>'
+      + '<div style="display:flex;justify-content:space-between;font-size:.75rem;margin-bottom:2px">'
+      + '<span style="color:var(--ss)">Leave</span>'
+      + '<span style="font-weight:600;color:' + balCol + '">' + balTxt + '</span></div>'
+      + '<div style="height:3px;background:#e2e8f0;border-radius:3px;margin-bottom:.5rem">'
+      + '<div style="height:100%;width:' + barW + '%;background:' + balCol + ';border-radius:3px"></div></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center">'
+      + '<span style="font-size:.7rem;color:var(--ss)">Docs ' + present + '/' + HR_DOCS.length + '</span>'
+      + '<div>' + dots + '</div></div></div>';
+    rows.push(card);
+  });
+  var g = document.getElementById('hrStaffGrid');
+  if (!g) return;
+  if (rows.length) { g.innerHTML = rows.join(''); } else if (hrAllEmps().length === 0) { g.innerHTML = '<p class="norec">Loading staff data... please wait and try again.</p>'; } else { g.innerHTML = '<p class="norec">No staff match the filter</p>'; }
+  if (_hrEmp) hrDetail(_hrEmp);
 }
 
-// ── Letter generation (local templates, no API) ─
-var _hrLetterType = '';
-var _hrLetterConfigs = {
-  experience:{ title:'Experience Certificate · شهادة خبرة', fields:[
-    {id:'emp',l:'Employee · الموظف',t:'emp'},
-    {id:'position',l:'Position · المسمى',t:'text',p:'e.g. Nurse'},
-    {id:'from',l:'From date · من',t:'date'},
-    {id:'to',l:'To date · إلى',t:'date'}
+function hrSelectEl(el) {
+  var name = el.getAttribute('data-empname');
+  hrSelect(name);
+}
+
+function hrSelect(name) {
+  _hrEmp = (_hrEmp === name) ? null : name;
+  hrRenderGrid();
+  var dp = document.getElementById('hrDetail');
+  if (!dp) return;
+  if (_hrEmp) {
+    hrDetail(_hrEmp);
+    setTimeout(function() { dp.scrollIntoView({behavior:'smooth', block:'start'}); }, 50);
+  } else {
+    dp.innerHTML = '';
+  }
+}
+
+function hrDetail(name) {
+  var dp = document.getElementById('hrDetail');
+  if (!dp) return;
+  var p    = empProfiles[name] || {};
+  var b    = p.contractStart ? calcBalance(name) : null;
+  var docs = hrGetDocs(name);
+  var url  = hrGetUrl(name);
+  var lets = hrGetLets(name);
+  var vacs = (vacReqs || []).filter(function(v) { return v.employee === name; }).slice(0,5);
+  var rows = [];
+
+  // Header
+  rows.push('<div class="card" style="border:1.5px solid var(--teal)">');
+  rows.push('<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem">');
+  rows.push('<div style="font-size:1rem;font-weight:600">' + esc(name) + '</div>');
+  rows.push('<div style="display:flex;gap:.4rem">');
+  rows.push('<button class="btn bp" style="font-size:.76rem" onclick="hrLetter2(\'experience\',\'' + esc(name) + '\')">+ Letter</button>');
+  rows.push('<button class="btn bx" style="font-size:.76rem" onclick="hrClose()">Close</button>');
+  rows.push('</div></div>');
+
+  // Drive
+  rows.push('<div style="margin-bottom:.9rem;padding:.55rem .75rem;background:var(--bg);border-radius:6px;border:1px solid var(--brd)">');
+  rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Google Drive folder</div>');
+  if (url) {
+    rows.push('<a href="' + esc(url) + '" target="_blank" style="font-size:.8rem;color:#185FA5;text-decoration:none">Open Drive folder</a>');
+    rows.push(' <button onclick="hrEditUrl(\'' + esc(name) + '\')" style="font-size:.72rem;padding:2px 7px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);cursor:pointer;font-family:inherit;margin-left:6px">Edit</button>');
+  } else {
+    rows.push('<button onclick="hrEditUrl(\'' + esc(name) + '\')" style="font-size:.8rem;padding:4px 10px;border:1px dashed var(--brd);border-radius:6px;background:var(--bg);cursor:pointer;font-family:inherit">+ Link Google Drive folder</button>');
+  }
+  rows.push('</div>');
+
+  // Two columns
+  rows.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.9rem">');
+
+  // Left: balance + history
+  rows.push('<div>');
+  rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Leave balance</div>');
+  if (b) {
+    rows.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:.7rem">');
+    [{n:b.available+'d',l:'Available'},{n:b.entitled+'d',l:'Entitled/yr'},{n:b.totalUsed+'d',l:'Total used'},{n:b.daysIn+'/334',l:'Year accrual'}].forEach(function(s) {
+      rows.push('<div style="background:var(--bg);border-radius:6px;padding:.55rem;text-align:center"><div style="font-size:1.05rem;font-weight:500">' + s.n + '</div><div style="font-size:.67rem;color:var(--ss);margin-top:1px">' + s.l + '</div></div>');
+    });
+    rows.push('</div>');
+  } else {
+    rows.push('<p style="font-size:.8rem;color:var(--ss);margin-bottom:.7rem">No contract date set</p>');
+  }
+  rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Leave history</div>');
+  if (vacs.length) {
+    vacs.forEach(function(v) {
+      var sc = v.status === 'Approved' ? '#dcfce7;color:#166534' : (v.status === 'Pending' ? '#fef9c3;color:#854d0e' : '#fee2e2;color:#991b1b');
+      rows.push('<div style="display:flex;align-items:center;gap:6px;font-size:.76rem;padding:4px 7px;border-radius:5px;background:var(--bg);margin-bottom:3px">');
+      rows.push('<span style="font-size:.68rem;padding:1px 5px;border-radius:4px;background:#dbeafe;color:#1e40af">' + esc(v.type) + '</span>');
+      rows.push('<span style="flex:1">' + fmtD(v.from_date) + ' - ' + fmtD(v.to_date) + '</span>');
+      rows.push('<strong>' + v.days + 'd</strong>');
+      rows.push('<span style="font-size:.68rem;padding:1px 5px;border-radius:4px;background:' + sc + '">' + v.status + '</span></div>');
+    });
+  } else {
+    rows.push('<p style="font-size:.78rem;color:var(--ss)">No leave history</p>');
+  }
+  rows.push('</div>');
+
+  // Right: documents
+  rows.push('<div>');
+  rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Required documents</div>');
+  HR_DOCS.forEach(function(d) {
+    var has    = !!docs[d.id];
+    var docUrl = docs[d.id + '_url'] || '';
+    var dotC   = has ? '#16a34a' : '#ef4444';
+    var rowBg  = has ? '' : 'background:#fff5f5;';
+    rows.push('<div style="display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:6px;border:1px solid var(--brd);margin-bottom:3px;' + rowBg + '">');
+    rows.push('<span style="width:7px;height:7px;border-radius:50%;background:' + dotC + ';flex-shrink:0;display:inline-block"></span>');
+    rows.push('<span style="font-size:.78rem;flex:1">' + esc(d.label) + '</span>');
+    if (docUrl) {
+      rows.push('<a href="' + esc(docUrl) + '" target="_blank" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--w);color:var(--sl);text-decoration:none">View</a>');
+    }
+    rows.push('<button onclick="hrDocLink(\'' + esc(name) + '\',\'' + d.id + '\')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">' + (docUrl ? 'Edit' : '+ Link') + '</button>');
+    rows.push('<button onclick="hrDocToggle(\'' + esc(name) + '\',\'' + d.id + '\')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit;color:' + (has ? '#dc2626' : '#16a34a') + '">' + (has ? 'Missing' : 'Present') + '</button>');
+    rows.push('</div>');
+  });
+  rows.push('</div>');
+  rows.push('</div>'); // end two columns
+
+  // Letters
+  rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">HR letters issued</div>');
+  if (lets.length) {
+    lets.slice().reverse().forEach(function(l, ri) {
+      var idx = lets.length - 1 - ri;
+      rows.push('<div style="display:flex;align-items:center;gap:7px;padding:5px 9px;border:1px solid var(--brd);border-radius:6px;margin-bottom:3px">');
+      rows.push('<span style="font-size:.79rem;flex:1;font-weight:500">' + esc(l.type) + '</span>');
+      rows.push('<span style="font-size:.73rem;color:var(--ss)">' + esc(l.date) + '</span>');
+      rows.push('<button onclick="hrViewLet(\'' + esc(name) + '\',' + idx + ')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">View</button>');
+      rows.push('<button onclick="hrPrintLet(\'' + esc(name) + '\',' + idx + ')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">Print</button>');
+      rows.push('</div>');
+    });
+  } else {
+    rows.push('<p style="font-size:.78rem;color:var(--ss)">No letters yet - click "+ Letter" to generate one</p>');
+  }
+  rows.push('</div>');
+  dp.innerHTML = rows.join('');
+}
+
+function hrClose() {
+  _hrEmp = null;
+  var dp = document.getElementById('hrDetail');
+  if (dp) dp.innerHTML = '';
+  hrRenderGrid();
+}
+
+function hrDocToggle(name, docId) {
+  var d = hrGetDocs(name);
+  d[docId] = !d[docId];
+  hrSaveDocs(name, d);
+  hrDetail(name);
+  hrRenderGrid();
+}
+
+function hrDocLink(name, docId) {
+  var d   = hrGetDocs(name);
+  var cur = d[docId + '_url'] || '';
+  var msg = 'Paste Google Drive link for document: ' + docId + '\nEmployee: ' + name + '\n\nRight-click file in Drive > Get link > Copy\nLeave blank to remove:';
+  var url = prompt(msg, cur);
+  if (url === null) return;
+  url = url.trim();
+  d[docId + '_url'] = url;
+  if (url) d[docId] = true;
+  hrSaveDocs(name, d);
+  hrDetail(name);
+  hrRenderGrid();
+  toast(url ? 'Document link saved' : 'Link removed', url ? true : false);
+}
+
+function hrEditUrl(name) {
+  var cur = hrGetUrl(name);
+  var msg = 'Paste Google Drive FOLDER link for: ' + name + '\n\nRight-click folder > Get link > Copy\nLeave blank to remove:';
+  var url = prompt(msg, cur);
+  if (url === null) return;
+  hrSetUrl(name, url.trim());
+  hrDetail(name);
+  toast(url.trim() ? 'Drive folder linked' : 'Link removed', true);
+}
+
+// ── Letter config ───────────────────────────
+var HR_LCFG = {
+  experience: {title:'Experience Certificate', fields:[
+    {id:'emp', label:'Employee', type:'emp'},
+    {id:'pos', label:'Position', type:'text', ph:'e.g. Nurse'},
+    {id:'from',label:'From date',type:'date'},
+    {id:'to',  label:'To date',  type:'date'}
   ]},
-  salary:{ title:'Salary Certificate · شهادة راتب', fields:[
-    {id:'emp',l:'Employee · الموظف',t:'emp'},
-    {id:'salary',l:'Monthly salary (SAR) · الراتب الشهري',t:'number',p:'e.g. 8000'},
-    {id:'date',l:'Date · التاريخ',t:'date'}
+  salary: {title:'Salary Certificate', fields:[
+    {id:'emp',   label:'Employee',          type:'emp'},
+    {id:'amount',label:'Monthly salary (SAR)',type:'number',ph:'e.g. 8000'},
+    {id:'date',  label:'Date',              type:'date'}
   ]},
-  leave:{ title:'Leave Approval · موافقة إجازة', fields:[
-    {id:'emp',l:'Employee · الموظف',t:'emp'},
-    {id:'ltype',l:'Leave type · نوع الإجازة',t:'text',p:'Annual Leave'},
-    {id:'days',l:'Days · الأيام',t:'number',p:'e.g. 10'},
-    {id:'from',l:'From · من',t:'date'},
-    {id:'to',l:'To · إلى',t:'date'}
+  leave: {title:'Leave Approval', fields:[
+    {id:'emp',  label:'Employee',  type:'emp'},
+    {id:'ltype',label:'Leave type',type:'text',ph:'Annual Leave'},
+    {id:'days', label:'Days',      type:'number',ph:'e.g. 10'},
+    {id:'from', label:'From',      type:'date'},
+    {id:'to',   label:'To',        type:'date'}
   ]},
-  warning:{ title:'Warning Letter · خطاب تحذير', fields:[
-    {id:'emp',l:'Employee · الموظف',t:'emp'},
-    {id:'violation',l:'Reason / violation · سبب التحذير',t:'textarea'},
-    {id:'date',l:'Date · التاريخ',t:'date'}
+  warning: {title:'Warning Letter', fields:[
+    {id:'emp',      label:'Employee', type:'emp'},
+    {id:'violation',label:'Violation',type:'textarea'},
+    {id:'date',     label:'Date',     type:'date'}
   ]},
-  eod:{ title:'End of Service · نهاية خدمة', fields:[
-    {id:'emp',l:'Employee · الموظف',t:'emp'},
-    {id:'position',l:'Position · المسمى',t:'text'},
-    {id:'endDate',l:'End date · تاريخ الانتهاء',t:'date'},
-    {id:'reason',l:'Reason · السبب',t:'textarea'}
+  eod: {title:'End of Service', fields:[
+    {id:'emp',    label:'Employee', type:'emp'},
+    {id:'pos',    label:'Position', type:'text'},
+    {id:'endDate',label:'End date', type:'date'},
+    {id:'reason', label:'Reason',   type:'textarea'}
   ]},
-  memo:{ title:'Internal Memo · مذكرة داخلية', fields:[
-    {id:'to',l:'To · إلى',t:'text',p:'All staff / جميع الموظفين'},
-    {id:'subject',l:'Subject · الموضوع',t:'text'},
-    {id:'body',l:'Body · النص',t:'textarea'},
-    {id:'date',l:'Date · التاريخ',t:'date'}
+  memo: {title:'Internal Memo', fields:[
+    {id:'to',     label:'To',      type:'text',ph:'All staff'},
+    {id:'subject',label:'Subject', type:'text'},
+    {id:'body',   label:'Body',    type:'textarea'},
+    {id:'date',   label:'Date',    type:'date'}
   ]}
 };
 
-function hrOpenLetter(type){ hrOpenLetterFor('',type); }
-function hrOpenLetterFor(empName,type){
-  if(type) hrShowTab('letters');
-  _hrLetterType=type;
-  var cfg=_hrLetterConfigs[type]; if(!cfg) return;
-  document.getElementById('hrLetterTitle').textContent=cfg.title;
-  var all=(lists.doctors||[]).concat(lists.nurses||[]).concat(lists.staff||[]);
-  var html='';
-  cfg.fields.forEach(function(f){
-    html+='<div style="display:flex;flex-direction:column;gap:.25rem"><label style="font-size:.74rem;font-weight:600;color:var(--sm)">'+f.l+'</label>';
-    if(f.t==='emp'){
-      html+='<select id="hrf-'+f.id+'" style="padding:.42rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">'
-        +'<option value="">— Select —</option>'
-        +all.map(function(n){return '<option'+(n===empName?' selected':'')+'>'+n+'</option>';}).join('')
-        +'</select>';
-    } else if(f.t==='textarea'){
-      html+='<textarea id="hrf-'+f.id+'" placeholder="'+(f.p||'')+'" style="padding:.42rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl);min-height:70px;resize:vertical"></textarea>';
+function hrLetter(type) { hrLetter2(type, _hrEmp || ''); }
+
+function hrLetter2(type, empName) {
+  _hrLetType = type;
+  _hrLetEmp  = empName;
+  hrTab('letters');
+  var cfg = HR_LCFG[type];
+  if (!cfg) return;
+  document.getElementById('hrLetterTitle').textContent = cfg.title;
+  var all = hrAllEmps().map(function(e) { return e.name; });
+  var fh  = '';
+  cfg.fields.forEach(function(f) {
+    fh += '<div style="display:flex;flex-direction:column;gap:.2rem"><label style="font-size:.73rem;font-weight:600;color:var(--sm)">' + f.label + '</label>';
+    if (f.type === 'emp') {
+      fh += '<select id="hf_' + f.id + '" style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)"><option value="">-- Select --</option>';
+      all.forEach(function(n) { fh += '<option' + (n === empName ? ' selected' : '') + '>' + esc(n) + '</option>'; });
+      fh += '</select>';
+    } else if (f.type === 'textarea') {
+      fh += '<textarea id="hf_' + f.id + '" placeholder="' + (f.ph || '') + '" style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl);min-height:65px;resize:vertical"></textarea>';
     } else {
-      var isDate=f.t==='date';
-      html+='<input type="'+(f.t||'text')+'" id="hrf-'+f.id+'" '+(isDate?'value="'+new Date().toISOString().split('T')[0]+'"':'placeholder="'+(f.p||'')+'"')+' style="padding:.42rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">';
+      var isDate = (f.type === 'date');
+      fh += '<input type="' + (f.type || 'text') + '" id="hf_' + f.id + '"';
+      fh += isDate ? (' value="' + new Date().toISOString().substring(0,10) + '"') : (' placeholder="' + (f.ph || '') + '"');
+      fh += ' style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">';
     }
-    html+='</div>';
+    fh += '</div>';
   });
-  document.getElementById('hrLetterFields').innerHTML=html;
-  document.getElementById('hrLetterOutput').style.display='none';
-  document.getElementById('hrLetterForm').style.display='block';
-  document.getElementById('hrLetterForm').scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById('hrLetterFields').innerHTML = fh;
+  document.getElementById('hrLetterOut').style.display = 'none';
+  document.getElementById('hrLetterForm').style.display = 'block';
+  var sb = document.getElementById('hrSaveBtn');
+  if (sb) { sb.textContent = 'Save letter'; sb.disabled = false; sb.style.display = ''; }
+  document.getElementById('hrLetterForm').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-function hrGetVal(id){ var el=document.getElementById('hrf-'+id); return el?el.value:''; }
-function hrFmtAR(d){ try{return new Date(d).toLocaleDateString('ar-SA-u-nu-latn',{year:'numeric',month:'long',day:'numeric'});}catch(e){return d;} }
-function hrFmtEN(d){ try{return new Date(d).toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'});}catch(e){return d;} }
+function hrFV(id) { var el = document.getElementById('hf_' + id); return el ? el.value : ''; }
 
-function hrGenerateLetter(){
-  var type=_hrLetterType;
-  var clinic='عيادة نيو ديرما سنتر'; var clinicEN='New Derma Center';
-  var city='جدة، المملكة العربية السعودية'; var cityEN='Jeddah, Saudi Arabia';
-  var today=new Date();
-  var todayAR=hrFmtAR(today.toISOString().split('T')[0]);
-  var todayEN=hrFmtEN(today.toISOString().split('T')[0]);
-  var SEP='\n'+'─'.repeat(50)+'\n\n';
-  var txt='';
-  var emp=hrGetVal('emp');
+function hrFmtAR(d) {
+  try { return new Date(d).toLocaleDateString('ar-SA-u-nu-latn',{year:'numeric',month:'long',day:'numeric'}); } catch(x) { return d; }
+}
+function hrFmtEN(d) {
+  try { return new Date(d).toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'}); } catch(x) { return d; }
+}
 
-  if(type==='experience'){
-    var fAR=hrFmtAR(hrGetVal('from')), tAR=hrFmtAR(hrGetVal('to'));
-    var fEN=hrFmtEN(hrGetVal('from')), tEN=hrFmtEN(hrGetVal('to'));
-    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+todayAR,'','شهادة خبرة','━'.repeat(38),'',
-    'تشهد إدارة '+clinic+' بأن الموظف/ة:','',
-    'الاسم:           '+emp,'المسمى الوظيفي:  '+hrGetVal('position'),'فترة العمل:      من '+fAR+' إلى '+tAR,'',
-    'قد أدى/أدت مهامه/ها بكفاءة وإخلاص. نتمنى له/لها التوفيق.','',
-    'صدر في جدة بتاريخ: '+todayAR,'','الختم والتوقيع',clinic,
-    SEP,'In the Name of Allah, the Most Gracious, the Most Merciful','',
-    clinicEN+' — '+cityEN,'Date: '+todayEN,'','EXPERIENCE CERTIFICATE','━'.repeat(38),'',
-    'This is to certify that:','',
-    'Name:      '+emp,'Position:  '+hrGetVal('position'),'Period:    From '+fEN+' to '+tEN,'',
-    'Has been employed at '+clinicEN+' and performed their duties diligently. We wish them continued success.','',
-    'Issued in Jeddah on: '+todayEN,'','Stamp & Signature',clinicEN].join('\n');
-  } else if(type==='salary'){
-    var dAR=hrFmtAR(hrGetVal('date')), dEN=hrFmtEN(hrGetVal('date'));
-    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+dAR,'','شهادة راتب','━'.repeat(38),'',
-    'تفيد إدارة '+clinic+' بأن:','',
-    'الاسم:         '+emp,'الراتب الشهري: '+hrGetVal('salary')+' ريال سعودي','',
-    'صدرت هذه الشهادة بناءً على طلبه/طلبها لتُقدَّم لمن يلزم.','',
-    'التاريخ: '+dAR,'','الختم والتوقيع',clinic,
-    SEP,clinicEN+' — '+cityEN,'Date: '+dEN,'','SALARY CERTIFICATE','━'.repeat(38),'',
-    'Name:           '+emp,'Monthly Salary: SAR '+hrGetVal('salary'),'',
-    'This certificate is issued upon the employee\'s request.','',
-    'Date: '+dEN,'','Stamp & Signature',clinicEN].join('\n');
-  } else if(type==='leave'){
-    var fAR=hrFmtAR(hrGetVal('from')), tAR=hrFmtAR(hrGetVal('to'));
-    var fEN=hrFmtEN(hrGetVal('from')), tEN=hrFmtEN(hrGetVal('to'));
-    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+todayAR,'','موافقة إجازة','━'.repeat(38),'',
-    'إلى: '+emp,'',
-    'نوع الإجازة: '+(hrGetVal('ltype')||'سنوية'),'من:          '+fAR,'إلى:         '+tAR,'عدد الأيام:  '+hrGetVal('days')+' يوم','',
-    'تمت الموافقة على طلب الإجازة. نتمنى لكم إجازة سعيدة.','',
-    'إدارة '+clinic,
-    SEP,clinicEN+' — '+cityEN,'Date: '+todayEN,'','LEAVE APPROVAL','━'.repeat(38),'',
-    'To: '+emp,'',
-    'Leave Type: '+(hrGetVal('ltype')||'Annual Leave'),'From:       '+fEN,'To:         '+tEN,'Days:       '+hrGetVal('days'),'',
-    'Your leave request has been approved. Have a pleasant leave.','',
-    'Management, '+clinicEN].join('\n');
-  } else if(type==='warning'){
-    var dAR=hrFmtAR(hrGetVal('date')), dEN=hrFmtEN(hrGetVal('date'));
-    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+dAR,'','خطاب تحذير رسمي','━'.repeat(38),'',
-    'إلى: '+emp,'',
-    'يُشعركم هذا الخطاب بأن الإدارة قد رصدت المخالفة التالية:','',hrGetVal('violation'),'',
-    'نحذركم رسمياً بضرورة الالتزام بلوائح العمل. تكرار هذه المخالفة قد يعرضكم لعقوبات وفقاً لنظام العمل السعودي.','',
-    'التاريخ: '+dAR,'','إدارة '+clinic,
-    SEP,clinicEN+' — '+cityEN,'Date: '+dEN,'','FORMAL WARNING LETTER','━'.repeat(38),'',
-    'To: '+emp,'',
-    'This letter serves as a formal warning regarding:','',hrGetVal('violation'),'',
-    'You are formally warned to comply with workplace policies. Repetition may result in further disciplinary action per Saudi Labor Law.','',
-    'Date: '+dEN,'','Management, '+clinicEN].join('\n');
-  } else if(type==='eod'){
-    var eAR=hrFmtAR(hrGetVal('endDate')), eEN=hrFmtEN(hrGetVal('endDate'));
-    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+todayAR,'','خطاب نهاية خدمة','━'.repeat(38),'',
-    'الاسم:   '+emp,'المسمى: '+hrGetVal('position'),'تاريخ الانتهاء: '+eAR,'السبب:   '+hrGetVal('reason'),'',
-    'نشكركم على جهودكم وعطائكم ونتمنى لكم التوفيق.','',
-    'إدارة '+clinic,
-    SEP,clinicEN+' — '+cityEN,'Date: '+todayEN,'','END OF SERVICE LETTER','━'.repeat(38),'',
-    'Name:     '+emp,'Position: '+hrGetVal('position'),'End Date: '+eEN,'Reason:   '+hrGetVal('reason'),'',
-    'We thank you for your service and wish you all the best.','',
-    'Management, '+clinicEN].join('\n');
-  } else if(type==='memo'){
-    var dAR=hrFmtAR(hrGetVal('date')), dEN=hrFmtEN(hrGetVal('date'));
-    txt=['بسم الله الرحمن الرحيم','',clinic+' — '+city,'التاريخ: '+dAR,'','مذكرة داخلية','━'.repeat(38),'',
-    'إلى:     '+hrGetVal('to'),'الموضوع: '+hrGetVal('subject'),'',hrGetVal('body'),'',
-    'إدارة '+clinic,
-    SEP,clinicEN+' — '+cityEN,'Date: '+dEN,'','INTERNAL MEMO','━'.repeat(38),'',
-    'To:      '+hrGetVal('to'),'Subject: '+hrGetVal('subject'),'',hrGetVal('body'),'',
-    'Management, '+clinicEN].join('\n');
+function hrBuildLetter() {
+  var t   = _hrLetType;
+  var emp = hrFV('emp') || _hrLetEmp;
+  var CL  = 'New Derma Center';
+  var CA  = '\u0639\u064a\u0627\u062f\u0629 \u0646\u064a\u0648 \u062f\u064a\u0631\u0645\u0627 \u0633\u0646\u062a\u0631';
+  var JE  = 'Jeddah, Saudi Arabia';
+  var JA  = '\u062c\u062f\u0629\u060c \u0627\u0644\u0645\u0645\u0644\u0643\u0629 \u0627\u0644\u0639\u0631\u0628\u064a\u0629 \u0627\u0644\u0633\u0639\u0648\u062f\u064a\u0629';
+  var now  = new Date().toISOString().substring(0,10);
+  var tAR  = hrFmtAR(now);
+  var tEN  = hrFmtEN(now);
+  var SEP  = '\n' + new Array(51).join('-') + '\n\n';
+
+  if (t === 'experience') {
+    var fAR = hrFmtAR(hrFV('from')), toAR = hrFmtAR(hrFV('to'));
+    var fEN = hrFmtEN(hrFV('from')), toEN = hrFmtEN(hrFV('to'));
+    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + ' - ' + JA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + tAR + '\n\n\u0634\u0647\u0627\u062f\u0629 \u062e\u0628\u0631\u0629\n' + new Array(39).join('=') + '\n\n\u062a\u0634\u0647\u062f \u0625\u062f\u0627\u0631\u0629 ' + CA + ' \u0628\u0623\u0646 \u0627\u0644\u0645\u0648\u0638\u0641/\u0629:\n\n\u0627\u0644\u0627\u0633\u0645: ' + emp + '\n\u0627\u0644\u0645\u0633\u0645\u0649: ' + hrFV('pos') + '\n\u0641\u062a\u0631\u0629 \u0627\u0644\u0639\u0645\u0644: \u0645\u0646 ' + fAR + ' \u0625\u0644\u0649 ' + toAR + '\n\n\u0642\u062f \u0623\u062f\u0649/\u0623\u062f\u062a \u0645\u0647\u0627\u0645\u0647/\u0647\u0627 \u0628\u0643\u0641\u0627\u0621\u0629. \u0646\u062a\u0645\u0646\u0649 \u0644\u0647/\u0644\u0647\u0627 \u0627\u0644\u062a\u0648\u0641\u064a\u0642.\n\n\u0635\u062f\u0631 \u0641\u064a \u062c\u062f\u0629: ' + tAR + '\n\n\u0627\u0644\u062e\u062a\u0645 \u0648\u0627\u0644\u062a\u0648\u0642\u064a\u0639\n' + CA
+      + SEP + 'In the Name of Allah, the Most Gracious, the Most Merciful\n\n' + CL + ' - ' + JE + '\nDate: ' + tEN + '\n\nEXPERIENCE CERTIFICATE\n' + new Array(39).join('=') + '\n\nName:     ' + emp + '\nPosition: ' + hrFV('pos') + '\nPeriod:   From ' + fEN + ' to ' + toEN + '\n\nHas performed duties diligently. We wish them success.\n\nIssued in Jeddah: ' + tEN + '\n\nStamp & Signature\n' + CL;
   }
-
-  var out=document.getElementById('hrLetterOutput');
-  var textEl=document.getElementById('hrLetterText');
-  textEl.textContent=txt;
-  out.style.display='block';
-  out.scrollIntoView({behavior:'smooth',block:'start'});
+  if (t === 'salary') {
+    var dAR = hrFmtAR(hrFV('date')), dEN = hrFmtEN(hrFV('date'));
+    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + dAR + '\n\n\u0634\u0647\u0627\u062f\u0629 \u0631\u0627\u062a\u0628\n' + new Array(39).join('=') + '\n\n\u0627\u0644\u0627\u0633\u0645: ' + emp + '\n\u0627\u0644\u0631\u0627\u062a\u0628 \u0627\u0644\u0634\u0647\u0631\u064a: ' + hrFV('amount') + ' \u0631\u064a\u0627\u0644 \u0633\u0639\u0648\u062f\u064a\n\n\u0635\u062f\u0631\u062a \u0628\u0646\u0627\u0621 \u0639\u0644\u0649 \u0637\u0644\u0628\u0647/\u0637\u0644\u0628\u0647\u0627.\n\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + dAR + '\n\n\u0627\u0644\u062e\u062a\u0645 \u0648\u0627\u0644\u062a\u0648\u0642\u064a\u0639\n' + CA
+      + SEP + CL + ' - ' + JE + '\nDate: ' + dEN + '\n\nSALARY CERTIFICATE\n' + new Array(39).join('=') + '\n\nName:           ' + emp + '\nMonthly Salary: SAR ' + hrFV('amount') + '\n\nIssued upon request.\n\nDate: ' + dEN + '\n\nStamp & Signature\n' + CL;
+  }
+  if (t === 'leave') {
+    var fAR = hrFmtAR(hrFV('from')), toAR = hrFmtAR(hrFV('to'));
+    var fEN = hrFmtEN(hrFV('from')), toEN = hrFmtEN(hrFV('to'));
+    var lt  = hrFV('ltype') || 'Annual Leave';
+    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + tAR + '\n\n\u0645\u0648\u0627\u0641\u0642\u0629 \u0625\u062c\u0627\u0632\u0629\n' + new Array(39).join('=') + '\n\n\u0625\u0644\u0649: ' + emp + '\n\n\u0646\u0648\u0639 \u0627\u0644\u0625\u062c\u0627\u0632\u0629: ' + lt + '\n\u0645\u0646: ' + fAR + '\n\u0625\u0644\u0649: ' + toAR + '\n\u0639\u062f\u062f \u0627\u0644\u0623\u064a\u0627\u0645: ' + hrFV('days') + '\n\n\u062a\u0645\u062a \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629. \u0646\u062a\u0645\u0646\u0649 \u0644\u0643\u0645 \u0625\u062c\u0627\u0632\u0629 \u0633\u0639\u064a\u062f\u0629.\n\n\u0625\u062f\u0627\u0631\u0629 ' + CA
+      + SEP + CL + ' - ' + JE + '\nDate: ' + tEN + '\n\nLEAVE APPROVAL\n' + new Array(39).join('=') + '\n\nTo: ' + emp + '\n\nLeave Type: ' + lt + '\nFrom:       ' + fEN + '\nTo:         ' + toEN + '\nDays:       ' + hrFV('days') + '\n\nApproved. Have a pleasant leave.\n\nManagement, ' + CL;
+  }
+  if (t === 'warning') {
+    var dAR = hrFmtAR(hrFV('date')), dEN = hrFmtEN(hrFV('date'));
+    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + dAR + '\n\n\u062e\u0637\u0627\u0628 \u062a\u062d\u0630\u064a\u0631 \u0631\u0633\u0645\u064a\n' + new Array(39).join('=') + '\n\n\u0625\u0644\u0649: ' + emp + '\n\n\u0627\u0644\u0645\u062e\u0627\u0644\u0641\u0629:\n' + hrFV('violation') + '\n\n\u0646\u062d\u0630\u0631\u0643\u0645 \u0631\u0633\u0645\u064a\u0627\u064b. \u062a\u0643\u0631\u0627\u0631 \u0647\u0630\u0627 \u0642\u062f \u064a\u0639\u0631\u0636\u0643\u0645 \u0644\u0639\u0642\u0648\u0628\u0627\u062a \u0648\u0641\u0642\u0627\u064b \u0644\u0646\u0638\u0627\u0645 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0633\u0639\u0648\u062f\u064a.\n\n\u0625\u062f\u0627\u0631\u0629 ' + CA
+      + SEP + CL + ' - ' + JE + '\nDate: ' + dEN + '\n\nFORMAL WARNING LETTER\n' + new Array(39).join('=') + '\n\nTo: ' + emp + '\n\nViolation:\n' + hrFV('violation') + '\n\nFormally warned. Repetition may result in action per Saudi Labor Law.\n\nManagement, ' + CL;
+  }
+  if (t === 'eod') {
+    var eAR = hrFmtAR(hrFV('endDate')), eEN = hrFmtEN(hrFV('endDate'));
+    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + tAR + '\n\n\u062e\u0637\u0627\u0628 \u0646\u0647\u0627\u064a\u0629 \u062e\u062f\u0645\u0629\n' + new Array(39).join('=') + '\n\n\u0627\u0644\u0627\u0633\u0645: ' + emp + '\n\u0627\u0644\u0645\u0633\u0645\u0649: ' + hrFV('pos') + '\n\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0627\u0646\u062a\u0647\u0627\u0621: ' + eAR + '\n\u0627\u0644\u0633\u0628\u0628: ' + hrFV('reason') + '\n\n\u0646\u0634\u0643\u0631\u0643\u0645 \u0639\u0644\u0649 \u062c\u0647\u062f\u0643\u0645 \u0648\u0646\u062a\u0645\u0646\u0649 \u0644\u0643\u0645 \u0627\u0644\u062a\u0648\u0641\u064a\u0642.\n\n\u0625\u062f\u0627\u0631\u0629 ' + CA
+      + SEP + CL + ' - ' + JE + '\nDate: ' + tEN + '\n\nEND OF SERVICE\n' + new Array(39).join('=') + '\n\nName:     ' + emp + '\nPosition: ' + hrFV('pos') + '\nEnd Date: ' + eEN + '\nReason:   ' + hrFV('reason') + '\n\nThank you for your service.\n\nManagement, ' + CL;
+  }
+  if (t === 'memo') {
+    var dAR = hrFmtAR(hrFV('date')), dEN = hrFmtEN(hrFV('date'));
+    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + dAR + '\n\n\u0645\u0630\u0643\u0631\u0629 \u062f\u0627\u062e\u0644\u064a\u0629\n' + new Array(39).join('=') + '\n\n\u0625\u0644\u0649: ' + hrFV('to') + '\n\u0627\u0644\u0645\u0648\u0636\u0648\u0639: ' + hrFV('subject') + '\n\n' + hrFV('body') + '\n\n\u0625\u062f\u0627\u0631\u0629 ' + CA
+      + SEP + CL + '\nDate: ' + dEN + '\n\nINTERNAL MEMO\n' + new Array(39).join('=') + '\n\nTo:      ' + hrFV('to') + '\nSubject: ' + hrFV('subject') + '\n\n' + hrFV('body') + '\n\nManagement, ' + CL;
+  }
+  return '';
 }
 
-function hrCopyLetter(){
-  var el=document.getElementById('hrLetterText'); if(!el) return;
-  navigator.clipboard.writeText(el.textContent).then(function(){toast('Copied · تم النسخ',true);}).catch(function(){toast('Copy failed',false);});
-}
-function hrPrintLetter(){
-  var el=document.getElementById('hrLetterText'); if(!el) return;
-  var w=window.open('','_blank');
-  w.document.write('<html><body style="font-family:Arial;padding:2cm;line-height:1.85;white-space:pre-wrap;direction:auto;font-size:13px">'+el.textContent.replace(/</g,'&lt;')+'</body></html>');
-  w.document.close(); w.print();
+function hrGenerate() {
+  var txt = hrBuildLetter();
+  if (!txt) { toast('Please fill required fields', false); return; }
+  var tel = document.getElementById('hrLetterTxt');
+  if (tel) tel.textContent = txt;
+  var out = document.getElementById('hrLetterOut');
+  if (out) out.style.display = '';
+  var sb = document.getElementById('hrSaveBtn');
+  if (sb) { sb.textContent = 'Save letter'; sb.disabled = false; }
+  if (out) out.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-// ── Nitaqat ───────────────────────────────
-function hrRenderNitaqat(){
-  var all=(lists.doctors||[]).concat(lists.nurses||[]).concat(lists.staff||[]);
-  var total=all.length;
-  // Nationality stored in empProfiles (added by HR portal) — graceful fallback
-  var saudis=all.filter(function(n){ var p=empProfiles[n]||{}; return p.nationality==='Saudi'; }).length;
-  var pct=total>0?Math.round((saudis/total)*100):0;
-  var needGreen=Math.max(0,Math.ceil(0.2*total)-saudis);
-  var band=pct>=40?'platinum':pct>=20?'green':pct>=7?'yellow':'red';
-  var bandLabel=pct>=40?'Platinum 🟣':pct>=20?'Green 🟢':pct>=7?'Yellow 🟡':'Red 🔴';
+function hrCopy() {
+  var el = document.getElementById('hrLetterTxt');
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function() { toast('Copied!', true); }).catch(function() { toast('Copy failed', false); });
+}
 
-  // Stats
-  var stats=[
-    {n:total,l:'Total employees · إجمالي الموظفين'},
-    {n:saudis,l:'Saudi nationals · سعوديون'},
-    {n:pct+'%',l:'Saudization % · نسبة السعودة'},
-    {n:needGreen,l:'Needed for Green · للوصول للأخضر'}
-  ];
-  var sh='';
-  stats.forEach(function(s){
-    sh+='<div class="card" style="text-align:center;padding:.9rem"><div style="font-size:1.6rem;font-weight:300;color:var(--sl)">'+s.n+'</div><div style="font-size:.72rem;color:var(--ss);margin-top:.2rem">'+s.l+'</div></div>';
+function hrPrint() {
+  var el = document.getElementById('hrLetterTxt');
+  if (!el) return;
+  var w = window.open('', '_blank');
+  var body = el.textContent.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  w.document.write('<html><head><style>body{font-family:Arial,sans-serif;padding:2cm;line-height:1.85;font-size:13px;white-space:pre-wrap;direction:auto}</style></head><body>' + body + '</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function hrSave() {
+  var el  = document.getElementById('hrLetterTxt');
+  var emp = hrFV('emp') || _hrLetEmp;
+  if (!el || !el.textContent.trim() || !emp) { toast('Select an employee first', false); return; }
+  var lets = hrGetLets(emp);
+  var tmap = {experience:'Experience cert.',salary:'Salary cert.',leave:'Leave approval',warning:'Warning letter',eod:'End of service',memo:'Internal memo'};
+  lets.push({type: tmap[_hrLetType] || _hrLetType, date: new Date().toLocaleDateString('en-GB'), text: el.textContent});
+  hrSaveLets(emp, lets);
+  var sb = document.getElementById('hrSaveBtn');
+  if (sb) { sb.textContent = 'Saved'; sb.disabled = true; }
+  toast('Letter saved for ' + emp, true);
+  if (_hrEmp === emp) hrDetail(emp);
+  hrShowSaved();
+}
+
+function hrViewLet(name, idx) {
+  var lets = hrGetLets(name);
+  var l = lets[idx];
+  if (!l) return;
+  hrTab('letters');
+  document.getElementById('hrLetterTitle').textContent = l.type + ' - ' + l.date;
+  document.getElementById('hrLetterFields').innerHTML = '<p style="font-size:.8rem;color:var(--ss)">Saved letter - ' + esc(name) + '</p>';
+  var tel = document.getElementById('hrLetterTxt');
+  if (tel) tel.textContent = l.text;
+  var out = document.getElementById('hrLetterOut');
+  if (out) out.style.display = '';
+  document.getElementById('hrLetterForm').style.display = 'block';
+  var sb = document.getElementById('hrSaveBtn');
+  if (sb) sb.style.display = 'none';
+  if (out) out.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function hrPrintLet(name, idx) {
+  var lets = hrGetLets(name);
+  var l = lets[idx];
+  if (!l) return;
+  var w = window.open('', '_blank');
+  var body = l.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  w.document.write('<html><head><style>body{font-family:Arial,sans-serif;padding:2cm;line-height:1.85;font-size:13px;white-space:pre-wrap;direction:auto}</style></head><body>' + body + '</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function hrShowSaved() {
+  var card = document.getElementById('hrSavedCard');
+  var list = document.getElementById('hrSavedList');
+  if (!card || !list) return;
+  var html = '';
+  hrAllEmps().forEach(function(e) {
+    var lets = hrGetLets(e.name);
+    if (!lets.length) return;
+    html += '<div style="margin-bottom:.75rem"><div style="font-size:.8rem;font-weight:600;margin-bottom:.3rem">' + esc(e.name) + '</div>';
+    lets.slice().reverse().forEach(function(l, ri) {
+      var idx = lets.length - 1 - ri;
+      html += '<div style="display:flex;align-items:center;gap:7px;padding:4px 8px;border:1px solid var(--brd);border-radius:5px;margin-bottom:2px;font-size:.77rem">';
+      html += '<span style="flex:1">' + esc(l.type) + '</span><span style="color:var(--ss)">' + esc(l.date) + '</span>';
+      html += '<button onclick="hrViewLet(\'' + esc(e.name) + '\',' + idx + ')" style="font-size:.68rem;padding:1px 5px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">View</button>';
+      html += '<button onclick="hrPrintLet(\'' + esc(e.name) + '\',' + idx + ')" style="font-size:.68rem;padding:1px 5px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">Print</button>';
+      html += '</div>';
+    });
+    html += '</div>';
   });
-  document.getElementById('hrNitaqatStats').innerHTML=sh;
-
-  // Band highlight
-  ['platinum','green','yellow','red'].forEach(function(b){
-    var el=document.getElementById('nit-'+b);
-    if(el) el.style.outline=b===band?'3px solid #1e293b':'none';
-  });
-
-  document.getElementById('hrNitaqatDesc').textContent=
-    'Current: '+pct+'% Saudization ('+saudis+' of '+total+'). Band: '+bandLabel+'. '
-    +(pct>=20?'Good standing.':'Need '+needGreen+' more Saudi employee'+(needGreen!==1?'s':'')+' to reach Green (~20% for healthcare sector).');
-
-  // Staff list
-  var lh='<table style="width:100%;border-collapse:collapse;font-size:.82rem">'
-    +'<thead><tr><th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.7rem;color:var(--ss);text-transform:uppercase">Name</th>'
-    +'<th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.7rem;color:var(--ss);text-transform:uppercase">Role</th>'
-    +'<th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.7rem;color:var(--ss);text-transform:uppercase">Nationality</th></tr></thead><tbody>';
-  all.forEach(function(n){
-    var role=(lists.doctors||[]).indexOf(n)>=0?'Doctor':(lists.nurses||[]).indexOf(n)>=0?'Nurse':'Staff';
-    var p=empProfiles[n]||{};
-    var nat=p.nationality||'—';
-    lh+='<tr><td style="padding:7px 8px;border-bottom:1px solid var(--brd)">'+n+'</td>'
-      +'<td style="padding:7px 8px;border-bottom:1px solid var(--brd)"><span style="font-size:.7rem;padding:2px 7px;border-radius:8px;background:#dbeafe;color:#1e40af">'+role+'</span></td>'
-      +'<td style="padding:7px 8px;border-bottom:1px solid var(--brd)">'+(nat==='Saudi'?'🇸🇦 Saudi':'🌐 '+nat)+'</td></tr>';
-  });
-  lh+='</tbody></table>';
-  document.getElementById('hrNitaqatList').innerHTML=lh;
+  list.innerHTML = html || '<p style="font-size:.8rem;color:var(--ss)">No letters saved yet</p>';
+  card.style.display = html ? '' : 'none';
 }
 
-// ══════════════════════════════════════════
-//  RESTORE FROM BACKUP
-// ══════════════════════════════════════════
-function restoreFromBackup(input){
-  var file = input.files[0];
-  if(!file){ return; }
-  if(typeof XLSX==='undefined'){ toast('Excel library not loaded.',false); return; }
-
-  var reader = new FileReader();
-  reader.onload = async function(e){
-    try{
-      var wb = XLSX.read(e.target.result, {type:'array'});
-
-      // Try JSON Restore Data sheet first (most reliable)
-      var jsonSheet = wb.Sheets['JSON Restore Data'];
-      if(jsonSheet){
-        var rows = XLSX.utils.sheet_to_json(jsonSheet, {header:1});
-        var map = {};
-        rows.slice(1).forEach(function(r){ if(r[0]&&r[1]) map[r[0]]=r[1]; });
-
-        if(!map.empProfiles){ toast('Could not find empProfiles in backup file.',false); return; }
-
-        // Confirm before overwriting
-        var confirmMsg = 'RESTORE BACKUP - This will overwrite empProfiles and lists from backup dated: ' + (map.backup_date ? new Date(map.backup_date).toLocaleString() : 'unknown') + ' - Are you sure?';
-        var confirm1 = confirm(confirmMsg);
-        if(!confirm1){ input.value=''; return; }
-
-        toast('Restoring from backup…');
-
-        // Parse and restore empProfiles
-        var ep = typeof map.empProfiles === 'string' ? JSON.parse(map.empProfiles) : map.empProfiles;
-        await saveConfig('empProfiles', ep);
-        empProfiles = ep;
-
-        // Parse and restore lists if present
-        if(map.lists){
-          var ls = typeof map.lists === 'string' ? JSON.parse(map.lists) : map.lists;
-          await saveConfig('lists', ls);
-          lists = ls;
-        }
-
-        toast('✅ Restore complete! Reloading data…', true);
-        setTimeout(function(){ window.location.reload(); }, 1500);
-
-      } else {
-        // Fallback: try Employee Profiles sheet
-        var epSheet = wb.Sheets['Employee Profiles'];
-        if(!epSheet){ toast('No restore data found in this file.',false); return; }
-
-        var epRows = XLSX.utils.sheet_to_json(epSheet, {header:1});
-        var restored = {};
-        epRows.slice(1).forEach(function(r){
-          if(!r[0]) return;
-          restored[r[0]] = {
-            contractStart: r[1]||'',
-            entitledDays: parseInt(r[2])||21,
-            historicalUsed: parseFloat(r[3])||0,
-            email: r[4]||''
-          };
-        });
-
-        if(Object.keys(restored).length === 0){ toast('No employee data found.',false); return; }
-
-        var confirm2 = confirm('Restore '+Object.keys(restored).length+' employee profiles from backup? This overwrites current data.');
-        if(!confirm2){ input.value=''; return; }
-
-        toast('Restoring employee profiles…');
-        await saveConfig('empProfiles', restored);
-        empProfiles = restored;
-        toast('✅ Employee profiles restored! Reloading…', true);
-        setTimeout(function(){ window.location.reload(); }, 1500);
-      }
-    } catch(err){
-      toast('Restore failed: '+err.message, false);
-      console.error('Restore error:', err);
-    }
-    input.value = '';
-  };
-  reader.readAsArrayBuffer(file);
+// ── Nitaqat ──────────────────────────────────
+function hrNitaqat() {
+  var all    = hrAllEmps();
+  var total  = all.length;
+  var saudis = all.filter(function(e) { var p = empProfiles[e.name] || {}; return p.nationality === 'Saudi'; }).length;
+  var pct    = total > 0 ? Math.round((saudis / total) * 100) : 0;
+  var need   = Math.max(0, Math.ceil(0.2 * total) - saudis);
+  var band   = pct >= 40 ? 'platinum' : (pct >= 20 ? 'green' : (pct >= 7 ? 'yellow' : 'red'));
+  var sh = '';
+  [{n:total,l:'Total staff'},{n:saudis,l:'Saudi nationals'},{n:pct+'%',l:'Saudization'},{n:need,l:'Needed for Green'}].forEach(function(s) {
+    sh += '<div class="card" style="text-align:center;padding:.85rem"><div style="font-size:1.55rem;font-weight:300">' + s.n + '</div><div style="font-size:.7rem;color:var(--ss);margin-top:.2rem">' + s.l + '</div></div>';
+  });
+  var ns = document.getElementById('hrNitStats');
+  if (ns) ns.innerHTML = sh;
+  ['platinum','green','yellow','red'].forEach(function(b) {
+    var el = document.getElementById('nit-' + b);
+    if (el) el.style.outline = (b === band) ? '3px solid #1e293b' : 'none';
+  });
+  var desc = document.getElementById('hrNitDesc');
+  if (desc) desc.textContent = 'Current: ' + pct + '% (' + saudis + ' of ' + total + '). Band: ' + band.charAt(0).toUpperCase() + band.slice(1) + '. ' + (pct >= 20 ? 'Good standing.' : 'Need ' + need + ' more Saudi employee' + (need !== 1 ? 's' : '') + ' to reach Green.');
+  var nl = document.getElementById('hrNitList');
+  if (!nl) return;
+  var lh = '<table style="width:100%;border-collapse:collapse;font-size:.81rem"><thead><tr><th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.69rem;color:var(--ss);text-transform:uppercase">Name</th><th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.69rem;color:var(--ss);text-transform:uppercase">Role</th><th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--brd);font-size:.69rem;color:var(--ss);text-transform:uppercase">Nationality</th></tr></thead><tbody>';
+  all.forEach(function(e) {
+    var p = empProfiles[e.name] || {};
+    lh += '<tr><td style="padding:6px 8px;border-bottom:1px solid var(--brd)">' + esc(e.name) + '</td><td style="padding:6px 8px;border-bottom:1px solid var(--brd)"><span style="font-size:.69rem;padding:1px 6px;border-radius:7px;background:#dbeafe;color:#1e40af">' + e.role + '</span></td><td style="padding:6px 8px;border-bottom:1px solid var(--brd)">' + (p.nationality || '-') + '</td></tr>';
+  });
+  nl.innerHTML = lh + '</tbody></table>';
 }
 
 // Show last backup date in Manage tab
@@ -6866,7 +7005,7 @@ function updateBackupLabel(){
 var _origShowPage=showPage;
 showPage=function(id,btn){
   _origShowPage(id,btn);
-  if(id==='hr') hrShowTab('staff');
+  if(id==='hr') hrTab('staff');
   if(id==='manage') updateBackupLabel();
 };
 
