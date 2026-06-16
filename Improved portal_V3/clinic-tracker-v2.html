@@ -6477,6 +6477,30 @@ async function prpDelete(name){
   populateLoginDropdown();
   document.getElementById('loginScreen').classList.remove('hidden');
 
+// Show last backup date in Manage tab
+function updateBackupLabel(){
+  try{
+    var last=localStorage.getItem('nd_last_backup');
+    var lbl=document.getElementById('lastBackupLabel');
+    if(lbl) lbl.textContent='Last backup: '+(last||'never');
+  }catch(e){}
+}
+
+// Hook into showPage to init HR tab
+var _origShowPage=showPage;
+showPage=function(id,btn){
+  _origShowPage(id,btn);
+  if(id==='hr') hrTab('staff');
+  if(id==='manage') updateBackupLabel();
+};
+
+  // Refresh from Supabase silently — but ONLY update dropdown if user hasn't selected yet
+  loadConfig().then(function(){
+    var lu=document.getElementById('lu');
+    if(lu && !lu.value) populateLoginDropdown();
+  }).catch(function(){});
+})();
+
 // ══════════════════════════════════════════
 //  HR MODULE — READ ONLY — NO SUPABASE WRITES
 // ══════════════════════════════════════════
@@ -6529,11 +6553,6 @@ function hrAllEmps() {
 }
 
 function hrRenderGrid() {
-  // If lists not loaded yet, retry after 500ms
-  if (!lists.doctors || !lists.doctors.length && !lists.nurses.length && !lists.staff.length) {
-    setTimeout(hrRenderGrid, 500);
-    return;
-  }
   var rf = (document.getElementById('hrRoleF') || {}).value || '';
   var q  = ((document.getElementById('hrSearch') || {}).value || '').toLowerCase();
   var emps = hrAllEmps().filter(function(e) {
@@ -6992,29 +7011,7 @@ function hrNitaqat() {
   nl.innerHTML = lh + '</tbody></table>';
 }
 
-// Show last backup date in Manage tab
-function updateBackupLabel(){
-  try{
-    var last=localStorage.getItem('nd_last_backup');
-    var lbl=document.getElementById('lastBackupLabel');
-    if(lbl) lbl.textContent='Last backup: '+(last||'never');
-  }catch(e){}
-}
 
-// Hook into showPage to init HR tab
-var _origShowPage=showPage;
-showPage=function(id,btn){
-  _origShowPage(id,btn);
-  if(id==='hr') hrTab('staff');
-  if(id==='manage') updateBackupLabel();
-};
-
-  // Refresh from Supabase silently — but ONLY update dropdown if user hasn't selected yet
-  loadConfig().then(function(){
-    var lu=document.getElementById('lu');
-    if(lu && !lu.value) populateLoginDropdown();
-  }).catch(function(){});
-})();
 </script>
 </body>
 </html>
