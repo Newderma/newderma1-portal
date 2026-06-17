@@ -7004,7 +7004,7 @@ function hrDetail(name) {
   rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Leave balance</div>');
   if (b) {
     rows.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:.7rem">');
-    [{n:b.available+'d',l:'Available'},{n:b.entitled+'d',l:'Entitled/yr'},{n:b.totalUsed+'d',l:'Total used'},{n:b.daysIn+'/334',l:'Year accrual'}].forEach(function(s) {
+    [{n:b.available+'d',l:'Available'},{n:b.entitled+'d',l:'Entitled/yr'},{n:b.totalUsed+'d',l:'Total used'},{n:b.daysIntoYear+'/334',l:'Year accrual'}].forEach(function(s) {
       rows.push('<div style="background:var(--bg);border-radius:6px;padding:.55rem;text-align:center"><div style="font-size:1.05rem;font-weight:500">' + s.n + '</div><div style="font-size:.67rem;color:var(--ss);margin-top:1px">' + s.l + '</div></div>');
     });
     rows.push('</div>');
