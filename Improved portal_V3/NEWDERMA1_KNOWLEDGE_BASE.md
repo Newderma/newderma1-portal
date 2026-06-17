@@ -18,23 +18,16 @@
 | `finance.html` | Bank reconciliation tool | N/A |
 
 ## BACKUP STRATEGY (CRITICAL — learned from June 2026 incident)
-There are THREE things to back up:
 
 ### 1. HTML files (weekly — save to Google Drive)
-- Download latest `clinic-tracker-v2.html` from GitHub
-- Download latest `attendance.html` from GitHub
-- Download latest `finance.html` from GitHub
-- Store in Google Drive folder: `Newderma1 Backups/HTML Files/YYYY-MM-DD/`
-- These contain all the code and logic
+- Download from GitHub → save to `Newderma1 Backups/HTML Files/YYYY-MM-DD/`
 
 ### 2. Supabase data (weekly — use built-in backup button)
-- Log in as GM → Manage tab → scroll to bottom
-- Click **💾 Download Backup** → saves Excel file
-- Store in Google Drive folder: `Newderma1 Backups/Data Backups/`
-- Excel file contains 8 sheets including Employee Profiles and JSON Restore Data
-- To restore: click **♻️ Restore from Backup** → select Excel file → confirm
+- GM → Manage tab → scroll to bottom → **💾 Download Backup**
+- Save to `Newderma1 Backups/Data Backups/`
+- To restore: **♻️ Restore from Backup** → select Excel file → confirm
 
-### 3. What the Excel backup contains
+### 3. Excel backup contains 8 sheets:
 | Sheet | Contents |
 |-------|---------|
 | Payroll History | Doctor payroll records |
@@ -47,88 +40,73 @@ There are THREE things to back up:
 | JSON Restore Data | Raw JSON — paste into Supabase to restore instantly |
 
 ### 4. GitHub is also a code backup
-- Every push to GitHub saves a snapshot of the HTML files
-- Go to github.com/Newderma1/newderma1-portal → commits → click any commit to restore old version
+Every push saves a snapshot. Go to commits to restore old version.
 
 ---
 
 ## SESSION WORKFLOW
 1. Upload this knowledge base file
 2. Upload latest `clinic-tracker-v2.html` → Claude copies to `/home/claude/clinic-tracker-v4.html`
-3. Upload latest `attendance.html` → Claude copies to `/home/claude/attendance-v2.html`
-4. Upload `finance.html` if needed
-5. State the issue clearly
-6. Claude edits, JS syntax checks, copies to `/mnt/user-data/outputs/`
+3. Upload latest `attendance.html` if needed
+4. State the issue clearly
+5. Claude edits, JS syntax checks, copies to `/mnt/user-data/outputs/`
 
 ---
 
-## ⛔ CRITICAL DATA SAFETY RULES — ENFORCE IN EVERY SESSION
+## ⛔ CRITICAL DATA SAFETY RULES
 
 ### Rule 1 — empProfiles STRICT MERGE RULE
-**NEVER reconstruct empProfiles from scratch. ALWAYS read first, merge one field, write back full object.**
-
+**NEVER reconstruct empProfiles from scratch. ALWAYS read first, merge, write back full object.**
 ```javascript
 // CORRECT
 var p = empProfiles[name] || {};
 p.newField = newValue;
 empProfiles[name] = p;
 await saveConfig('empProfiles', empProfiles);
-
-// WRONG — destroys contractStart, historicalUsed, email, etc.
+// WRONG — destroys contractStart, historicalUsed, email
 empProfiles[name] = { contractStart, entitledDays, newField }; // ❌
 ```
+**Fields to always preserve:** `contractStart`, `entitledDays`, `historicalUsed`, `email`
 
-**Fields that must always be preserved:**
-- `contractStart` — leave balance depends on this
-- `entitledDays` — leave entitlement
-- `historicalUsed` — pre-app leave days (critical for balance)
-- `email` — vacation notification emails
-
-### Rule 2 — New tools are READ-ONLY by default
-- Any new feature connecting to Supabase: read only unless explicitly confirmed
-- If a write is needed: state exactly what table, key, and fields will be written
-- Never call saveConfig from new code without GM confirmation
+### Rule 2 — New tools READ-ONLY by default
+Any new feature: read only unless explicitly confirmed. Never call saveConfig from new code without GM confirmation.
 
 ### Rule 3 — New features go INSIDE the tracker as tabs
-- No separate HTML portals that share the same Supabase
-- Separate files only for truly independent tools (finance.html, attendance.html)
-- The HR portal incident (June 2026): separate file wrote to empProfiles, wiped all email and contract data
+No separate HTML portals sharing Supabase. The HR portal incident (June 2026) wiped all email and contract data.
 
-### Rule 4 — Safe isolated config keys for new features
-- `hr_driveLinks` — Drive folder URLs per employee (localStorage only, not Supabase)
-- Never write to: `lists`, `empProfiles`, `staffPasswords`, `adminPassword`, `staffPrivileges`, `annualDays` from new code
+### Rule 4 — Safe isolated config keys
+- `hr_driveLinks` — Drive folder URLs (localStorage only)
+- Never write to: `lists`, `empProfiles`, `staffPasswords`, `adminPassword`, `staffPrivileges`, `annualDays`
 
-### Rule 5 — Test before production
-- If new code must write to Supabase, test with a throwaway key first
-- Always syntax-check JS with node before delivering
+### Rule 5 — HR JS functions MUST be after })();
+HR module functions are global — they must be placed AFTER the IIFE `})();` closing in the script tag. Placing them inside the IIFE makes them invisible to HTML onclick handlers.
+
+### Rule 6 — No id/function name conflicts
+Never name a div with the same id as a function. e.g. `id="hrGrid"` with `function hrGrid()` — browser treats div as the function. Use `id="hrStaffGrid"` with `function hrRenderGrid()`.
 
 ---
 
 # MODULE 1 — CLINIC TRACKER (`clinic-tracker-v2.html`)
 
 ## Access & Roles
-- **GM (General Manager):** Full access — all tabs, all data, approve vacations, run payroll
-- **Doctor:** Records entry, own vacation, own balance
-- **Nurse:** Records entry, own vacation, own balance
-- **Other Staff:** Vacation only (default), configurable per-staff
-- **Remote Staff:** Hidden from login — managed by GM only via Manage tab
-- GM login: select "General Manager" → admin password
-- Staff login: select name → staff password
+- **GM:** Full access — all tabs, all data
+- **Doctor/Nurse:** Records entry, own vacation, own balance
+- **Other Staff:** Vacation only (default)
+- **Remote Staff:** Hidden from login — GM only via Manage tab
 
-## Navigation (GM only)
-`Costs · Records · Dashboard · Utilization · Vacation · Payroll · HR · Manage`
+## Navigation (GM only) — 7 tabs as of June 2026
+`Costs · Records · Dashboard · Utilization · HR · Payroll · Finance · Manage`
 
-Finance tab opens `https://newderma1.netlify.app/finance.html` in new tab using `window.open()` via `openFinance()` function — NOT part of showPage system.
-
-HR tab added June 2026 — GM only, read-only, no Supabase writes.
+Note: "Vacation" tab was renamed to "HR" in June 2026 merge.
+Finance tab opens `finance.html` in new tab via `openFinance()` — NOT part of showPage system.
 
 ## Database Tables
 | Table | Contents |
 |-------|---------|
 | `ct_records` | Procedure records |
-| `ct_vacation` | Vacation requests (has `selected_dates` TEXT column) |
+| `ct_vacation` | Vacation requests (`selected_dates` TEXT column) |
 | `ct_config` | All config as key/value pairs |
-| `att_config` | Attendance config (also stores `autoStaff` list) |
+| `att_config` | Attendance config + `autoStaff` list |
 
 ## Config Keys in `ct_config`
 `lists` · `itemCosts` · `annualDays` · `staffPasswords` · `adminPassword` · `empProfiles` · `shiftHours` · `staffPrivileges` · `emailjsConfig` · `autoStaff`
@@ -138,32 +116,52 @@ HR tab added June 2026 — GM only, read-only, no Supabase writes.
 lists = { doctors:[], nurses:[], procedures:[], items:[], areas:[], staff:[], logo:'' }
 empProfiles = { "Name": { contractStart, entitledDays, historicalUsed, email } }
 staffPrivileges = { "Name": ["entry","records","vacation"] }
-itemCosts = { "ItemName": costPerMl }
-drProfiles = { "Name": { type, rent, salary, gosi, sharedSalary, baseSalary, threshold, perfPct } }
 autoStaff = ["Name1","Name2"] // remote staff
 ```
 
 ## Employee Profile IDs
-**CRITICAL:** Uses index-based IDs (`emp_0`, `emp_1`...) NOT name-based.
+**CRITICAL:** Uses index-based IDs (`emp_0`, `emp_1`) NOT name-based.
 Both `renderEmpProfiles()` and `saveEmpProfiles()` use `all.forEach(function(emp, idx)`.
-Arabic names would collide if name-based IDs were used.
 
 ## Arabic Name Matching — CRITICAL
-empProfiles keys must match lists.staff/doctors/nurses EXACTLY including:
+empProfiles keys must match lists.staff/doctors/nurses EXACTLY:
 - ة vs ه (taa marbuta vs haa)
 - ى vs ي (alef maqsura vs yaa)
-- Spacing differences
 - ق vs ف differences
+- Spacing differences
 
-Always verify with: `console.log(JSON.stringify(lists.staff))` and `console.log(JSON.stringify(Object.keys(empProfiles)))` to compare spelling before fixing.
+Verify with: `console.log(JSON.stringify(lists.staff))` and `console.log(JSON.stringify(Object.keys(empProfiles)))`
 
-## Records System
-- Items stored as objects: `{name, qty, sellPerMl, costPerMl, totalSell, totalCost, profit}`
-- Patient history filtered by `patientId` (file number) first, falls back to name
-- `openPatientHistory(name, pid)` — takes both params
-- Edit modal: `costPerMl` falls back to `itemCosts[name]` if 0/missing
-- Filters: Search · Doctor · Nurse · Month · Item · Procedure
-- `exportRecXLS()` respects ALL active filters
+## HR Tab (merged into Vacation tab — June 2026)
+The old separate "HR" tab was merged into the "Vacation" tab which was renamed "HR".
+
+### Sub-tabs (GM only):
+- **New Request** — existing vacation request form (untouched)
+- **Pending** — existing pending approvals (untouched)
+- **Balances** — existing leave balances (untouched)
+- **History** — existing leave history (untouched)
+- **Staff & Docs** — NEW: staff cards with document status
+- **Letters** — NEW: HR letter generator
+
+### Staff & Docs features:
+- Cards showing all staff with role badge, leave balance bar, 8 document dots
+- Click card → detail panel with leave balance, leave history, document checklist, Drive folder, letters
+- Document dots: 🟢 green = Drive link uploaded, 🔴 red = no link yet
+- Drive folder links and document status stored in localStorage (NOT Supabase)
+- localStorage key pattern: `hr_` + btoa(name) + `_` + suffix (docs/url/lets)
+
+### Letters features:
+- 6 letter types: experience cert, salary cert, leave approval, warning, end of service, internal memo
+- Bilingual Arabic/English generated locally (no API)
+- Letters saved to localStorage per employee, can be viewed and reprinted
+- Click "+ Letter" in staff detail to generate for that person
+
+### Nitaqat:
+- Was a separate sub-tab in old HR tab, NOT included in merged version
+- Can be added back later if needed
+
+## HR Functions (global — after })(); in script)
+Key functions: `hrGrid()`, `hrSelect(name)`, `hrSelectEl(el)`, `hrDetail(name)`, `hrClose()`, `hrDocToggle(name,docId)`, `hrDocLink(name,docId)`, `hrEditUrl(name)`, `hrLetter(type)`, `hrLetter2(type,empName)`, `hrGenerate()`, `hrCopy()`, `hrPrint()`, `hrSave()`, `hrViewLet(name,idx)`, `hrPrintLet(name,idx)`, `hrShowSaved()`, `hrAllEmps()`
 
 ## Vacation System
 
@@ -174,7 +172,7 @@ Always verify with: `console.log(JSON.stringify(lists.staff))` and `console.log(
 | Emergency Leave | ✅ Yes |
 | Unpaid Leave | ✅ Yes |
 | Sick Leave | ❌ No |
-| Maternity Leave | ❌ No (up to 70 days paid separately) |
+| Maternity Leave | ❌ No |
 
 ### Balance Formula
 ```
@@ -184,32 +182,24 @@ totalEarned = (completedYears × entitled) + accruedThis
 available = max(totalEarned − historicalUsed − appUsed, 0)
 ```
 
-### Vacation Tabs
-- **GM:** New Request · Pending · Balances · History
-- **Staff:** Submit · My Requests · My Balance · My History
-- Default landing: Submit/New Request for ALL users
-- Multi-day: toggle calendar picker → stored as JSON in `selected_dates`
-- `normVac(r)` parses `selected_dates` into `r.selectedDates`
-- GM can submit on behalf of ANY staff including remote staff
-- `populateVacEmp()` includes doctors + nurses + all staff for GM
+### calcBalance() returns:
+`{ available, entitled, totalUsed, daysIntoYear, completedYears, accrualPct }`
+Note: field is `daysIntoYear` NOT `daysIn`
 
-### Vacation PDF
-Bilingual EN/AR, shows selected days or date range, clinic logo in header.
-Generated by `generateVacPDF(vacId)` — opens in new window.
+### showVTab(id, btn) handles all sub-tab switching
+```javascript
+if(id==='staff')   { hrGrid(); }
+if(id==='letters') { hrShowSaved(); }
+```
 
 ## Payroll System
 
 ### Three Types
-| Type | Formula |
-|------|---------|
-| **Renting** | Gross − VAT − Monthly Expenses − Salary − GOSI − Special + RentExternal + Addition + CarryForward |
-| **Shared Partner** | Net×50% − Lab − Chair − Salary − Special + External + Addition + CarryForward. **Tabby deducted** |
-| **Salary+Performance** | if Net+SpExternal > Threshold: (Excess × Perf%) + BaseSalary − Deductions + Addition. **Tabby NOT deducted** |
-
-### Carry-Forward
-- Stored as: `prCarryDeduct` and `prCarryAdd` (hidden inputs)
-- `netOwed` = this-month only (for ledger running balance)
-- `grandTotal` = including carry-forward (for PDF and history display)
+| Type | Tabby deducted? |
+|------|----------------|
+| Renting | ✅ Yes |
+| Shared Partner | ✅ Yes |
+| Salary+Performance | ❌ No |
 
 ### Saved Record Structure
 ```javascript
@@ -217,101 +207,65 @@ Generated by `generateVacPDF(vacId)` — opens in new window.
   netOwed, grandTotal, rows, savedAt, baseSalary, perfBonus }
 ```
 
-## HR Tab (added June 2026)
-- GM only, read-only — zero Supabase writes
-- Staff directory with leave balance cards
-- HR letter generator (6 types, bilingual AR/EN, local templates — no API)
-- Nitaqat/Saudization tracker
-- Drive folder links stored in localStorage only (not Supabase)
-
 ## Backup & Restore (added June 2026)
-- Location: Manage tab → bottom card "🗄️ Data Backup & Restore"
-- **💾 Download Backup** → exports 8-sheet Excel file
-- **♻️ Restore from Backup** → reads JSON Restore Data sheet → restores empProfiles + lists to Supabase
-- Records last backup time in localStorage
+- Location: **Manage tab → bottom → "🗄️ Data Backup & Restore"**
+- **💾 Download Backup** → exports 8-sheet Excel
+- **♻️ Restore from Backup** → reads JSON Restore Data sheet → restores to Supabase
+- Records last backup time in localStorage key `nd_last_backup`
 
 ## Remote Staff System
-
-### Storage
-- `autoStaff` array stored in BOTH `ct_config` AND `att_config`
-- `mirrorAutoStaffToAtt()` writes to `att_config` whenever list changes
-
-### Adding Remote Staff
-`addAutoStaff()` does ALL of:
-1. Adds to `autoStaff` → saves to `ct_config`
-2. Mirrors to `att_config`
-3. Adds to Other Staff list
-4. Creates blank `empProfile`
-5. Adds to attendance `attStaff` list
+- `autoStaff` stored in BOTH `ct_config` AND `att_config`
+- `addAutoStaff()` syncs everywhere automatically
+- Hidden from login, vacation form (non-GM), live board login
+- Auto-attendance: Sat–Thu, 2–10 PM, skips Fridays and approved vacation
 
 ---
 
 # MODULE 2 — ATTENDANCE (`attendance.html`)
 
-## Access
-- **Admin:** "Admin (General Manager)" → admin password
-- **Staff:** Select name → password (or PIN on touchscreen)
-- Remote Staff: NOT in login dropdown
-
-## Supabase Tables
-| Table | Contents |
-|-------|---------|
-| `att_records` | Clock-in/out records |
-| `att_config` | Staff list, settings, remote staff |
-| `ct_vacation` | Read-only — skip approved vacation days |
-
 ## Auto-Attendance (Remote Staff)
-- Runs on every app load via `runAutoAttendance()`
-- Skips Fridays, existing records, approved vacation days
-- Clock-in: 1:50–2:10 PM random · Clock-out: 9:50–10:05 PM random
+- Runs on every load via `runAutoAttendance()`
 - Loop ceiling: YESTERDAY only (never includes today)
+- Clock-in: 1:50–2:10 PM · Clock-out: 9:50–10:05 PM
 
 ---
 
 # MODULE 3 — BANK RECONCILIATION (`finance.html`)
-
-## Purpose
-Match internal accounting (M3N) entries against bank statements.
-
-## Matching Logic
-1. POS Sales — match by reference number
-2. Fee/VAT — group by ref, compare totals
-3. Other — match bank OTHER entries to internal TRANSFER/OTHER
+Match M3N accounting entries against bank statements.
 
 ---
 
 # WORKING DAY RULES
 - Working days: Saturday – Thursday
 - Day off: Friday (getDay() === 5)
-- Remote staff shift: 2:00 PM – 10:00 PM (UTC+3)
 - Default entitled days: 21 days/year
-- Tabby fee: 10% of Tabby/Tamara income
-- GPS radius: 150 meters default
-- Grace period: 10 minutes default
-- Accrual period: 334 days (11 months)
+- Tabby fee: 10%
+- GPS radius: 150m · Grace period: 10 min
+- Accrual period: 334 days
 
 ---
 
 # KNOWN BUGS FIXED
 1. Arabic names in empProfiles → use index IDs (emp_0, emp_1)
-2. Duplicate generateVacPDF → old Arabic version removed
-3. normVac wasn't parsing selected_dates → fixed
-4. exportRecXLS ignored item/procedure filters → fixed
-5. Vacation form not cleared between users → clearVac() in doLogout and startApp
-6. Request date used form field → now always new Date() on submit
-7. saveItemCosts was sequential → now parallel batches of 20
-8. Patient history matched by name only → now matches by patientId first
-9. SP deductions resetting to 0 on edit → fixed label matching
-10. Finance tab blanking page → openFinance() outside showPage system
-11. Ledger double-counting carry-forward → strips carry-forward rows automatically
-12. Monthly Expenses doubled on edit → excluded from specRow search
-13. prOnMonthChange() → prEditHistory() for saved, prResetToProfileDefaults() for new
-14. Summary bar showed negative → absolute value, hidden for specific doctor filter
-15. Remote staff auto-attendance included today → fixed to stop at yesterday only
-16. HR portal (June 2026) overwrote empProfiles → wiped contractStart and email for all staff. Recovered from localStorage hr_portal_cache. Safety rules added.
-17. Arabic name mismatches between lists and empProfiles → ة/ه, ى/ي, ق/ف differences cause "No contract date set". Fix by renaming empProfiles keys to match lists exactly via console.
+2. HR functions inside IIFE → not global → moved after })();
+3. div id="hrGrid" conflicted with function hrGrid() → renamed to hrStaffGrid
+4. hrGrid() used getElementById('hrGrid') after rename → fixed to hrStaffGrid
+5. calcBalance returns daysIntoYear not daysIn → fixed in HR detail panel
+6. Document dot showed red even with Drive link → fixed: green = has URL, red = no URL
+7. HR portal (June 2026) overwrote empProfiles → wiped contractStart and email. Recovered from localStorage hr_portal_cache.
+8. Arabic name mismatches (ة/ه, ى/ي, ق/ف) → fix by renaming empProfiles keys to match lists exactly via console
+9. empProfiles stored as double-encoded string → parsed and re-saved correctly
+10. Duplicate })(); before HR block → removed
+11. hrRenderGrid called but function named hrGrid → fixed all references
 
 ---
 
-*Last updated: June 2026 — Newderma1 Medical Center, Jeddah KSA*
-*Major update: HR portal incident recovery + backup system added*
+## NEXT SESSION — PENDING WORK
+- HR letter generator: make print output look professional with logo, proper layout (Option 1 mockup shown, approved for build)
+- Option 2: upload letterhead image as background
+- Option 3: Canva integration for letters
+
+---
+
+*Last updated: June 17, 2026 — Newderma1 Medical Center, Jeddah KSA*
+*Major updates: HR tab merged into Vacation tab, staff cards working, document tracking, letter generator*
