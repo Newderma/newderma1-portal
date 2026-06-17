@@ -6913,8 +6913,10 @@ function hrGrid() {
   });
   var rows = [];
   emps.forEach(function(e) {
+    try {
     var p   = empProfiles[e.name] || {};
-    var b   = p.contractStart ? calcBalance(e.name) : null;
+    var b   = null;
+    try { b = p.contractStart ? calcBalance(e.name) : null; } catch(x) { b = null; }
     var sel = (_hrEmp === e.name);
     var ini = e.name.split(' ').slice(0,2).map(function(w) { return w[0] || ''; }).join('').toUpperCase();
     var abg = e.role === 'Doctor' ? '#dbeafe' : (e.role === 'Nurse' ? '#d1fae5' : '#f1f5f9');
@@ -6943,8 +6945,9 @@ function hrGrid() {
       + '<span style="font-size:.7rem;color:var(--ss)">Docs ' + present + '/' + HR_DOCS.length + '</span>'
       + '<div>' + dots + '</div></div></div>';
     rows.push(card);
+    } catch(ex) { console.warn('hrGrid card error:', ex, e.name); }
   });
-  var g = document.getElementById('hrGrid');
+  var g = document.getElementById('hrStaffGrid');
   if (g) g.innerHTML = rows.length ? rows.join('') : '<p class="norec">No staff found</p>';
   if (_hrEmp) hrDetail(_hrEmp);
 }
