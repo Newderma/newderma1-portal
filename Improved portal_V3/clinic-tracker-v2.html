@@ -6924,7 +6924,7 @@ function hrGrid() {
     var docs    = hrGetDocs(e.name);
     var present = HR_DOCS.filter(function(d) { return docs[d.id]; }).length;
     var dots    = HR_DOCS.map(function(d) {
-      var c = docs[d.id] ? '#16a34a' : '#ef4444';
+      var c = docs[d.id + '_url'] ? '#16a34a' : '#ef4444';
       return '<span title="' + esc(d.label) + '" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + c + ';margin:1px"></span>';
     }).join('');
     var balTxt = b ? (b.available + 'd of ' + b.entitled) : 'No contract';
@@ -7030,7 +7030,7 @@ function hrDetail(name) {
   rows.push('<div>');
   rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Required documents</div>');
   HR_DOCS.forEach(function(d) {
-    var has    = !!docs[d.id];
+    var has    = !!docs[d.id + '_url'];
     var docUrl = docs[d.id + '_url'] || '';
     var dotC   = has ? '#16a34a' : '#ef4444';
     var rowBg  = has ? '' : 'background:#fff5f5;';
@@ -7041,7 +7041,6 @@ function hrDetail(name) {
       rows.push('<a href="' + esc(docUrl) + '" target="_blank" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--w);color:var(--sl);text-decoration:none">View</a>');
     }
     rows.push('<button onclick="hrDocLink(\'' + esc(name) + '\',\'' + d.id + '\')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">' + (docUrl ? 'Edit' : '+ Link') + '</button>');
-    rows.push('<button onclick="hrDocToggle(\'' + esc(name) + '\',\'' + d.id + '\')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit;color:' + (has ? '#dc2626' : '#16a34a') + '">' + (has ? 'Missing' : 'Present') + '</button>');
     rows.push('</div>');
   });
   rows.push('</div>');
@@ -7076,6 +7075,8 @@ function hrClose() {
 function hrDocToggle(name, docId) {
   var d = hrGetDocs(name);
   d[docId] = !d[docId];
+  // If marking missing, also clear the URL
+  if (!d[docId]) { delete d[docId + '_url']; }
   hrSaveDocs(name, d);
   hrDetail(name);
   hrGrid();
