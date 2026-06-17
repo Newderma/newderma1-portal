@@ -7190,6 +7190,97 @@ function hrFmtEN(d) {
   try { return new Date(d).toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'}); } catch(x) { return d; }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// LETTER WORDING — edit the text below to change what gets printed.
+// {{token}} placeholders are filled in automatically from the form.
+// CA/CL = clinic name (Arabic/English), JA/JE = city+country, tAR/tEN = today's date.
+// Each letter type has an "ar" (Arabic) and "en" (English) version.
+// ─────────────────────────────────────────────────────────────────
+var HR_LETTER_TEMPLATES = {
+  experience: {
+    ar:
+      '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' +
+      '{{CA}} - {{JA}}\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{tAR}}\n\n' +
+      '\u0634\u0647\u0627\u062f\u0629 \u062e\u0628\u0631\u0629\n' + new Array(39).join('=') + '\n\n' +
+      '\u062a\u0634\u0647\u062f \u0625\u062f\u0627\u0631\u0629 {{CA}} \u0628\u0623\u0646 \u0627\u0644\u0645\u0648\u0638\u0641/\u0629:\n\n' +
+      '\u0627\u0644\u0627\u0633\u0645: {{emp}}\n\u0627\u0644\u0645\u0633\u0645\u0649: {{pos}}\n\u0641\u062a\u0631\u0629 \u0627\u0644\u0639\u0645\u0644: \u0645\u0646 {{fromAR}} \u0625\u0644\u0649 {{toAR}}\n\n' +
+      '\u0642\u062f \u0623\u062f\u0649/\u0623\u062f\u062a \u0645\u0647\u0627\u0645\u0647/\u0647\u0627 \u0628\u0643\u0641\u0627\u0621\u0629. \u0646\u062a\u0645\u0646\u0649 \u0644\u0647/\u0644\u0647\u0627 \u0627\u0644\u062a\u0648\u0641\u064a\u0642.\n\n' +
+      '\u0635\u062f\u0631 \u0641\u064a \u062c\u062f\u0629: {{tAR}}\n\n\u0627\u0644\u062e\u062a\u0645 \u0648\u0627\u0644\u062a\u0648\u0642\u064a\u0639\n{{CA}}',
+    en:
+      'In the Name of Allah, the Most Gracious, the Most Merciful\n\n' +
+      '{{CL}} - {{JE}}\nDate: {{tEN}}\n\nEXPERIENCE CERTIFICATE\n' + new Array(39).join('=') + '\n\n' +
+      'Name:     {{emp}}\nPosition: {{pos}}\nPeriod:   From {{fromEN}} to {{toEN}}\n\n' +
+      'Has performed duties diligently. We wish them success.\n\n' +
+      'Issued in Jeddah: {{tEN}}\n\nStamp & Signature\n{{CL}}'
+  },
+  salary: {
+    ar:
+      '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' +
+      '{{CA}}\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{dateAR}}\n\n' +
+      '\u0634\u0647\u0627\u062f\u0629 \u0631\u0627\u062a\u0628\n' + new Array(39).join('=') + '\n\n' +
+      '\u0627\u0644\u0627\u0633\u0645: {{emp}}\n\u0627\u0644\u0631\u0627\u062a\u0628 \u0627\u0644\u0634\u0647\u0631\u064a: {{amount}} \u0631\u064a\u0627\u0644 \u0633\u0639\u0648\u062f\u064a\n\n' +
+      '\u0635\u062f\u0631\u062a \u0628\u0646\u0627\u0621 \u0639\u0644\u0649 \u0637\u0644\u0628\u0647/\u0637\u0644\u0628\u0647\u0627.\n\n' +
+      '\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{dateAR}}\n\n\u0627\u0644\u062e\u062a\u0645 \u0648\u0627\u0644\u062a\u0648\u0642\u064a\u0639\n{{CA}}',
+    en:
+      '{{CL}} - {{JE}}\nDate: {{dateEN}}\n\nSALARY CERTIFICATE\n' + new Array(39).join('=') + '\n\n' +
+      'Name:           {{emp}}\nMonthly Salary: SAR {{amount}}\n\n' +
+      'Issued upon request.\n\nDate: {{dateEN}}\n\nStamp & Signature\n{{CL}}'
+  },
+  leave: {
+    ar:
+      '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' +
+      '{{CA}}\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{tAR}}\n\n' +
+      '\u0645\u0648\u0627\u0641\u0642\u0629 \u0625\u062c\u0627\u0632\u0629\n' + new Array(39).join('=') + '\n\n' +
+      '\u0625\u0644\u0649: {{emp}}\n\n\u0646\u0648\u0639 \u0627\u0644\u0625\u062c\u0627\u0632\u0629: {{ltype}}\n\u0645\u0646: {{fromAR}}\n\u0625\u0644\u0649: {{toAR}}\n\u0639\u062f\u062f \u0627\u0644\u0623\u064a\u0627\u0645: {{days}}\n\n' +
+      '\u062a\u0645\u062a \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629. \u0646\u062a\u0645\u0646\u0649 \u0644\u0643\u0645 \u0625\u062c\u0627\u0632\u0629 \u0633\u0639\u064a\u062f\u0629.\n\n\u0625\u062f\u0627\u0631\u0629 {{CA}}',
+    en:
+      '{{CL}} - {{JE}}\nDate: {{tEN}}\n\nLEAVE APPROVAL\n' + new Array(39).join('=') + '\n\n' +
+      'To: {{emp}}\n\nLeave Type: {{ltype}}\nFrom:       {{fromEN}}\nTo:         {{toEN}}\nDays:       {{days}}\n\n' +
+      'Approved. Have a pleasant leave.\n\nManagement, {{CL}}'
+  },
+  warning: {
+    ar:
+      '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' +
+      '{{CA}}\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{dateAR}}\n\n' +
+      '\u062e\u0637\u0627\u0628 \u062a\u062d\u0630\u064a\u0631 \u0631\u0633\u0645\u064a\n' + new Array(39).join('=') + '\n\n' +
+      '\u0625\u0644\u0649: {{emp}}\n\n\u0627\u0644\u0645\u062e\u0627\u0644\u0641\u0629:\n{{violation}}\n\n' +
+      '\u0646\u062d\u0630\u0631\u0643\u0645 \u0631\u0633\u0645\u064a\u0627\u064b. \u062a\u0643\u0631\u0627\u0631 \u0647\u0630\u0627 \u0642\u062f \u064a\u0639\u0631\u0636\u0643\u0645 \u0644\u0639\u0642\u0648\u0628\u0627\u062a \u0648\u0641\u0642\u0627\u064b \u0644\u0646\u0638\u0627\u0645 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0633\u0639\u0648\u062f\u064a.\n\n\u0625\u062f\u0627\u0631\u0629 {{CA}}',
+    en:
+      '{{CL}} - {{JE}}\nDate: {{dateEN}}\n\nFORMAL WARNING LETTER\n' + new Array(39).join('=') + '\n\n' +
+      'To: {{emp}}\n\nViolation:\n{{violation}}\n\n' +
+      'Formally warned. Repetition may result in action per Saudi Labor Law.\n\nManagement, {{CL}}'
+  },
+  eod: {
+    ar:
+      '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' +
+      '{{CA}}\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{tAR}}\n\n' +
+      '\u062e\u0637\u0627\u0628 \u0646\u0647\u0627\u064a\u0629 \u062e\u062f\u0645\u0629\n' + new Array(39).join('=') + '\n\n' +
+      '\u0627\u0644\u0627\u0633\u0645: {{emp}}\n\u0627\u0644\u0645\u0633\u0645\u0649: {{pos}}\n\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0627\u0646\u062a\u0647\u0627\u0621: {{endDateAR}}\n\u0627\u0644\u0633\u0628\u0628: {{reason}}\n\n' +
+      '\u0646\u0634\u0643\u0631\u0643\u0645 \u0639\u0644\u0649 \u062c\u0647\u062f\u0643\u0645 \u0648\u0646\u062a\u0645\u0646\u0649 \u0644\u0643\u0645 \u0627\u0644\u062a\u0648\u0641\u064a\u0642.\n\n\u0625\u062f\u0627\u0631\u0629 {{CA}}',
+    en:
+      '{{CL}} - {{JE}}\nDate: {{tEN}}\n\nEND OF SERVICE\n' + new Array(39).join('=') + '\n\n' +
+      'Name:     {{emp}}\nPosition: {{pos}}\nEnd Date: {{endDateEN}}\nReason:   {{reason}}\n\n' +
+      'Thank you for your service.\n\nManagement, {{CL}}'
+  },
+  memo: {
+    ar:
+      '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' +
+      '{{CA}}\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{dateAR}}\n\n' +
+      '\u0645\u0630\u0643\u0631\u0629 \u062f\u0627\u062e\u0644\u064a\u0629\n' + new Array(39).join('=') + '\n\n' +
+      '\u0625\u0644\u0649: {{to}}\n\u0627\u0644\u0645\u0648\u0636\u0648\u0639: {{subject}}\n\n{{body}}\n\n\u0625\u062f\u0627\u0631\u0629 {{CA}}',
+    en:
+      '{{CL}}\nDate: {{dateEN}}\n\nINTERNAL MEMO\n' + new Array(39).join('=') + '\n\n' +
+      'To:      {{to}}\nSubject: {{subject}}\n\n{{body}}\n\nManagement, {{CL}}'
+  }
+};
+
+// Fills {{token}} placeholders in a template string with values from the map.
+function hrFillTemplate(tpl, vals) {
+  return tpl.replace(/\{\{(\w+)\}\}/g, function(m, key) {
+    return (vals[key] !== undefined && vals[key] !== null) ? vals[key] : '';
+  });
+}
+
 function hrBuildLetter() {
   var t   = _hrLetType;
   var emp = hrFV('emp') || _hrLetEmp;
@@ -7202,40 +7293,35 @@ function hrBuildLetter() {
   var tEN  = hrFmtEN(now);
   var SEP  = '\n' + new Array(51).join('-') + '\n\n';
 
-  if (t === 'experience') {
-    var fAR = hrFmtAR(hrFV('from')), toAR = hrFmtAR(hrFV('to'));
-    var fEN = hrFmtEN(hrFV('from')), toEN = hrFmtEN(hrFV('to'));
-    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + ' - ' + JA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + tAR + '\n\n\u0634\u0647\u0627\u062f\u0629 \u062e\u0628\u0631\u0629\n' + new Array(39).join('=') + '\n\n\u062a\u0634\u0647\u062f \u0625\u062f\u0627\u0631\u0629 ' + CA + ' \u0628\u0623\u0646 \u0627\u0644\u0645\u0648\u0638\u0641/\u0629:\n\n\u0627\u0644\u0627\u0633\u0645: ' + emp + '\n\u0627\u0644\u0645\u0633\u0645\u0649: ' + hrFV('pos') + '\n\u0641\u062a\u0631\u0629 \u0627\u0644\u0639\u0645\u0644: \u0645\u0646 ' + fAR + ' \u0625\u0644\u0649 ' + toAR + '\n\n\u0642\u062f \u0623\u062f\u0649/\u0623\u062f\u062a \u0645\u0647\u0627\u0645\u0647/\u0647\u0627 \u0628\u0643\u0641\u0627\u0621\u0629. \u0646\u062a\u0645\u0646\u0649 \u0644\u0647/\u0644\u0647\u0627 \u0627\u0644\u062a\u0648\u0641\u064a\u0642.\n\n\u0635\u062f\u0631 \u0641\u064a \u062c\u062f\u0629: ' + tAR + '\n\n\u0627\u0644\u062e\u062a\u0645 \u0648\u0627\u0644\u062a\u0648\u0642\u064a\u0639\n' + CA
-      + SEP + 'In the Name of Allah, the Most Gracious, the Most Merciful\n\n' + CL + ' - ' + JE + '\nDate: ' + tEN + '\n\nEXPERIENCE CERTIFICATE\n' + new Array(39).join('=') + '\n\nName:     ' + emp + '\nPosition: ' + hrFV('pos') + '\nPeriod:   From ' + fEN + ' to ' + toEN + '\n\nHas performed duties diligently. We wish them success.\n\nIssued in Jeddah: ' + tEN + '\n\nStamp & Signature\n' + CL;
+  var tpl = HR_LETTER_TEMPLATES[t];
+  if (!tpl) return '';
+
+  var vals = {
+    CA: CA, CL: CL, JA: JA, JE: JE, tAR: tAR, tEN: tEN, emp: emp,
+    pos: hrFV('pos'),
+    amount: hrFV('amount'),
+    ltype: hrFV('ltype') || 'Annual Leave',
+    days: hrFV('days'),
+    violation: hrFV('violation'),
+    reason: hrFV('reason'),
+    to: hrFV('to'),
+    subject: hrFV('subject'),
+    body: hrFV('body')
+  };
+  if (hrFV('from') || hrFV('to')) {
+    vals.fromAR = hrFmtAR(hrFV('from')); vals.fromEN = hrFmtEN(hrFV('from'));
+    vals.toAR   = hrFmtAR(hrFV('to'));   vals.toEN   = hrFmtEN(hrFV('to'));
   }
-  if (t === 'salary') {
-    var dAR = hrFmtAR(hrFV('date')), dEN = hrFmtEN(hrFV('date'));
-    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + dAR + '\n\n\u0634\u0647\u0627\u062f\u0629 \u0631\u0627\u062a\u0628\n' + new Array(39).join('=') + '\n\n\u0627\u0644\u0627\u0633\u0645: ' + emp + '\n\u0627\u0644\u0631\u0627\u062a\u0628 \u0627\u0644\u0634\u0647\u0631\u064a: ' + hrFV('amount') + ' \u0631\u064a\u0627\u0644 \u0633\u0639\u0648\u062f\u064a\n\n\u0635\u062f\u0631\u062a \u0628\u0646\u0627\u0621 \u0639\u0644\u0649 \u0637\u0644\u0628\u0647/\u0637\u0644\u0628\u0647\u0627.\n\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + dAR + '\n\n\u0627\u0644\u062e\u062a\u0645 \u0648\u0627\u0644\u062a\u0648\u0642\u064a\u0639\n' + CA
-      + SEP + CL + ' - ' + JE + '\nDate: ' + dEN + '\n\nSALARY CERTIFICATE\n' + new Array(39).join('=') + '\n\nName:           ' + emp + '\nMonthly Salary: SAR ' + hrFV('amount') + '\n\nIssued upon request.\n\nDate: ' + dEN + '\n\nStamp & Signature\n' + CL;
+  if (hrFV('date')) {
+    vals.dateAR = hrFmtAR(hrFV('date')); vals.dateEN = hrFmtEN(hrFV('date'));
   }
-  if (t === 'leave') {
-    var fAR = hrFmtAR(hrFV('from')), toAR = hrFmtAR(hrFV('to'));
-    var fEN = hrFmtEN(hrFV('from')), toEN = hrFmtEN(hrFV('to'));
-    var lt  = hrFV('ltype') || 'Annual Leave';
-    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + tAR + '\n\n\u0645\u0648\u0627\u0641\u0642\u0629 \u0625\u062c\u0627\u0632\u0629\n' + new Array(39).join('=') + '\n\n\u0625\u0644\u0649: ' + emp + '\n\n\u0646\u0648\u0639 \u0627\u0644\u0625\u062c\u0627\u0632\u0629: ' + lt + '\n\u0645\u0646: ' + fAR + '\n\u0625\u0644\u0649: ' + toAR + '\n\u0639\u062f\u062f \u0627\u0644\u0623\u064a\u0627\u0645: ' + hrFV('days') + '\n\n\u062a\u0645\u062a \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629. \u0646\u062a\u0645\u0646\u0649 \u0644\u0643\u0645 \u0625\u062c\u0627\u0632\u0629 \u0633\u0639\u064a\u062f\u0629.\n\n\u0625\u062f\u0627\u0631\u0629 ' + CA
-      + SEP + CL + ' - ' + JE + '\nDate: ' + tEN + '\n\nLEAVE APPROVAL\n' + new Array(39).join('=') + '\n\nTo: ' + emp + '\n\nLeave Type: ' + lt + '\nFrom:       ' + fEN + '\nTo:         ' + toEN + '\nDays:       ' + hrFV('days') + '\n\nApproved. Have a pleasant leave.\n\nManagement, ' + CL;
+  if (hrFV('endDate')) {
+    vals.endDateAR = hrFmtAR(hrFV('endDate')); vals.endDateEN = hrFmtEN(hrFV('endDate'));
   }
-  if (t === 'warning') {
-    var dAR = hrFmtAR(hrFV('date')), dEN = hrFmtEN(hrFV('date'));
-    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + dAR + '\n\n\u062e\u0637\u0627\u0628 \u062a\u062d\u0630\u064a\u0631 \u0631\u0633\u0645\u064a\n' + new Array(39).join('=') + '\n\n\u0625\u0644\u0649: ' + emp + '\n\n\u0627\u0644\u0645\u062e\u0627\u0644\u0641\u0629:\n' + hrFV('violation') + '\n\n\u0646\u062d\u0630\u0631\u0643\u0645 \u0631\u0633\u0645\u064a\u0627\u064b. \u062a\u0643\u0631\u0627\u0631 \u0647\u0630\u0627 \u0642\u062f \u064a\u0639\u0631\u0636\u0643\u0645 \u0644\u0639\u0642\u0648\u0628\u0627\u062a \u0648\u0641\u0642\u0627\u064b \u0644\u0646\u0638\u0627\u0645 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0633\u0639\u0648\u062f\u064a.\n\n\u0625\u062f\u0627\u0631\u0629 ' + CA
-      + SEP + CL + ' - ' + JE + '\nDate: ' + dEN + '\n\nFORMAL WARNING LETTER\n' + new Array(39).join('=') + '\n\nTo: ' + emp + '\n\nViolation:\n' + hrFV('violation') + '\n\nFormally warned. Repetition may result in action per Saudi Labor Law.\n\nManagement, ' + CL;
-  }
-  if (t === 'eod') {
-    var eAR = hrFmtAR(hrFV('endDate')), eEN = hrFmtEN(hrFV('endDate'));
-    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + tAR + '\n\n\u062e\u0637\u0627\u0628 \u0646\u0647\u0627\u064a\u0629 \u062e\u062f\u0645\u0629\n' + new Array(39).join('=') + '\n\n\u0627\u0644\u0627\u0633\u0645: ' + emp + '\n\u0627\u0644\u0645\u0633\u0645\u0649: ' + hrFV('pos') + '\n\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0627\u0646\u062a\u0647\u0627\u0621: ' + eAR + '\n\u0627\u0644\u0633\u0628\u0628: ' + hrFV('reason') + '\n\n\u0646\u0634\u0643\u0631\u0643\u0645 \u0639\u0644\u0649 \u062c\u0647\u062f\u0643\u0645 \u0648\u0646\u062a\u0645\u0646\u0649 \u0644\u0643\u0645 \u0627\u0644\u062a\u0648\u0641\u064a\u0642.\n\n\u0625\u062f\u0627\u0631\u0629 ' + CA
-      + SEP + CL + ' - ' + JE + '\nDate: ' + tEN + '\n\nEND OF SERVICE\n' + new Array(39).join('=') + '\n\nName:     ' + emp + '\nPosition: ' + hrFV('pos') + '\nEnd Date: ' + eEN + '\nReason:   ' + hrFV('reason') + '\n\nThank you for your service.\n\nManagement, ' + CL;
-  }
-  if (t === 'memo') {
-    var dAR = hrFmtAR(hrFV('date')), dEN = hrFmtEN(hrFV('date'));
-    return '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' + CA + '\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: ' + dAR + '\n\n\u0645\u0630\u0643\u0631\u0629 \u062f\u0627\u062e\u0644\u064a\u0629\n' + new Array(39).join('=') + '\n\n\u0625\u0644\u0649: ' + hrFV('to') + '\n\u0627\u0644\u0645\u0648\u0636\u0648\u0639: ' + hrFV('subject') + '\n\n' + hrFV('body') + '\n\n\u0625\u062f\u0627\u0631\u0629 ' + CA
-      + SEP + CL + '\nDate: ' + dEN + '\n\nINTERNAL MEMO\n' + new Array(39).join('=') + '\n\nTo:      ' + hrFV('to') + '\nSubject: ' + hrFV('subject') + '\n\n' + hrFV('body') + '\n\nManagement, ' + CL;
-  }
-  return '';
+
+  var arText = hrFillTemplate(tpl.ar, vals);
+  var enText = hrFillTemplate(tpl.en, vals);
+  return arText + SEP + enText;
 }
 
 // Splits the stored AR/EN plain-text letter on the dashed separator and
@@ -7249,20 +7335,27 @@ function hrLetterToHTML(text) {
   var arPart = (parts[0] || '').trim();
   var enPart = (parts[1] || '').trim();
   var esc2 = function(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-  var html = '';
-  if (arPart) {
-    html += '<div dir="rtl" lang="ar" style="text-align:right;font-family:Calibri,\'Segoe UI\',\'Noto Sans Arabic\',Tahoma,Arial,sans-serif;white-space:pre-wrap;margin-bottom:1.1em">' + esc2(arPart) + '</div>';
-  }
+  var arFont = "Calibri,'Segoe UI','Noto Sans Arabic',Tahoma,Arial,sans-serif";
+  var enFont = "Calibri,'Segoe UI',Arial,sans-serif";
+
   if (arPart && enPart) {
-    html += '<div style="border-top:1px dashed #94a3b8;margin:0.9em 0"></div>';
+    // Side-by-side: Arabic column on the right, English column on the left,
+    // each in its own cell so uneven line counts never misalign.
+    return '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
+      + '<tr>'
+      + '<td style="width:50%;vertical-align:top;padding:0 14px 0 0;border-right:1px dashed #94a3b8;'
+      + 'text-align:left;direction:ltr;font-family:' + enFont + ';white-space:pre-wrap">' + esc2(enPart) + '</td>'
+      + '<td style="width:50%;vertical-align:top;padding:0 0 0 14px;'
+      + 'text-align:right;direction:rtl;font-family:' + arFont + ';white-space:pre-wrap">' + esc2(arPart) + '</td>'
+      + '</tr></table>';
+  }
+  if (arPart) {
+    return '<div dir="rtl" lang="ar" style="text-align:right;font-family:' + arFont + ';white-space:pre-wrap">' + esc2(arPart) + '</div>';
   }
   if (enPart) {
-    html += '<div dir="ltr" lang="en" style="text-align:left;font-family:Calibri,\'Segoe UI\',Arial,sans-serif;white-space:pre-wrap">' + esc2(enPart) + '</div>';
+    return '<div dir="ltr" lang="en" style="text-align:left;font-family:' + enFont + ';white-space:pre-wrap">' + esc2(enPart) + '</div>';
   }
-  if (!arPart && !enPart) {
-    html = '<div style="white-space:pre-wrap">' + esc2(text) + '</div>';
-  }
-  return html;
+  return '<div style="white-space:pre-wrap">' + esc2(text) + '</div>';
 }
 
 function hrGenerate() {
@@ -7302,10 +7395,10 @@ function hrPrintWithLetterhead(text) {
     + 'html,body{margin:0;padding:0}'
     + 'body{font-family:Calibri,"Segoe UI","Noto Sans Arabic",Arial,sans-serif}'
     + '.nd-page{position:relative;width:210mm;min-height:297mm;box-sizing:border-box;'
-    + 'padding:32mm 18mm 24mm 18mm;page-break-after:always}'
-    + '.nd-header{position:fixed;top:0;left:0;width:210mm;text-align:center}'
+    + 'padding:36mm 16mm 30mm 16mm;page-break-after:always}'
+    + '.nd-header{position:fixed;top:8mm;left:14mm;right:14mm;width:182mm;text-align:center}'
     + '.nd-header img{width:100%;display:block}'
-    + '.nd-footer{position:fixed;bottom:0;left:0;width:210mm;text-align:center}'
+    + '.nd-footer{position:fixed;bottom:8mm;left:14mm;right:14mm;width:182mm;text-align:center}'
     + '.nd-footer img{width:100%;display:block}'
     + '.nd-body{font-size:13px;line-height:1.85}'
     + '@media print{.nd-header,.nd-footer{position:fixed}}'
