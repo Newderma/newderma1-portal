@@ -1137,13 +1137,13 @@ tr:hover td{background:#f8fafc}
       <!-- HR: Staff & Docs (new sub-tab) -->
       <div class="vsec" id="vs-staff">
         <div style="display:flex;gap:.5rem;margin-bottom:.85rem;flex-wrap:wrap;align-items:center">
-          <select id="hrRoleF" onchange="hrClose();hrRenderGrid()" style="padding:.4rem .65rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
+          <select id="hrRoleF" onchange="hrClose();hrGrid()" style="padding:.4rem .65rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
             <option value="">All roles</option>
             <option value="Doctor">Doctors</option>
             <option value="Nurse">Nurses</option>
             <option value="Staff">Other staff</option>
           </select>
-          <input id="hrSearch" placeholder="Search name..." oninput="hrClose();hrRenderGrid()" style="flex:1;min-width:150px;padding:.4rem .65rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
+          <input id="hrSearch" placeholder="Search name..." oninput="hrClose();hrGrid()" style="flex:1;min-width:150px;padding:.4rem .65rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">
         </div>
         <div id="hrStaffGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.7rem;margin-bottom:1rem"></div>
         <div id="hrDetail"></div>
@@ -3290,7 +3290,7 @@ function showVTab(id,btn){
     }
   }
   if(id==='history')  { populateVacFilter(); renderVacH(); }
-  if(id==='staff')    { hrRenderGrid(); }
+  if(id==='staff')    { hrGrid(); }
   if(id==='letters')  { hrShowSaved(); var lf=document.getElementById('hrLetterForm'); if(lf)lf.style.display='none'; }
 }
 function calcVacDays(){
