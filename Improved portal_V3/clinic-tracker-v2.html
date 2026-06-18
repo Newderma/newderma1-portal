@@ -1153,10 +1153,9 @@ tr:hover td{background:#f8fafc}
       <div class="vsec" id="vs-letters">
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.55rem;margin-bottom:1.1rem">
           <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('experience')">&#127894;<br><small>Experience cert.<br><span style="color:var(--ss)">&#1588;&#1607;&#1575;&#1583;&#1577; &#1582;&#1576;&#1585;&#1577;</span></small></button>
+          <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('identification')">&#128203;<br><small>Identification<br><span style="color:var(--ss)">&#1582;&#1591;&#1575;&#1576; &#1578;&#1593;&#1585;&#1610;&#1601;</span></small></button>
           <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('salary')">&#128176;<br><small>Salary cert.<br><span style="color:var(--ss)">&#1588;&#1607;&#1575;&#1583;&#1577; &#1585;&#1575;&#1578;&#1576;</span></small></button>
-          <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('leave')">&#9989;<br><small>Leave approval<br><span style="color:var(--ss)">&#1605;&#1608;&#1575;&#1601;&#1602;&#1577; &#1573;&#1580;&#1575;&#1586;&#1577;</span></small></button>
           <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('warning')">&#9888;<br><small>Warning letter<br><span style="color:var(--ss)">&#1582;&#1591;&#1575;&#1576; &#1578;&#1581;&#1584;&#1610;&#1585;</span></small></button>
-          <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('eod')">&#128075;<br><small>End of service<br><span style="color:var(--ss)">&#1606;&#1607;&#1575;&#1610;&#1577; &#1582;&#1583;&#1605;&#1577;</span></small></button>
           <button class="card" style="cursor:pointer;text-align:center;padding:.8rem .4rem;border:1.5px solid var(--brd)" onclick="hrLetter('memo')">&#128232;<br><small>Internal memo<br><span style="color:var(--ss)">&#1605;&#1584;&#1603;&#1585;&#1577; &#1583;&#1575;&#1582;&#1604;&#1610;&#1577;</span></small></button>
         </div>
         <div class="card" id="hrLetterForm" style="display:none">
@@ -1164,10 +1163,10 @@ tr:hover td{background:#f8fafc}
           <div id="hrLetterFields" style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem"></div>
           <div class="brow" style="margin-top:.85rem">
             <button class="btn bp" onclick="hrGenerate()">Generate</button>
-            <button class="btn bx" onclick="document.getElementById('hrLetterForm').style.display='none'">Cancel</button>
+            <button class="btn bx" onclick="hrCancelLetter()">Cancel</button>
           </div>
           <div id="hrLetterOut" style="display:none;margin-top:.9rem">
-            <div id="hrLetterTxt" style="background:var(--bg);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;font-size:.82rem;line-height:1.85;font-family:Calibri,'Segoe UI','Noto Sans Arabic',Tahoma,Arial,sans-serif;max-height:320px;overflow-y:auto"></div>
+            <div id="hrLetterTxt" style="background:var(--bg);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;font-size:.95rem;line-height:2.1;font-family:Calibri,'Segoe UI','Noto Sans Arabic',Tahoma,Arial,sans-serif;max-height:360px;overflow-y:auto"></div>
             <div class="brow" style="margin-top:.55rem">
               <button class="btn bp" onclick="hrCopy()">Copy</button>
               <button class="btn" onclick="hrPrint()">Print / PDF</button>
@@ -6889,6 +6888,45 @@ function hrGetNA(n)      { try { return JSON.parse(localStorage.getItem(hrLsKey(
 function hrSaveNA(n,a)   { try { localStorage.setItem(hrLsKey(n,'na'), JSON.stringify(a)); } catch(x) {} }
 function hrIsNA(n,docId) { return hrGetNA(n).indexOf(docId) >= 0; }
 function hrDocsForEmp(n) { var na = hrGetNA(n); return HR_DOCS.filter(function(d){ return na.indexOf(d.id) < 0; }); }
+// Saved addressees for the Identification Letter (stored globally, not per-employee)
+function hrGetRecips()    { try { return JSON.parse(localStorage.getItem('hr_recip_list') || '[]'); } catch(x) { return []; } }
+function hrSaveRecips(a)  { try { localStorage.setItem('hr_recip_list', JSON.stringify(a)); } catch(x) {} }
+function hrAddRecip(arText, enText) {
+  var list = hrGetRecips();
+  // Avoid exact duplicates
+  if (list.some(function(r){ return r.ar === arText.trim() && r.en === enText.trim(); })) return;
+  list.push({ar: arText.trim(), en: enText.trim()});
+  hrSaveRecips(list);
+  hrRenderRecipSuggestions();
+}
+function hrDeleteRecip(idx) {
+  var list = hrGetRecips();
+  list.splice(idx, 1);
+  hrSaveRecips(list);
+  hrRenderRecipSuggestions();
+}
+function hrRenderRecipSuggestions() {
+  var box = document.getElementById('hrRecipSugg');
+  if (!box) return;
+  var list = hrGetRecips();
+  if (!list.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div style="font-size:.68rem;color:var(--ss);margin-bottom:3px">Saved addresses — click to fill:</div>'
+    + list.map(function(r, i) {
+        return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">'
+          + '<button onclick="hrFillRecip(' + i + ')" style="flex:1;text-align:right;direction:rtl;font-size:.74rem;padding:3px 7px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);cursor:pointer;font-family:inherit">' + esc(r.ar) + (r.en ? ' / ' + esc(r.en) : '') + '</button>'
+          + '<button onclick="hrDeleteRecip(' + i + ')" title="Remove" style="font-size:.69rem;padding:2px 6px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);cursor:pointer;color:#dc2626">✕</button>'
+          + '</div>';
+      }).join('');
+}
+function hrFillRecip(idx) {
+  var list = hrGetRecips();
+  var r = list[idx];
+  if (!r) return;
+  var arEl = document.getElementById('hf_recipAR');
+  var enEl = document.getElementById('hf_recipEN');
+  if (arEl) arEl.value = r.ar;
+  if (enEl) enEl.value = r.en;
+}
 
 function hrTab(t) {
   ['staff','letters','nitaqat'].forEach(function(x) {
@@ -7144,15 +7182,29 @@ function hrEditUrl(name) {
 // ── Letter config ───────────────────────────
 var HR_LCFG = {
   experience: {title:'Experience Certificate', fields:[
-    {id:'emp', label:'Employee', type:'emp'},
-    {id:'pos', label:'Position', type:'text', ph:'e.g. Nurse'},
-    {id:'from',label:'From date',type:'date'},
-    {id:'to',  label:'To date',  type:'date'}
+    {id:'emp',     label:'Employee',        type:'emp'},
+    {id:'pos',     label:'Position',        type:'text', ph:'e.g. Staff Nurse'},
+    {id:'jobtype', label:'Job type',        type:'text', ph:'e.g. Nursing'},
+    {id:'idnum',   label:'ID/Iqama Number', type:'text', ph:'e.g. 2111111111'},
+    {id:'passport',label:'Passport Number', type:'text', ph:'e.g. P111111B'},
+    {id:'nat',     label:'Nationality',     type:'text', ph:'e.g. Philippines'},
+    {id:'from',    label:'From date',       type:'date'},
+    {id:'to',      label:'To date',         type:'date'}
   ]},
   salary: {title:'Salary Certificate', fields:[
     {id:'emp',   label:'Employee',          type:'emp'},
-    {id:'amount',label:'Monthly salary (SAR)',type:'number',ph:'e.g. 8000'},
-    {id:'date',  label:'Date',              type:'date'}
+    {id:'idnum', label:'ID/Iqama Number',   type:'text', ph:'e.g. 1000000006'},
+    {id:'pos',   label:'Position',          type:'text', ph:'e.g. Admin Manager'},
+    {id:'from',  label:'Employed since',    type:'date'},
+    {id:'amount',label:'Monthly salary (SAR)',type:'number',ph:'e.g. 10000'}
+  ]},
+  identification: {title:'Identification Letter', fields:[
+    {id:'empAR', label:'Employee name (Arabic · الاسم)', type:'text_ar', ph:'مثال: كايدي اناكلتو قيداي ميدرانو'},
+    {id:'recip', label:'Addressed to · الجهة المرسل إليها', type:'recip'},
+    {id:'nat',   label:'Nationality · الجنسية',       type:'text', ph:'e.g. Philippines'},
+    {id:'idnum', label:'ID/Iqama Number · رقم الإقامة',   type:'text', ph:'e.g. 2499090104'},
+    {id:'pos',   label:'Position · الوظيفة',          type:'text', ph:'e.g. General Nurse'},
+    {id:'from',  label:'Employed since · منذ',    type:'date'}
   ]},
   leave: {title:'Leave Approval', fields:[
     {id:'emp',  label:'Employee',  type:'emp'},
@@ -7191,12 +7243,34 @@ function hrLetter2(type, empName) {
   document.getElementById('hrLetterTitle').textContent = cfg.title;
   var all = hrAllEmps().map(function(e) { return e.name; });
   var fh  = '';
-  cfg.fields.forEach(function(f) {
-    fh += '<div style="display:flex;flex-direction:column;gap:.2rem"><label style="font-size:.73rem;font-weight:600;color:var(--sm)">' + f.label + '</label>';
+  var fields = cfg.fields;
+  for (var fi = 0; fi < fields.length; fi++) {
+    var f = fields[fi];
+    if (f.type === 'recip') {
+      // Full-width block: AR + EN inputs + saved addresses (manages its own wrapper)
+      fh += '<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px">'
+          + '<label style="font-size:.73rem;font-weight:600;color:var(--sm)">' + f.label + '</label>'
+          + '<label style="font-size:.68rem;color:var(--ss)">Arabic · عربي</label>'
+          + '<input type="text" id="hf_recipAR" placeholder="مثال: الهيئة السعودية للتخصصات الطبية بجدة" dir="rtl"'
+          + ' style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl);text-align:right">'
+          + '<label style="font-size:.68rem;color:var(--ss);margin-top:2px">English (optional)</label>'
+          + '<input type="text" id="hf_recipEN" placeholder="e.g. Saudi Commission for Health Specialties, Jeddah"'
+          + ' style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">'
+          + '<button onclick="hrAddRecip(document.getElementById(\'hf_recipAR\').value,document.getElementById(\'hf_recipEN\').value)" style="font-size:.72rem;padding:3px 9px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);cursor:pointer;font-family:inherit;align-self:flex-start;margin-top:2px">💾 Save this address</button>'
+          + '<div id="hrRecipSugg" style="margin-top:2px"></div>'
+          + '</div>';
+      setTimeout(hrRenderRecipSuggestions, 50);
+      continue;
+    }
+    fh += '<div style="display:flex;flex-direction:column;gap:.2rem">'
+        + '<label style="font-size:.73rem;font-weight:600;color:var(--sm)">' + f.label + '</label>';
     if (f.type === 'emp') {
       fh += '<select id="hf_' + f.id + '" style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)"><option value="">-- Select --</option>';
       all.forEach(function(n) { fh += '<option' + (n === empName ? ' selected' : '') + '>' + esc(n) + '</option>'; });
       fh += '</select>';
+    } else if (f.type === 'text_ar') {
+      fh += '<input type="text" id="hf_' + f.id + '" placeholder="' + (f.ph || '') + '" dir="rtl"'
+          + ' style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl);text-align:right">';
     } else if (f.type === 'textarea') {
       fh += '<textarea id="hf_' + f.id + '" placeholder="' + (f.ph || '') + '" style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl);min-height:65px;resize:vertical"></textarea>';
     } else {
@@ -7206,7 +7280,7 @@ function hrLetter2(type, empName) {
       fh += ' style="padding:.4rem .6rem;border:1px solid var(--brd);border-radius:var(--r);font-family:inherit;font-size:.82rem;background:var(--bg);color:var(--sl)">';
     }
     fh += '</div>';
-  });
+  }
   document.getElementById('hrLetterFields').innerHTML = fh;
   document.getElementById('hrLetterOut').style.display = 'none';
   document.getElementById('hrLetterForm').style.display = 'block';
@@ -7233,32 +7307,66 @@ function hrFmtEN(d) {
 var HR_LETTER_TEMPLATES = {
   experience: {
     ar:
-      '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' +
-      '{{CA}} - {{JA}}\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{tAR}}\n\n' +
-      '\u0634\u0647\u0627\u062f\u0629 \u062e\u0628\u0631\u0629\n' + new Array(39).join('=') + '\n\n' +
-      '\u062a\u0634\u0647\u062f \u0625\u062f\u0627\u0631\u0629 {{CA}} \u0628\u0623\u0646 \u0627\u0644\u0645\u0648\u0638\u0641/\u0629:\n\n' +
-      '\u0627\u0644\u0627\u0633\u0645: {{emp}}\n\u0627\u0644\u0645\u0633\u0645\u0649: {{pos}}\n\u0641\u062a\u0631\u0629 \u0627\u0644\u0639\u0645\u0644: \u0645\u0646 {{fromAR}} \u0625\u0644\u0649 {{toAR}}\n\n' +
-      '\u0642\u062f \u0623\u062f\u0649/\u0623\u062f\u062a \u0645\u0647\u0627\u0645\u0647/\u0647\u0627 \u0628\u0643\u0641\u0627\u0621\u0629. \u0646\u062a\u0645\u0646\u0649 \u0644\u0647/\u0644\u0647\u0627 \u0627\u0644\u062a\u0648\u0641\u064a\u0642.\n\n' +
-      '\u0635\u062f\u0631 \u0641\u064a \u062c\u062f\u0629: {{tAR}}\n\n\u0627\u0644\u062e\u062a\u0645 \u0648\u0627\u0644\u062a\u0648\u0642\u064a\u0639\n{{CA}}',
+      'التاريخ: {{tAR}}\n\n' +
+      '## شهادة خبرة\n\n' +
+      'إلى من يهمه الأمر،\n\n' +
+      'أصدرت الشهادة بناء على طلب الموظف و خدمته خلال فترة العمل لدى صاحب العمل.\n\n' +
+      'الاسم: {{emp}}\n' +
+      'رقم الهوية/الإقامة: {{idnum}}\n' +
+      'رقم الجواز: {{passport}}\n' +
+      'الجنسية: {{natAR}}\n' +
+      'المسمى الوظيفي: {{pos}}\n' +
+      'نوع الوظيفة: {{jobtype}}\n' +
+      'مدة الخدمة: من {{fromAR}} إلى {{toAR}}\n\n' +
+      'هذا الخطاب صادر بناءً على طلب الموظف/ة وذلك دون أي مسؤولية على المركز الطبي.\n\n' +
+      'الختم والتوقيع\nالمدير التنفيذي\nسليم الشاعر',
     en:
-      'In the Name of Allah, the Most Gracious, the Most Merciful\n\n' +
-      '{{CL}} - {{JE}}\nDate: {{tEN}}\n\nEXPERIENCE CERTIFICATE\n' + new Array(39).join('=') + '\n\n' +
-      'Name:     {{emp}}\nPosition: {{pos}}\nPeriod:   From {{fromEN}} to {{toEN}}\n\n' +
-      'Has performed duties diligently. We wish them success.\n\n' +
-      'Issued in Jeddah: {{tEN}}\n\nStamp & Signature\n{{CL}}'
+      'Date: {{tEN}}\n\n' +
+      '## EXPERIENCE CERTIFICATE\n\n' +
+      'To whom it may concern,\n\n' +
+      'This letter is issued by the employer to certify the following:\n\n' +
+      'Full Name: {{emp}}\n' +
+      'ID/Iqama Number: {{idnum}}\n' +
+      'Passport Number: {{passport}}\n' +
+      'Nationality: {{natEN}}\n' +
+      'Job Title: {{pos}}\n' +
+      'Job Type: {{jobtype}}\n' +
+      'Service Duration: From {{fromEN}} to {{toEN}}\n\n' +
+      'This letter has been issued based on the employee\'s request, without any liability on the Medical Center.\n\n' +
+      'Stamp & Signature\nCEO\nSaleem Elshaeer'
   },
   salary: {
     ar:
-      '\u0628\u0633\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u0631\u062d\u0645\u0646 \u0627\u0644\u0631\u062d\u064a\u0645\n\n' +
-      '{{CA}}\n\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{dateAR}}\n\n' +
-      '\u0634\u0647\u0627\u062f\u0629 \u0631\u0627\u062a\u0628\n' + new Array(39).join('=') + '\n\n' +
-      '\u0627\u0644\u0627\u0633\u0645: {{emp}}\n\u0627\u0644\u0631\u0627\u062a\u0628 \u0627\u0644\u0634\u0647\u0631\u064a: {{amount}} \u0631\u064a\u0627\u0644 \u0633\u0639\u0648\u062f\u064a\n\n' +
-      '\u0635\u062f\u0631\u062a \u0628\u0646\u0627\u0621 \u0639\u0644\u0649 \u0637\u0644\u0628\u0647/\u0637\u0644\u0628\u0647\u0627.\n\n' +
-      '\u0627\u0644\u062a\u0627\u0631\u064a\u062e: {{dateAR}}\n\n\u0627\u0644\u062e\u062a\u0645 \u0648\u0627\u0644\u062a\u0648\u0642\u064a\u0639\n{{CA}}',
+      'الموافق: {{tAR}}\n\n' +
+      '## شهادة راتب\n\n' +
+      'يشهد {{CA}} الطبية بأن السيد / {{emp}} يحمل هوية مواطن رقم ({{idnum}}) ويعمل لدينا بوظيفة ({{pos}}) منذ {{fromAR}} براتب وقدره ({{amount}}) ريال فقط، شامل جميع البدلات ومازال على رأس العمل حتى تاريخه.\n\n' +
+      'وقد أعطيت هذه الشهادة بناءاً على طلبه بدون مسؤولية على المركز.\n\n' +
+      'شاكرين ومقدرين حسن تعاونكم معنا.\n\n' +
+      'المدير التنفيذي\nسليم محمود الشاعر',
     en:
-      '{{CL}} - {{JE}}\nDate: {{dateEN}}\n\nSALARY CERTIFICATE\n' + new Array(39).join('=') + '\n\n' +
-      'Name:           {{emp}}\nMonthly Salary: SAR {{amount}}\n\n' +
-      'Issued upon request.\n\nDate: {{dateEN}}\n\nStamp & Signature\n{{CL}}'
+      'Date: {{tEN}}\n\n## SALARY CERTIFICATE\n\n' +
+      'This is to certify that Mr./Ms. {{emp}}, holder of National ID/Iqama number ({{idnum}}), has been employed with us as ({{pos}}) since {{fromEN}}, with a monthly salary of SAR ({{amount}}) only, inclusive of all allowances, and is still currently in active service as of this date.\n\n' +
+      'This certificate has been issued upon their request, without any liability on the Center.\n\n' +
+      'Thank you for your cooperation.\n\n' +
+      'CEO\nSaleem Mahmoud Elshaeer'
+  },
+  identification: {
+    ar:
+      'الموافق: {{tAR}}\n\n' +
+      'السادة / {{recipAR}}                           المحترمين\n\n' +
+      'السلام عليكم ورحمة الله وبركاته ,,,,\n\n' +
+      '## خطاب تعريف\n\n' +
+      'نفيدكم بأن {{empAR}} {{natAR}} الجنسية وتحمل إقامة رقم ({{idnum}}) وتعمل لدينا بوظيفة {{pos}} منذ {{fromAR}} ومازالت على رأس العمل.\n\n' +
+      'شاكرين ومقدرين حسن تعاونكم معنا ,,,\n\n' +
+      'شؤون الموظفين',
+    en:
+      'Date: {{tEN}}\n\n' +
+      'To: {{recipEN}}\n\n' +
+      'Dear Sir/Madam,\n\n' +
+      '## IDENTIFICATION LETTER\n\n' +
+      'We would like to inform you that {{empAR}}, a {{natEN}} national holding Iqama number ({{idnum}}), has been working with us as a {{pos}} since {{fromEN}}, and is still currently in active service.\n\n' +
+      'Thank you for your kind cooperation.\n\n' +
+      'Personnel Affairs'
   },
   leave: {
     ar:
@@ -7315,6 +7423,43 @@ function hrFillTemplate(tpl, vals) {
   });
 }
 
+// Nationality auto-translate — type either Arabic or English (or just the demonym,
+// e.g. "Filipino"/"فلبيني") in the Nationality field and both sides of the letter
+// fill in correctly. Falls back to showing exactly what was typed on both sides
+// if the nationality isn't in this list — add more pairs here as needed.
+var HR_NATIONALITIES = [
+  ['Philippines','الفلبين'], ['Filipino','فلبيني'], ['Filipina','فلبينية'],
+  ['Egypt','مصر'], ['Egyptian','مصري'],
+  ['India','الهند'], ['Indian','هندي'],
+  ['Pakistan','باكستان'], ['Pakistani','باكستاني'],
+  ['Saudi Arabia','السعودية'], ['Saudi','سعودي'],
+  ['Jordan','الأردن'], ['Jordanian','أردني'],
+  ['Syria','سوريا'], ['Syrian','سوري'],
+  ['Lebanon','لبنان'], ['Lebanese','لبناني'],
+  ['Yemen','اليمن'], ['Yemeni','يمني'],
+  ['Sudan','السودان'], ['Sudanese','سوداني'],
+  ['Bangladesh','بنغلاديش'], ['Bangladeshi','بنغلاديشي'],
+  ['Sri Lanka','سريلانكا'], ['Sri Lankan','سريلانكي'],
+  ['Nepal','نيبال'], ['Nepali','نيبالي'],
+  ['Indonesia','إندونيسيا'], ['Indonesian','إندونيسي'],
+  ['Morocco','المغرب'], ['Moroccan','مغربي'],
+  ['Tunisia','تونس'], ['Tunisian','تونسي'],
+  ['Algeria','الجزائر'], ['Algerian','جزائري']
+];
+function hrNatTranslate(val) {
+  val = (val || '').trim();
+  if (!val) return {en:'', ar:''};
+  var low = val.toLowerCase();
+  for (var i = 0; i < HR_NATIONALITIES.length; i++) {
+    var pair = HR_NATIONALITIES[i];
+    if (pair[0].toLowerCase() === low || pair[1] === val) {
+      return {en: pair[0], ar: pair[1]};
+    }
+  }
+  // Not found — show exactly what was typed on both sides rather than guessing
+  return {en: val, ar: val};
+}
+
 function hrBuildLetter() {
   var t   = _hrLetType;
   var emp = hrFV('emp') || _hrLetEmp;
@@ -7330,6 +7475,7 @@ function hrBuildLetter() {
   var tpl = HR_LETTER_TEMPLATES[t];
   if (!tpl) return '';
 
+  var natPair = hrNatTranslate(hrFV('nat'));
   var vals = {
     CA: CA, CL: CL, JA: JA, JE: JE, tAR: tAR, tEN: tEN, emp: emp,
     pos: hrFV('pos'),
@@ -7340,7 +7486,16 @@ function hrBuildLetter() {
     reason: hrFV('reason'),
     to: hrFV('to'),
     subject: hrFV('subject'),
-    body: hrFV('body')
+    body: hrFV('body'),
+    idnum: hrFV('idnum'),
+    passport: hrFV('passport'),
+    natEN: natPair.en,
+    natAR: natPair.ar,
+    jobtype: hrFV('jobtype'),
+    recip: hrFV('recip'),
+    empAR: hrFV('empAR'),
+    recipAR: hrFV('recipAR'),
+    recipEN: hrFV('recipEN') || hrFV('recipAR') // fallback to AR text if EN left blank
   };
   if (hrFV('from') || hrFV('to')) {
     vals.fromAR = hrFmtAR(hrFV('from')); vals.fromEN = hrFmtEN(hrFV('from'));
@@ -7362,6 +7517,16 @@ function hrBuildLetter() {
 // returns HTML with the Arabic half right-aligned/RTL (Calibri) and the
 // English half left-aligned/LTR, so printed letters read naturally
 // instead of using browser direction:auto guessing per line.
+//
+// Each side is split into paragraphs on blank lines. A paragraph where every
+// line matches "Label: value" (2+ such lines) is treated as a field block.
+// When BOTH sides have a field block in the same paragraph position (the
+// normal case — same fields, same order, just two languages), they're
+// merged into a single 4-column table (EN label | EN value | AR value | AR
+// label) sharing one <tr> per field, so the two sides' rows are pixel-aligned
+// no matter how the label/value text wraps. If only one side has a field
+// block at that position, it falls back to its own independent table.
+// Other paragraphs render as normal text with breathing room between them.
 function hrLetterToHTML(text) {
   if (!text) return '';
   var sepRe = /\n-{10,}\n+/;
@@ -7371,23 +7536,120 @@ function hrLetterToHTML(text) {
   var esc2 = function(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   var arFont = "Calibri,'Segoe UI','Noto Sans Arabic',Tahoma,Arial,sans-serif";
   var enFont = "Calibri,'Segoe UI',Arial,sans-serif";
+  var fieldLineRe = /^([^:\n]{1,40}):\s?(.*)$/;
+
+  var parseFieldBlock = function(p) {
+    var lines = p.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+    var isFieldBlock = lines.length >= 2 && lines.every(function(l) { return fieldLineRe.test(l); });
+    if (!isFieldBlock) return null;
+    return lines.map(function(l) {
+      var m = l.match(fieldLineRe);
+      return {label: m[1], value: m[2]};
+    });
+  };
+
+  var headingHTML = function(title) {
+    return '<div style="font-size:1.65em;font-weight:700;margin:0 0 1em;line-height:1.4">' + esc2(title) + '</div>';
+  };
+  var paraHTML = function(p) {
+    return '<div style="margin:0 0 1.3em;font-size:1.05em;line-height:2.1">' + esc2(p).replace(/\n/g, '<br>') + '</div>';
+  };
+  var fieldTableHTML = function(fields, dir) {
+    var rows = fields.map(function(f) {
+      return '<tr>'
+        + '<td style="padding:5px 8px;border:1px solid #cbd5e1;font-weight:600;width:38%">' + esc2(f.label) + '</td>'
+        + '<td style="padding:5px 8px;border:1px solid #cbd5e1;width:62%">' + esc2(f.value) + '</td>'
+        + '</tr>';
+    }).join('');
+    return '<table dir="' + dir + '" style="width:100%;border-collapse:collapse;table-layout:fixed;margin:.5em 0">' + rows + '</table>';
+  };
+  // One merged table: each <tr> holds EN label/value cells then AR value/label
+  // cells, so a single row's height is shared by both languages — guarantees
+  // alignment regardless of text length on either side.
+  var mergedFieldTableHTML = function(enFields, arFields) {
+    var n = Math.max(enFields.length, arFields.length);
+    var rows = '';
+    for (var i = 0; i < n; i++) {
+      var ef = enFields[i] || {label:'', value:''};
+      var af = arFields[i] || {label:'', value:''};
+      rows += '<tr>'
+        + '<td style="padding:5px 8px;border:1px solid #cbd5e1;font-weight:600;width:19%;text-align:left;direction:ltr;font-family:' + enFont + '">' + esc2(ef.label) + '</td>'
+        + '<td style="padding:5px 8px;border:1px solid #cbd5e1;width:31%;text-align:left;direction:ltr;font-family:' + enFont + '">' + esc2(ef.value) + '</td>'
+        + '<td style="padding:5px 8px;border:1px solid #cbd5e1;width:31%;text-align:right;direction:rtl;font-family:' + arFont + '">' + esc2(af.value) + '</td>'
+        + '<td style="padding:5px 8px;border:1px solid #cbd5e1;font-weight:600;width:19%;text-align:right;direction:rtl;font-family:' + arFont + '">' + esc2(af.label) + '</td>'
+        + '</tr>';
+    }
+    return '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:.5em 0">' + rows + '</table>';
+  };
 
   if (arPart && enPart) {
-    // Side-by-side: Arabic column on the right, English column on the left,
-    // each in its own cell so uneven line counts never misalign.
-    return '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
-      + '<tr>'
-      + '<td style="width:50%;vertical-align:top;padding:0 14px 0 0;border-right:1px dashed #94a3b8;'
-      + 'text-align:left;direction:ltr;font-family:' + enFont + ';white-space:pre-wrap">' + esc2(enPart) + '</td>'
-      + '<td style="width:50%;vertical-align:top;padding:0 0 0 14px;'
-      + 'text-align:right;direction:rtl;font-family:' + arFont + ';white-space:pre-wrap">' + esc2(arPart) + '</td>'
-      + '</tr></table>';
+    var enParas = enPart.split(/\n\s*\n/).map(function(p) { return p.trim(); }).filter(Boolean);
+    var arParas = arPart.split(/\n\s*\n/).map(function(p) { return p.trim(); }).filter(Boolean);
+    var n = Math.max(enParas.length, arParas.length);
+
+    // Collect all content as a sequence of {type, enHTML, arHTML} blocks in document order.
+    // Text-paragraph blocks accumulate as rows of a single outer table so the left edge
+    // never zigzags. Merged field-tables (full-width) break the flow and get their own block.
+    var blockList = [];          // [{type:'text', rows:[{en,ar}]}, {type:'merged', html:'...'}]
+    var currentRows = [];        // accumulates text paragraph pairs
+
+    var flushRows = function() {
+      if (currentRows.length) { blockList.push({type:'text', rows: currentRows.slice()}); currentRows = []; }
+    };
+
+    for (var i = 0; i < n; i++) {
+      var ep = enParas[i], ap = arParas[i];
+      var ehm = ep ? ep.match(/^##\s?(.+)$/) : null;
+      var ahm = ap ? ap.match(/^##\s?(.+)$/) : null;
+      var ef = ep ? parseFieldBlock(ep) : null;
+      var af = ap ? parseFieldBlock(ap) : null;
+      if (ef && af) {
+        flushRows();
+        blockList.push({type:'merged', html: mergedFieldTableHTML(ef, af)});
+        continue;
+      }
+      var enHTML = '', arHTML = '';
+      if (ehm) { enHTML = headingHTML(ehm[1]); } else if (ef) { enHTML = fieldTableHTML(ef, 'ltr'); } else if (ep) { enHTML = paraHTML(ep); }
+      if (ahm) { arHTML = headingHTML(ahm[1]); } else if (af) { arHTML = fieldTableHTML(af, 'rtl'); } else if (ap) { arHTML = paraHTML(ap); }
+      currentRows.push({en: enHTML, ar: arHTML});
+    }
+    flushRows();
+
+    // Render: text blocks become one <table> with one <tr> per paragraph pair so the
+    // left/right column edges are consistent across all paragraphs (no zigzag).
+    var output = '';
+    blockList.forEach(function(block) {
+      if (block.type === 'merged') {
+        output += block.html;
+      } else {
+        var rows = block.rows.map(function(r) {
+          return '<tr>'
+            + '<td style="width:50%;vertical-align:top;padding:0 16px 0 0;border-right:1px dashed #94a3b8;text-align:left;direction:ltr;font-family:' + enFont + '">' + r.en + '</td>'
+            + '<td style="width:50%;vertical-align:top;padding:0 0 0 16px;text-align:right;direction:rtl;font-family:' + arFont + '">' + r.ar + '</td>'
+            + '</tr>';
+        }).join('');
+        output += '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:.5em">' + rows + '</table>';
+      }
+    });
+    return output;
   }
+  // Single-language fallback (Arabic-only or English-only letters)
+  var renderSide = function(part, dir) {
+    if (!part) return '';
+    var paras = part.split(/\n\s*\n/).map(function(p) { return p.trim(); }).filter(Boolean);
+    return paras.map(function(p) {
+      var hm = p.match(/^##\s?(.+)$/);
+      if (hm) return headingHTML(hm[1]);
+      var f = parseFieldBlock(p);
+      if (f) return fieldTableHTML(f, dir);
+      return paraHTML(p);
+    }).join('');
+  };
   if (arPart) {
-    return '<div dir="rtl" lang="ar" style="text-align:right;font-family:' + arFont + ';white-space:pre-wrap">' + esc2(arPart) + '</div>';
+    return '<div dir="rtl" lang="ar" style="text-align:right;font-family:' + arFont + '">' + renderSide(arPart, 'rtl') + '</div>';
   }
   if (enPart) {
-    return '<div dir="ltr" lang="en" style="text-align:left;font-family:' + enFont + ';white-space:pre-wrap">' + esc2(enPart) + '</div>';
+    return '<div dir="ltr" lang="en" style="text-align:left;font-family:' + enFont + '">' + renderSide(enPart, 'ltr') + '</div>';
   }
   return '<div style="white-space:pre-wrap">' + esc2(text) + '</div>';
 }
@@ -7429,12 +7691,12 @@ function hrPrintWithLetterhead(text) {
     + 'html,body{margin:0;padding:0}'
     + 'body{font-family:Calibri,"Segoe UI","Noto Sans Arabic",Arial,sans-serif}'
     + '.nd-page{position:relative;width:210mm;min-height:297mm;box-sizing:border-box;'
-    + 'padding:36mm 16mm 30mm 16mm;page-break-after:always}'
+    + 'padding:46mm 16mm 32mm 16mm;page-break-after:always}'
     + '.nd-header{position:fixed;top:8mm;left:14mm;right:14mm;width:182mm;text-align:center}'
     + '.nd-header img{width:100%;display:block}'
     + '.nd-footer{position:fixed;bottom:8mm;left:14mm;right:14mm;width:182mm;text-align:center}'
     + '.nd-footer img{width:100%;display:block}'
-    + '.nd-body{font-size:13px;line-height:1.85}'
+    + '.nd-body{font-size:16px;line-height:2.1}'
     + '@media print{.nd-header,.nd-footer{position:fixed}}'
     + '</style></head><body>'
     + '<div class="nd-header"><img src="' + ND_LETTER_HEADER_IMG + '" alt=""></div>'
@@ -7452,13 +7714,31 @@ function hrPrint() {
   hrPrintWithLetterhead(hrRawText(el));
 }
 
+function hrCancelLetter() {
+  var form = document.getElementById('hrLetterForm');
+  if (form) form.style.display = 'none';
+  var out = document.getElementById('hrLetterOut');
+  if (out) out.style.display = 'none';
+  if (_hrLetEmp) {
+    // Came from a specific employee's Staff & Docs card — go back there.
+    _hrEmp = _hrLetEmp;
+    showVTab('staff', document.querySelector(".vtab[onclick*='staff']"));
+    hrGrid();
+    hrDetail(_hrLetEmp);
+    setTimeout(function() {
+      var dp = document.getElementById('hrDetail');
+      if (dp) dp.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 60);
+  }
+}
+
 function hrSave() {
   var el  = document.getElementById('hrLetterTxt');
   var emp = hrFV('emp') || _hrLetEmp;
   var raw = hrRawText(el);
   if (!el || !raw.trim() || !emp) { toast('Select an employee first', false); return; }
   var lets = hrGetLets(emp);
-  var tmap = {experience:'Experience cert.',salary:'Salary cert.',leave:'Leave approval',warning:'Warning letter',eod:'End of service',memo:'Internal memo'};
+  var tmap = {experience:'Experience cert.',identification:'Identification letter',salary:'Salary cert.',leave:'Leave approval',warning:'Warning letter',eod:'End of service',memo:'Internal memo'};
   lets.push({type: tmap[_hrLetType] || _hrLetType, date: new Date().toLocaleDateString('en-GB'), text: raw});
   hrSaveLets(emp, lets);
   toast('Letter saved for ' + emp, true);
