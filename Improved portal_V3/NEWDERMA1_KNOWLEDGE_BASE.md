@@ -17,6 +17,8 @@
 | `attendance.html` | Attendance module | `NEWDERMA1-ATT-RESET` |
 | `finance.html` | Bank reconciliation tool | N/A |
 
+⚠️ **Always push the file Claude hands you to GitHub before pulling "latest" from Netlify.** Netlify only ever reflects the last GitHub push, not the last Claude session — pulling from Netlify between sessions has caused completed work (letterhead, fonts, delete-letter feature) to silently disappear and need redoing more than once.
+
 ## BACKUP STRATEGY (CRITICAL — learned from June 2026 incident)
 
 ### 1. HTML files (weekly — save to Google Drive)
@@ -75,7 +77,7 @@ Any new feature: read only unless explicitly confirmed. Never call saveConfig fr
 No separate HTML portals sharing Supabase. The HR portal incident (June 2026) wiped all email and contract data.
 
 ### Rule 4 — Safe isolated config keys
-- `hr_driveLinks` — Drive folder URLs (localStorage only)
+- `hr_driveLinks` — Drive folder URLs — **currently localStorage only, NOT yet migrated to Supabase.** GM wants this made permanent/cross-device, but migration is paused pending the RLS situation below — adding a new write path to `ct_config` before Stage 1 means the Drive links inherit the same wide-open exposure as everything else in that table. GM has been informed and has not yet decided to proceed.
 - Never write to: `lists`, `empProfiles`, `staffPasswords`, `adminPassword`, `staffPrivileges`, `annualDays`
 
 ### Rule 5 — HR JS functions MUST be after })();
@@ -83,6 +85,36 @@ HR module functions are global — they must be placed AFTER the IIFE `})();` cl
 
 ### Rule 6 — No id/function name conflicts
 Never name a div with the same id as a function. e.g. `id="hrGrid"` with `function hrGrid()` — browser treats div as the function. Use `id="hrStaffGrid"` with `function hrRenderGrid()`.
+
+---
+
+## 🔓 SECURITY STATUS (investigated June 2026 — IMPORTANT, READ BEFORE NEW FEATURES)
+
+### How auth currently works (and why that matters for RLS)
+The app has **no real Supabase Auth accounts**. `doLogin()` just downloads all staff passwords from `ct_config` into the browser and compares the typed value in JavaScript — Supabase itself never knows "who" is asking, only that *some* request came in with the public anon key. This means real per-user Row Level Security (which needs `auth.uid()` to check against) does not currently exist anywhere in this system — there is nothing for a policy to check.
+
+### Anon key is public by design, but currently the only gate
+`SB_URL`/`SB_KEY` are hardcoded in plaintext in `clinic-tracker-v2.html` (visible via "View Page Source" on the public Netlify site — this is normal/expected for Supabase's anon key, but means **RLS policies are the only real protection** on the data). Key is the standard `anon` role JWT (not the privileged service-role key), issued March 2026, expires 2036 — never designed to be rotated.
+
+### Confirmed RLS findings (June 2026 audit)
+| Table | Status | Notes |
+|-------|--------|-------|
+| `ct_config` | RLS technically ON, but policy is `allow_all` (`USING (true) WITH CHECK (true)`) | Functionally identical to RLS being off — anyone with the anon key can read/write staff passwords, salary, empProfiles, everything in this table |
+| `ct_records` | Same `allow_all` policy | Same exposure — all procedure/financial records |
+| `ct_vacation` | Same `allow_all` policy | Same exposure — all leave requests |
+| `att_config` | Not yet individually re-checked, likely same pattern (was part of original setup SQL) | |
+| `portal_settings` | **RLS disabled outright** (confirmed via Supabase dashboard + Security Advisor lint "RLS Disabled in Public") | NOT part of `clinic-tracker-v2.html` or this knowledge base — belongs to a separate/unknown tool. Contains exactly one value: a manager recovery PIN (was `1969` — flagged as guessable, GM was advised to change it and enable RLS with no policy attached, since nothing in the known tools appeared to depend on reading it live) |
+
+### Stage 0 audit outcome (June 2026)
+GM checked Supabase API/Postgres logs and found no signs of unusual access patterns, and Security Advisor flagged only `portal_settings` (not the `ct_*` tables, since those technically have RLS "on" even though the policy is wide open — Advisor doesn't flag permissive policies, only fully-disabled RLS). **No confirmed exploitation found**, but exposure has existed since original setup with no rotation, and Supabase free-tier log retention is short, so this only confirms recent activity looks clean, not the entire history.
+
+### Staged remediation plan (agreed approach — do NOT skip straight to Stage 2)
+- **Stage 0 (done)** — Audit logs/Advisor for signs of active exploitation. Enable RLS with no policy on any fully-open table with no live dependency (e.g. `portal_settings`). Rotate any credential that was sitting exposed (e.g. the manager PIN).
+- **Stage 1 (not started)** — Add real Supabase Auth for the GM login only. Lock `ct_config` behind "must be authenticated as GM." Leave staff-side tables as-is temporarily. This closes the single biggest exposure (payroll/passwords) without yet touching how staff log in.
+- **Stage 2 (not started, full project)** — Real accounts for all staff, proper per-row policies everywhere (e.g. staff can only see their own vacation row), retire the JS password-check entirely. Requires adding role/user_id columns to tables that don't have them, migrating existing passwords, and re-testing every feature that currently assumes "if the browser can read it, it's allowed." This is a genuine project, not a quick fix — should be scoped as its own piece of work, ideally piloted on one table (`ct_vacation` suggested as lowest-stakes starting point) before expanding.
+
+### Rule 7 — Do not add new write paths to open tables without flagging this status first
+Any new feature that writes new sensitive data into `ct_config` (e.g. Drive links) is exactly as exposed as everything else already there until Stage 1/2 happen. This isn't a reason to block new features, but the GM should make that tradeoff knowingly each time, not by default.
 
 ---
 
@@ -153,15 +185,22 @@ The old separate "HR" tab was merged into the "Vacation" tab which was renamed "
 ### Letters features:
 - 6 letter types: experience cert, salary cert, leave approval, warning, end of service, internal memo
 - Bilingual Arabic/English generated locally (no API)
-- Letters saved to localStorage per employee, can be viewed and reprinted
+- **Wording is editable** — all 6 templates live in `HR_LETTER_TEMPLATES` object (with `{{token}}` placeholders like `{{emp}}`, `{{pos}}`, `{{fromAR}}`), not hardcoded inline — change wording by editing that one block, not the surrounding logic
+- Clinic Arabic name constant `CA` = `مركز البشرة الجديدة الاولي` (must match official letterhead exactly — was previously wrong/transliterated, fixed June 2026)
+- **Prints on official letterhead** — header (logo + bilingual name + green divider) and footer (green divider + contact info) embedded as base64 images, extracted from `ND_Head_letter.pdf`. Function: `hrPrintWithLetterhead(text)`. Margins: header/footer inset 14mm sides / 8mm top-bottom from page edge (not flush), body padding 36mm top / 30mm bottom / 16mm sides
+- **Side-by-side bilingual layout** — `hrLetterToHTML(text)` splits stored text on the dashed separator (`/\n-{10,}\n+/`) and renders as a 2-column table: English left (LTR, left-aligned), Arabic right (RTL, right-aligned), divided by a dashed border. Used for both on-screen preview and print
+- **Font:** Calibri first choice (`Calibri,'Segoe UI','Noto Sans Arabic',Tahoma,Arial,sans-serif` for Arabic; `Calibri,'Segoe UI',Arial,sans-serif` for English) — renders via the user's own browser/OS fonts at print time, not bundled
+- Raw plain-text letter stored via `el.setAttribute('data-raw', txt)`; helper `hrRawText(el)` reads it back (falls back to `textContent`) — keeps Copy/Save working against plain text while preview/print show formatted HTML
+- Letters saved to localStorage per employee, can be viewed, reprinted, and **deleted** (`hrDeleteLet(name, idx)` with confirm dialog, ✕ button next to View/Print in the saved-letters list)
 - Click "+ Letter" in staff detail to generate for that person
+- After Save, form closes and returns to that employee's Staff & Docs profile view (previously stayed stuck on the letter generator)
 
 ### Nitaqat:
 - Was a separate sub-tab in old HR tab, NOT included in merged version
 - Can be added back later if needed
 
 ## HR Functions (global — after })(); in script)
-Key functions: `hrGrid()`, `hrSelect(name)`, `hrSelectEl(el)`, `hrDetail(name)`, `hrClose()`, `hrDocToggle(name,docId)`, `hrDocLink(name,docId)`, `hrEditUrl(name)`, `hrLetter(type)`, `hrLetter2(type,empName)`, `hrGenerate()`, `hrCopy()`, `hrPrint()`, `hrSave()`, `hrViewLet(name,idx)`, `hrPrintLet(name,idx)`, `hrShowSaved()`, `hrAllEmps()`
+Key functions: `hrGrid()`, `hrSelect(name)`, `hrSelectEl(el)`, `hrDetail(name)`, `hrClose()`, `hrDocToggle(name,docId)`, `hrDocLink(name,docId)`, `hrEditUrl(name)`, `hrLetter(type)`, `hrLetter2(type,empName)`, `hrGenerate()`, `hrRawText(el)`, `hrCopy()`, `hrPrint()`, `hrPrintWithLetterhead(text)`, `hrLetterToHTML(text)`, `hrFillTemplate(tpl,vals)`, `hrSave()`, `hrViewLet(name,idx)`, `hrPrintLet(name,idx)`, `hrDeleteLet(name,idx)`, `hrShowSaved()`, `hrAllEmps()`
 
 ## Vacation System
 
@@ -257,15 +296,18 @@ Match M3N accounting entries against bank statements.
 9. empProfiles stored as double-encoded string → parsed and re-saved correctly
 10. Duplicate })(); before HR block → removed
 11. hrRenderGrid called but function named hrGrid → fixed all references
+12. Arabic clinic name constant `CA` was wrong/transliterated ("عيادة نيو ديرما سنتر") → corrected to match official letterhead ("مركز البشرة الجديدة الاولي")
+13. Letter print used `direction:auto` (guesses direction per line, doesn't align/justify) → replaced with explicit RTL/LTR side-by-side table layout
 
 ---
 
 ## NEXT SESSION — PENDING WORK
-- HR letter generator: make print output look professional with logo, proper layout (Option 1 mockup shown, approved for build)
-- Option 2: upload letterhead image as background
-- Option 3: Canva integration for letters
+- **Drive links → Supabase migration** — GM wants Drive folder links to persist across devices/browsers instead of localStorage-only. Paused pending GM's decision on the RLS/security tradeoff (see Security Status section above). Revisit once GM decides whether to proceed under current exposure, or wait for Stage 1.
+- **Security Stage 1** — add real Supabase Auth for GM login only, lock `ct_config` behind authenticated-GM policy. Not started. Should be scoped as its own session, not bundled into feature requests.
+- **portal_settings table** — GM to confirm: enabled RLS with no policy (should be safe, nothing known depends on it), and changed the manager PIN away from `1969`. Confirm this was completed and nothing broke.
+- Letterhead/font/bilingual-layout/delete-letter work (previously pending) — ✅ done June 2026, see Letters features section above.
 
 ---
 
-*Last updated: June 17, 2026 — Newderma1 Medical Center, Jeddah KSA*
-*Major updates: HR tab merged into Vacation tab, staff cards working, document tracking, letter generator*
+*Last updated: June 18, 2026 — Newderma1 Medical Center, Jeddah KSA*
+*Major updates: Letterhead printing (real PDF header/footer), Calibri font, side-by-side EN/AR letter layout, editable letter templates, delete-letter feature, corrected Arabic clinic name, Supabase RLS security audit (Stage 0 complete, Stage 1 pending)*
