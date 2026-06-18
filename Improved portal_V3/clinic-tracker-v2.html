@@ -1012,7 +1012,7 @@ tr:hover td{background:#f8fafc}
     <div class="page" id="page-vacation">
       <div id="staffBalCardVac" style="display:none;margin-bottom:1.2rem"></div>
       <div id="vacStatusAlert" style="display:none;margin-bottom:1rem"></div>
-      <div class="ph"><h2>HR · الموارد البشرية</h2><p>Leave management · staff · documents · letters</p></div>
+      <div class="ph"><h2>HR/Vacations · الموارد البشرية والإجازات</h2><p>Leave management · staff · documents · letters</p></div>
       <div class="vtabs" id="vacTabs"></div>
       <div class="vsec" id="vs-submit">
         <div class="card"><div class="ct">New Request</div>
@@ -1907,7 +1907,7 @@ function bootApp(){
   if(cn){ document.getElementById('clinicName').textContent=cn; var ci=document.getElementById('clinicNameInput'); if(ci)ci.value=cn; }
 
   var tabs = isGM()
-    ? [['costs','Costs','💰'],['records','Records','📋'],['dashboard','Dashboard','📊'],['utilization','Utilization','📈'],['vacation','HR','👥'],['payroll','Payroll','🦷'],['manage','Manage','⚙️']]
+    ? [['costs','Costs','💰'],['records','Records','📋'],['dashboard','Dashboard','📊'],['utilization','Utilization','📈'],['vacation','HR/Vacations','👥'],['payroll','Payroll','🦷'],['manage','Manage','⚙️']]
     : getStaffTabs();
   var h='', bh='';
   for(var i=0;i<tabs.length;i++){
@@ -6869,6 +6869,38 @@ var HR_DOCS = [
   {id:'insurance',label:'Malpractice insurance'}
 ];
 
+// Resolve display label for a doc, employee-aware.
+// 'iqama' doc shows as "National ID copy" for Saudi nationals, "Iqama copy" otherwise.
+// Internal id stays 'iqama' for both — no data migration needed, existing links unaffected.
+function hrDocLabel(d, name) {
+  if (d.id === 'iqama') {
+    var p = empProfiles[name] || {};
+    return (p.nationality === 'Saudi') ? 'National ID copy' : 'Iqama copy';
+  }
+  return d.label;
+}
+
+// Set/change an employee's nationality (Saudi vs non-Saudi). Writes to empProfiles in Supabase
+// (this is the only field this panel writes — strict merge, never reconstructs the profile object).
+// Drives: the "ID copy" vs "Iqama copy" doc label, and the existing Nitaqat/Saudization report.
+async function hrSetNationality(name) {
+  var p   = empProfiles[name] || {};
+  var cur = p.nationality || '';
+  var val = prompt('Nationality for ' + name + ':\n\nType "Saudi" for Saudi nationals,\nor the nationality (e.g. "Egyptian", "Filipino") for non-Saudi staff.\n\nLeave blank to clear:', cur);
+  if (val === null) return;
+  val = val.trim();
+  p.nationality = val; // merge into existing profile object — do not reconstruct
+  empProfiles[name] = p;
+  try {
+    await saveConfig('empProfiles', empProfiles);
+    toast('Nationality updated', true);
+  } catch (x) {
+    toast('Could not save — check connection', false);
+  }
+  hrDetail(name);
+  hrGrid();
+}
+
 var _hrEmp    = null;
 var _hrLetType = '';
 var _hrLetEmp  = '';
@@ -6884,6 +6916,11 @@ function hrGetUrl(n)     { try { return localStorage.getItem(hrLsKey(n,'url')) |
 function hrSetUrl(n,u)   { try { localStorage.setItem(hrLsKey(n,'url'), u); } catch(x) {} }
 function hrGetLets(n)    { try { return JSON.parse(localStorage.getItem(hrLsKey(n,'lets')) || '[]'); } catch(x) { return []; } }
 function hrSaveLets(n,a) { try { localStorage.setItem(hrLsKey(n,'lets'), JSON.stringify(a)); } catch(x) {} }
+// Per-employee list of doc IDs marked "not needed" (e.g. receptionist doesn't need Saudi Council cert.)
+function hrGetNA(n)      { try { return JSON.parse(localStorage.getItem(hrLsKey(n,'na')) || '[]'); } catch(x) { return []; } }
+function hrSaveNA(n,a)   { try { localStorage.setItem(hrLsKey(n,'na'), JSON.stringify(a)); } catch(x) {} }
+function hrIsNA(n,docId) { return hrGetNA(n).indexOf(docId) >= 0; }
+function hrDocsForEmp(n) { var na = hrGetNA(n); return HR_DOCS.filter(function(d){ return na.indexOf(d.id) < 0; }); }
 
 function hrTab(t) {
   ['staff','letters','nitaqat'].forEach(function(x) {
@@ -6922,10 +6959,11 @@ function hrGrid() {
     var abg = e.role === 'Doctor' ? '#dbeafe' : (e.role === 'Nurse' ? '#d1fae5' : '#f1f5f9');
     var atx = e.role === 'Doctor' ? '#1e40af' : (e.role === 'Nurse' ? '#065f46' : '#475569');
     var docs    = hrGetDocs(e.name);
-    var present = HR_DOCS.filter(function(d) { return docs[d.id]; }).length;
-    var dots    = HR_DOCS.map(function(d) {
+    var needed  = hrDocsForEmp(e.name);
+    var present = needed.filter(function(d) { return docs[d.id + '_url']; }).length;
+    var dots    = needed.map(function(d) {
       var c = docs[d.id + '_url'] ? '#16a34a' : '#ef4444';
-      return '<span title="' + esc(d.label) + '" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + c + ';margin:1px"></span>';
+      return '<span title="' + esc(hrDocLabel(d, e.name)) + '" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + c + ';margin:1px"></span>';
     }).join('');
     var balTxt = b ? (b.available + 'd of ' + b.entitled) : 'No contract';
     var balCol = b ? (b.available/b.entitled > 0.4 ? '#16a34a' : (b.available/b.entitled > 0.2 ? '#ca8a04' : '#dc2626')) : '#94a3b8';
@@ -6942,7 +6980,7 @@ function hrGrid() {
       + '<div style="height:3px;background:#e2e8f0;border-radius:3px;margin-bottom:.5rem">'
       + '<div style="height:100%;width:' + barW + '%;background:' + balCol + ';border-radius:3px"></div></div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center">'
-      + '<span style="font-size:.7rem;color:var(--ss)">Docs ' + present + '/' + HR_DOCS.length + '</span>'
+      + '<span style="font-size:.7rem;color:var(--ss)">Docs ' + present + '/' + needed.length + '</span>'
       + '<div>' + dots + '</div></div></div>';
     rows.push(card);
     } catch(ex) { console.warn('hrGrid card error:', ex, e.name); }
@@ -6979,7 +7017,8 @@ function hrDetail(name) {
   // Header
   rows.push('<div class="card" style="border:1.5px solid var(--teal)">');
   rows.push('<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem">');
-  rows.push('<div style="font-size:1rem;font-weight:600">' + esc(name) + '</div>');
+  rows.push('<div style="display:flex;align-items:center;gap:8px"><div style="font-size:1rem;font-weight:600">' + esc(name) + '</div>'
+    + '<span onclick="hrSetNationality(\'' + esc(name) + '\')" title="Click to change" style="cursor:pointer;font-size:.69rem;padding:2px 8px;border-radius:99px;background:' + (p.nationality==='Saudi' ? '#dcfce7;color:#166534' : '#f1f5f9;color:#475569') + '">' + (p.nationality==='Saudi' ? '🇸🇦 Saudi' : (p.nationality ? '🌐 ' + esc(p.nationality) : '⚠️ Set nationality')) + '</span></div>');
   rows.push('<div style="display:flex;gap:.4rem">');
   rows.push('<button class="btn bp" style="font-size:.76rem" onclick="hrLetter2(\'experience\',\'' + esc(name) + '\')">+ Letter</button>');
   rows.push('<button class="btn bx" style="font-size:.76rem" onclick="hrClose()">Close</button>');
@@ -7030,17 +7069,24 @@ function hrDetail(name) {
   rows.push('<div>');
   rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Required documents</div>');
   HR_DOCS.forEach(function(d) {
+    var na     = hrIsNA(name, d.id);
     var has    = !!docs[d.id + '_url'];
     var docUrl = docs[d.id + '_url'] || '';
-    var dotC   = has ? '#16a34a' : '#ef4444';
-    var rowBg  = has ? '' : 'background:#fff5f5;';
+    var dotC   = na ? '#cbd5e1' : (has ? '#16a34a' : '#ef4444');
+    var rowBg  = na ? 'background:#f8fafc;' : (has ? '' : 'background:#fff5f5;');
     rows.push('<div style="display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:6px;border:1px solid var(--brd);margin-bottom:3px;' + rowBg + '">');
     rows.push('<span style="width:7px;height:7px;border-radius:50%;background:' + dotC + ';flex-shrink:0;display:inline-block"></span>');
-    rows.push('<span style="font-size:.78rem;flex:1">' + esc(d.label) + '</span>');
-    if (docUrl) {
-      rows.push('<a href="' + esc(docUrl) + '" target="_blank" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--w);color:var(--sl);text-decoration:none">View</a>');
+    rows.push('<span style="font-size:.78rem;flex:1' + (na ? ';color:var(--ss);text-decoration:line-through' : '') + '">' + esc(hrDocLabel(d, name)) + '</span>');
+    if (na) {
+      rows.push('<span style="font-size:.67rem;padding:1px 6px;border-radius:4px;background:#e2e8f0;color:var(--ss)">Not needed</span>');
+      rows.push('<button onclick="hrDocNA(\'' + esc(name) + '\',\'' + d.id + '\')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">Undo</button>');
+    } else {
+      if (docUrl) {
+        rows.push('<a href="' + esc(docUrl) + '" target="_blank" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--w);color:var(--sl);text-decoration:none">View</a>');
+      }
+      rows.push('<button onclick="hrDocLink(\'' + esc(name) + '\',\'' + d.id + '\')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">' + (docUrl ? 'Edit' : '+ Link') + '</button>');
+      rows.push('<button onclick="hrDocNA(\'' + esc(name) + '\',\'' + d.id + '\')" title="Mark as not needed for this employee" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit;color:var(--ss)">✕</button>');
     }
-    rows.push('<button onclick="hrDocLink(\'' + esc(name) + '\',\'' + d.id + '\')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">' + (docUrl ? 'Edit' : '+ Link') + '</button>');
     rows.push('</div>');
   });
   rows.push('</div>');
@@ -7082,10 +7128,23 @@ function hrDocToggle(name, docId) {
   hrGrid();
 }
 
+// Mark/unmark a document as "not needed" for this specific employee (e.g. receptionist doesn't need a Saudi Council cert.)
+// Does not delete any saved link — if later un-marked, a previously saved link reappears as-is.
+function hrDocNA(name, docId) {
+  var na = hrGetNA(name);
+  var i  = na.indexOf(docId);
+  if (i >= 0) { na.splice(i, 1); } else { na.push(docId); }
+  hrSaveNA(name, na);
+  hrDetail(name);
+  hrGrid();
+}
+
 function hrDocLink(name, docId) {
   var d   = hrGetDocs(name);
   var cur = d[docId + '_url'] || '';
-  var msg = 'Paste Google Drive link for document: ' + docId + '\nEmployee: ' + name + '\n\nRight-click file in Drive > Get link > Copy\nLeave blank to remove:';
+  var docObj  = HR_DOCS.filter(function(x){ return x.id===docId; })[0] || {id:docId,label:docId};
+  var dLabel  = hrDocLabel(docObj, name);
+  var msg = 'Paste Google Drive link for document: ' + dLabel + '\nEmployee: ' + name + '\n\nRight-click file in Drive > Get link > Copy\nLeave blank to remove:';
   var url = prompt(msg, cur);
   if (url === null) return;
   url = url.trim();
