@@ -6859,7 +6859,7 @@ showPage=function(id,btn){
 // ══════════════════════════════════════════
 
 var HR_DOCS = [
-  {id:'iqama',    label:'Iqama copy'},
+  {id:'iqama',    label:'ID copy'},
   {id:'passport', label:'Passport copy'},
   {id:'contract', label:'Employment contract'},
   {id:'training', label:'Training certificates'},
@@ -6868,38 +6868,6 @@ var HR_DOCS = [
   {id:'photo',    label:'Personal photo'},
   {id:'insurance',label:'Malpractice insurance'}
 ];
-
-// Resolve display label for a doc, employee-aware.
-// 'iqama' doc shows as "National ID copy" for Saudi nationals, "Iqama copy" otherwise.
-// Internal id stays 'iqama' for both — no data migration needed, existing links unaffected.
-function hrDocLabel(d, name) {
-  if (d.id === 'iqama') {
-    var p = empProfiles[name] || {};
-    return (p.nationality === 'Saudi') ? 'National ID copy' : 'Iqama copy';
-  }
-  return d.label;
-}
-
-// Set/change an employee's nationality (Saudi vs non-Saudi). Writes to empProfiles in Supabase
-// (this is the only field this panel writes — strict merge, never reconstructs the profile object).
-// Drives: the "ID copy" vs "Iqama copy" doc label, and the existing Nitaqat/Saudization report.
-async function hrSetNationality(name) {
-  var p   = empProfiles[name] || {};
-  var cur = p.nationality || '';
-  var val = prompt('Nationality for ' + name + ':\n\nType "Saudi" for Saudi nationals,\nor the nationality (e.g. "Egyptian", "Filipino") for non-Saudi staff.\n\nLeave blank to clear:', cur);
-  if (val === null) return;
-  val = val.trim();
-  p.nationality = val; // merge into existing profile object — do not reconstruct
-  empProfiles[name] = p;
-  try {
-    await saveConfig('empProfiles', empProfiles);
-    toast('Nationality updated', true);
-  } catch (x) {
-    toast('Could not save — check connection', false);
-  }
-  hrDetail(name);
-  hrGrid();
-}
 
 var _hrEmp    = null;
 var _hrLetType = '';
@@ -6963,7 +6931,7 @@ function hrGrid() {
     var present = needed.filter(function(d) { return docs[d.id + '_url']; }).length;
     var dots    = needed.map(function(d) {
       var c = docs[d.id + '_url'] ? '#16a34a' : '#ef4444';
-      return '<span title="' + esc(hrDocLabel(d, e.name)) + '" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + c + ';margin:1px"></span>';
+      return '<span title="' + esc(d.label) + '" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + c + ';margin:1px"></span>';
     }).join('');
     var balTxt = b ? (b.available + 'd of ' + b.entitled) : 'No contract';
     var balCol = b ? (b.available/b.entitled > 0.4 ? '#16a34a' : (b.available/b.entitled > 0.2 ? '#ca8a04' : '#dc2626')) : '#94a3b8';
@@ -7017,8 +6985,7 @@ function hrDetail(name) {
   // Header
   rows.push('<div class="card" style="border:1.5px solid var(--teal)">');
   rows.push('<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem">');
-  rows.push('<div style="display:flex;align-items:center;gap:8px"><div style="font-size:1rem;font-weight:600">' + esc(name) + '</div>'
-    + '<span onclick="hrSetNationality(\'' + esc(name) + '\')" title="Click to change" style="cursor:pointer;font-size:.69rem;padding:2px 8px;border-radius:99px;background:' + (p.nationality==='Saudi' ? '#dcfce7;color:#166534' : '#f1f5f9;color:#475569') + '">' + (p.nationality==='Saudi' ? '🇸🇦 Saudi' : (p.nationality ? '🌐 ' + esc(p.nationality) : '⚠️ Set nationality')) + '</span></div>');
+  rows.push('<div style="font-size:1rem;font-weight:600">' + esc(name) + '</div>');
   rows.push('<div style="display:flex;gap:.4rem">');
   rows.push('<button class="btn bp" style="font-size:.76rem" onclick="hrLetter2(\'experience\',\'' + esc(name) + '\')">+ Letter</button>');
   rows.push('<button class="btn bx" style="font-size:.76rem" onclick="hrClose()">Close</button>');
@@ -7042,9 +7009,18 @@ function hrDetail(name) {
   rows.push('<div>');
   rows.push('<div style="font-size:.7rem;color:var(--ss);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Leave balance</div>');
   if (b) {
+    var availPct = b.entitled > 0 ? (b.available / b.entitled) : 1;
+    var availCol = availPct > 0.4 ? '#16a34a' : (availPct > 0.2 ? '#ca8a04' : '#dc2626');
+    var availBg  = availPct > 0.4 ? '#f0fdf4' : (availPct > 0.2 ? '#fefce8' : '#fef2f2');
+    var statStyles = [
+      {n:b.available+'d',  l:'Available',   col:availCol,    bg:availBg},
+      {n:b.entitled+'d',   l:'Entitled/yr', col:'#1e40af',    bg:'#eff6ff'},
+      {n:b.totalUsed+'d',  l:'Total used',  col:'#7c3aed',    bg:'#f5f3ff'},
+      {n:b.daysIntoYear+'/334', l:'Year accrual', col:'#0891b2', bg:'#ecfeff'}
+    ];
     rows.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:.7rem">');
-    [{n:b.available+'d',l:'Available'},{n:b.entitled+'d',l:'Entitled/yr'},{n:b.totalUsed+'d',l:'Total used'},{n:b.daysIntoYear+'/334',l:'Year accrual'}].forEach(function(s) {
-      rows.push('<div style="background:var(--bg);border-radius:6px;padding:.55rem;text-align:center"><div style="font-size:1.05rem;font-weight:500">' + s.n + '</div><div style="font-size:.67rem;color:var(--ss);margin-top:1px">' + s.l + '</div></div>');
+    statStyles.forEach(function(s) {
+      rows.push('<div style="background:' + s.bg + ';border-radius:6px;padding:.55rem;text-align:center"><div style="font-size:1.05rem;font-weight:700;color:' + s.col + '">' + s.n + '</div><div style="font-size:.67rem;color:var(--ss);margin-top:1px">' + s.l + '</div></div>');
     });
     rows.push('</div>');
   } else {
@@ -7076,7 +7052,7 @@ function hrDetail(name) {
     var rowBg  = na ? 'background:#f8fafc;' : (has ? '' : 'background:#fff5f5;');
     rows.push('<div style="display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:6px;border:1px solid var(--brd);margin-bottom:3px;' + rowBg + '">');
     rows.push('<span style="width:7px;height:7px;border-radius:50%;background:' + dotC + ';flex-shrink:0;display:inline-block"></span>');
-    rows.push('<span style="font-size:.78rem;flex:1' + (na ? ';color:var(--ss);text-decoration:line-through' : '') + '">' + esc(hrDocLabel(d, name)) + '</span>');
+    rows.push('<span style="font-size:.78rem;flex:1' + (na ? ';color:var(--ss);text-decoration:line-through' : '') + '">' + esc(d.label) + '</span>');
     if (na) {
       rows.push('<span style="font-size:.67rem;padding:1px 6px;border-radius:4px;background:#e2e8f0;color:var(--ss)">Not needed</span>');
       rows.push('<button onclick="hrDocNA(\'' + esc(name) + '\',\'' + d.id + '\')" style="font-size:.69rem;padding:1px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);cursor:pointer;font-family:inherit">Undo</button>');
@@ -7142,9 +7118,8 @@ function hrDocNA(name, docId) {
 function hrDocLink(name, docId) {
   var d   = hrGetDocs(name);
   var cur = d[docId + '_url'] || '';
-  var docObj  = HR_DOCS.filter(function(x){ return x.id===docId; })[0] || {id:docId,label:docId};
-  var dLabel  = hrDocLabel(docObj, name);
-  var msg = 'Paste Google Drive link for document: ' + dLabel + '\nEmployee: ' + name + '\n\nRight-click file in Drive > Get link > Copy\nLeave blank to remove:';
+  var docObj = HR_DOCS.filter(function(x){ return x.id===docId; })[0] || {id:docId,label:docId};
+  var msg = 'Paste Google Drive link for document: ' + docObj.label + '\nEmployee: ' + name + '\n\nRight-click file in Drive > Get link > Copy\nLeave blank to remove:';
   var url = prompt(msg, cur);
   if (url === null) return;
   url = url.trim();
