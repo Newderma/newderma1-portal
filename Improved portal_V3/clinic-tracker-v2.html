@@ -3010,18 +3010,20 @@ async function decideVac(id, decision){
   try {
     var today = new Date().toISOString().slice(0,10);
     await sbUpdate('ct_vacation', 'id=eq.'+id, { status: decision, decided_at: today });
+    var rec = null;
     for(var i=0;i<vacReqs.length;i++){
       if(vacReqs[i].id==id){
         vacReqs[i].status    = decision;
         vacReqs[i].decidedAt = today;
+        rec = vacReqs[i];
         break;
       }
     }
     setSyncDot('on');
     renderPending(); renderBalances(); renderVacH();
     toast(decision === 'Approved' ? 'Request approved! ✅' : 'Request rejected.', decision === 'Approved');
-    // Show approval letter when approved
-    if(decision === 'Approved') showApprovalLetter(id);
+    // Email the staff member that their request was decided (silently no-ops if EmailJS isn't configured)
+    if(rec) sendVacNotification(rec.employee, decision, rec.type, rec.from, rec.to, rec.days, rec.note);
   } catch(e) {
     setSyncDot('off');
     toast('Failed to update: ' + e.message, false);
@@ -3048,17 +3050,21 @@ async function confirmReject(){
   try {
     var today = new Date().toISOString().slice(0,10);
     await sbUpdate('ct_vacation', 'id=eq.'+id, { status: 'Rejected', reject_reason: reason, decided_at: today });
+    var rec = null;
     for(var i=0;i<vacReqs.length;i++){
       if(vacReqs[i].id==id){
         vacReqs[i].status       = 'Rejected';
         vacReqs[i].rejectReason = reason;
         vacReqs[i].decidedAt    = today;
+        rec = vacReqs[i];
         break;
       }
     }
     setSyncDot('on');
     renderPending(); renderBalances(); renderVacH();
     toast('Request rejected.', true);
+    // Email the staff member with the rejection reason (silently no-ops if EmailJS isn't configured)
+    if(rec) sendVacNotification(rec.employee, 'Rejected', rec.type, rec.from, rec.to, rec.days, reason);
   } catch(e) {
     setSyncDot('off');
     toast('Rejection failed: ' + e.message, false);
