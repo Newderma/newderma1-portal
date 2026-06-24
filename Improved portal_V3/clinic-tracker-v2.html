@@ -1657,6 +1657,11 @@ var annualDays = 21;
 var staffPasswords = {};
 var autoStaff = []; // names of GOSI staff with auto-attendance
 var empProfiles = {}; // { "Nurse Fatima": { contractStart:"2022-03-15", entitledDays:21, carryOverCap:10 } }
+var hrDocsData   = {}; // { "Nurse Fatima": { "iqama_url": "...", "passport_url": "..." } } — was localStorage hr_*_docs
+var hrNAData     = {}; // { "Nurse Fatima": ["docId1","docId2"] } — docs marked "not needed" — was localStorage hr_*_na
+var hrUrlData    = {}; // { "Nurse Fatima": "https://drive.google.com/..." } — Drive folder link — was localStorage hr_*_url
+var hrLettersData = {}; // { "Nurse Fatima": [ {type, date, text, ...}, ... ] } — saved HR letters — was localStorage hr_*_lets
+var hrRecipsData = []; // [ {ar, en}, ... ] — saved Identification Letter addressees — was localStorage hr_recip_list
 var lists = {
   doctors:    [],
   nurses:     [],
@@ -1673,7 +1678,7 @@ var staffPrivileges = {}; // { 'Name': ['entry','records','vacation'] } // stand
 async function loadConfig(){
   try{
     // ONE call to fetch all config keys at once instead of 9 separate calls
-    var keys = ['lists','itemCosts','annualDays','staffPasswords','adminPassword','empProfiles','shiftHours','staffPrivileges','emailjsConfig','autoStaff'];
+    var keys = ['lists','itemCosts','annualDays','staffPasswords','adminPassword','empProfiles','shiftHours','staffPrivileges','emailjsConfig','autoStaff','hrDocsData','hrNAData','hrUrlData','hrLettersData','hrRecipsData'];
     var rows = await sbGet('ct_config', 'key=in.('+keys.join(',')+')');
     var map = {};
     rows.forEach(function(r){ map[r.key] = r.value; });
@@ -1686,8 +1691,56 @@ async function loadConfig(){
     if(map.empProfiles)     empProfiles     = map.empProfiles;
     if(map.shiftHours)      shiftHours      = parseFloat(map.shiftHours)||8;
     if(map.staffPrivileges) staffPrivileges = map.staffPrivileges;
+    if(map.hrDocsData)      hrDocsData      = map.hrDocsData;
+    if(map.hrNAData)        hrNAData        = map.hrNAData;
+    if(map.hrUrlData)       hrUrlData       = map.hrUrlData;
+    if(map.hrLettersData)   hrLettersData   = map.hrLettersData;
+    if(map.hrRecipsData)    hrRecipsData    = map.hrRecipsData||[];
     if(map.emailjsConfig){  emailjsCfg = map.emailjsConfig; try{ localStorage.setItem('ct_emailjs',JSON.stringify(emailjsCfg)); }catch(e){} }
   }catch(e){ console.warn('Config load failed',e); }
+  // ── ONE-TIME MIGRATION: pull any legacy localStorage HR data (docs/url/lets/na)
+  // into the new Supabase-backed hrDocsData/hrUrlData/hrLettersData/hrNAData, then
+  // clear the old keys so this only ever runs once per browser. Existing Supabase
+  // data (from a previous run of this migration, e.g. on another device) always
+  // wins on conflict — we only fill in gaps, never overwrite.
+  try{
+    var legacyFound = false;
+    var empNamesForMigration = (lists.staff||[]).concat(lists.doctors||[]).concat(lists.nurses||[]).concat(Object.keys(empProfiles||{}));
+    var seen = {};
+    empNamesForMigration.forEach(function(n){
+      if(!n || seen[n]) return; seen[n] = true;
+      var safe; try{ safe = btoa(unescape(encodeURIComponent(n))); }catch(x){ safe = String(n.length); }
+      var lsDocs = localStorage.getItem('hr_'+safe+'_docs');
+      var lsUrl  = localStorage.getItem('hr_'+safe+'_url');
+      var lsLets = localStorage.getItem('hr_'+safe+'_lets');
+      var lsNA   = localStorage.getItem('hr_'+safe+'_na');
+      if(lsDocs && !hrDocsData[n])    { try{ hrDocsData[n] = JSON.parse(lsDocs); legacyFound = true; }catch(x){} }
+      if(lsUrl  && !hrUrlData[n])     { hrUrlData[n] = lsUrl; legacyFound = true; }
+      if(lsLets && !hrLettersData[n]) { try{ hrLettersData[n] = JSON.parse(lsLets); legacyFound = true; }catch(x){} }
+      if(lsNA   && !hrNAData[n])      { try{ hrNAData[n] = JSON.parse(lsNA); legacyFound = true; }catch(x){} }
+      // Clear old keys regardless — either migrated just now, or already migrated from
+      // a prior session/device and Supabase already has it, so the local copy is stale either way.
+      localStorage.removeItem('hr_'+safe+'_docs');
+      localStorage.removeItem('hr_'+safe+'_url');
+      localStorage.removeItem('hr_'+safe+'_lets');
+      localStorage.removeItem('hr_'+safe+'_na');
+    });
+    var lsRecips = localStorage.getItem('hr_recip_list');
+    if(lsRecips && hrRecipsData.length === 0){
+      try{ var parsed = JSON.parse(lsRecips); if(parsed.length){ hrRecipsData = parsed; legacyFound = true; } }catch(x){}
+    }
+    localStorage.removeItem('hr_recip_list');
+    if(legacyFound){
+      console.log('Migrated legacy HR data from localStorage to Supabase.');
+      await Promise.all([
+        cfgSet('hrDocsData', hrDocsData),
+        cfgSet('hrUrlData', hrUrlData),
+        cfgSet('hrLettersData', hrLettersData),
+        cfgSet('hrNAData', hrNAData),
+        cfgSet('hrRecipsData', hrRecipsData)
+      ]);
+    }
+  }catch(e){ console.warn('HR legacy migration failed', e); }
   // Cache lists AND staffPrivileges for instant load next time
   try{
     localStorage.setItem('ct_lists_cache', JSON.stringify(lists));
@@ -6878,25 +6931,20 @@ var _hrEmp    = null;
 var _hrLetType = '';
 var _hrLetEmp  = '';
 
-function hrLsKey(n, sfx) {
-  var safe = '';
-  try { safe = btoa(unescape(encodeURIComponent(n))); } catch(x) { safe = String(n.length); }
-  return 'hr_' + safe + '_' + sfx;
-}
-function hrGetDocs(n)    { try { return JSON.parse(localStorage.getItem(hrLsKey(n,'docs')) || '{}'); } catch(x) { return {}; } }
-function hrSaveDocs(n,d) { try { localStorage.setItem(hrLsKey(n,'docs'), JSON.stringify(d)); } catch(x) {} }
-function hrGetUrl(n)     { try { return localStorage.getItem(hrLsKey(n,'url')) || ''; } catch(x) { return ''; } }
-function hrSetUrl(n,u)   { try { localStorage.setItem(hrLsKey(n,'url'), u); } catch(x) {} }
-function hrGetLets(n)    { try { return JSON.parse(localStorage.getItem(hrLsKey(n,'lets')) || '[]'); } catch(x) { return []; } }
-function hrSaveLets(n,a) { try { localStorage.setItem(hrLsKey(n,'lets'), JSON.stringify(a)); } catch(x) {} }
+function hrGetDocs(n)    { return hrDocsData[n] || {}; }
+function hrSaveDocs(n,d) { hrDocsData[n] = d; cfgSet('hrDocsData', hrDocsData).catch(function(e){ console.warn('hrDocsData save failed', e); }); }
+function hrGetUrl(n)     { return hrUrlData[n] || ''; }
+function hrSetUrl(n,u)   { hrUrlData[n] = u; cfgSet('hrUrlData', hrUrlData).catch(function(e){ console.warn('hrUrlData save failed', e); }); }
+function hrGetLets(n)    { return hrLettersData[n] || []; }
+function hrSaveLets(n,a) { hrLettersData[n] = a; cfgSet('hrLettersData', hrLettersData).catch(function(e){ console.warn('hrLettersData save failed', e); }); }
 // Per-employee list of doc IDs marked "not needed" (e.g. receptionist doesn't need Saudi Council cert.)
-function hrGetNA(n)      { try { return JSON.parse(localStorage.getItem(hrLsKey(n,'na')) || '[]'); } catch(x) { return []; } }
-function hrSaveNA(n,a)   { try { localStorage.setItem(hrLsKey(n,'na'), JSON.stringify(a)); } catch(x) {} }
+function hrGetNA(n)      { return hrNAData[n] || []; }
+function hrSaveNA(n,a)   { hrNAData[n] = a; cfgSet('hrNAData', hrNAData).catch(function(e){ console.warn('hrNAData save failed', e); }); }
 function hrIsNA(n,docId) { return hrGetNA(n).indexOf(docId) >= 0; }
 function hrDocsForEmp(n) { var na = hrGetNA(n); return HR_DOCS.filter(function(d){ return na.indexOf(d.id) < 0; }); }
 // Saved addressees for the Identification Letter (stored globally, not per-employee)
-function hrGetRecips()    { try { return JSON.parse(localStorage.getItem('hr_recip_list') || '[]'); } catch(x) { return []; } }
-function hrSaveRecips(a)  { try { localStorage.setItem('hr_recip_list', JSON.stringify(a)); } catch(x) {} }
+function hrGetRecips()    { return hrRecipsData; }
+function hrSaveRecips(a)  { hrRecipsData = a; cfgSet('hrRecipsData', hrRecipsData).catch(function(e){ console.warn('hrRecipsData save failed', e); }); }
 function hrAddRecip(arText, enText) {
   var list = hrGetRecips();
   // Avoid exact duplicates
