@@ -459,6 +459,10 @@ let pendingFile = null;
 let currentUser = null;
 
 function initSupabase(){
+  if(!window.supabase){
+    document.getElementById('lockError').textContent = 'تعذّر تحميل مكتبة Supabase — تحقق من الاتصال بالإنترنت وأعد تحميل الصفحة';
+    return;
+  }
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
@@ -474,15 +478,23 @@ async function tryLogin(){
   }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  btn.disabled = false;
-  btn.textContent = 'دخول';
-  if(error){
-    document.getElementById('lockError').textContent = 'بيانات الدخول غير صحيحة';
-    return;
+  try{
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    btn.disabled = false;
+    btn.textContent = 'دخول';
+    if(error){
+      console.error('Supabase login error:', error);
+      document.getElementById('lockError').textContent = 'خطأ: ' + error.message;
+      return;
+    }
+    currentUser = data.user;
+    showApp();
+  } catch(e){
+    btn.disabled = false;
+    btn.textContent = 'دخول';
+    console.error('Unexpected login error:', e);
+    document.getElementById('lockError').textContent = 'خطأ غير متوقع: ' + e.message;
   }
-  currentUser = data.user;
-  showApp();
 }
 
 async function lockApp(){
