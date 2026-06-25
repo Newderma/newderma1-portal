@@ -427,10 +427,10 @@
       </div>
       <div class="field">
         <label>المنصة</label>
-        <select id="newMonthPlatform">
-          <option value="tiktok">تيك توك (٣٠ فيديو)</option>
-          <option value="instagram">إنستغرام (٤ أسابيع)</option>
-        </select>
+        <div style="display:flex; gap:8px;">
+          <div class="status-btn active" id="platformTiktokBtn" data-platform="tiktok" onclick="setPlatform('tiktok')" style="flex:1;cursor:pointer;">تيك توك (٣٠ فيديو)</div>
+          <div class="status-btn" id="platformInstaBtn" data-platform="instagram" onclick="setPlatform('instagram')" style="flex:1;cursor:pointer;">إنستغرام (٤ أسابيع)</div>
+        </div>
       </div>
 
       <div class="field">
@@ -487,6 +487,7 @@ let currentPlanId = null;
 let currentItems = [];
 let activeDayId = null;
 let pendingFile = null;
+let removeFileFlag = false;
 let currentUser = null;
 
 function initSupabase(){
@@ -650,6 +651,7 @@ function renderDayGrid(){
 async function openDayModal(itemId){
   activeDayId = itemId;
   pendingFile = null;
+  removeFileFlag = false;
   const item = currentItems.find(i=>i.id===itemId);
   document.getElementById('dayModalTitle').textContent = `اليوم ${item.day_number}`;
   document.getElementById('doctorFlag').checked = !!item.needs_doctor_review;
@@ -673,11 +675,13 @@ async function openDayModal(itemId){
       preview.innerHTML = '<div style="font-size:12px;color:#a8334a;">تعذّر تحميل المعاينة</div>';
     } else {
       const signedUrl = signedData.signedUrl;
+      let mediaHtml = '';
       if(item.file_url.match(/\.(mp4|mov|webm)$/i)){
-        preview.innerHTML = `<video src="${signedUrl}" controls></video>`;
+        mediaHtml = `<video src="${signedUrl}" controls></video>`;
       } else {
-        preview.innerHTML = `<img src="${signedUrl}">`;
+        mediaHtml = `<img src="${signedUrl}">`;
       }
+      preview.innerHTML = mediaHtml + `<div style="margin-top:8px;"><button type="button" class="btn" style="background:#fbe3e7;color:#a8334a;border:none;width:100%;" onclick="markFileForRemoval()">🗑 حذف الملف</button></div>`;
     }
   }
 
@@ -699,10 +703,18 @@ function getActiveStatus(){
   return active ? active.dataset.status : 'لم يبدأ';
 }
 
+function markFileForRemoval(){
+  removeFileFlag = true;
+  pendingFile = null;
+  const preview = document.getElementById('filePreview');
+  preview.innerHTML = '<div style="font-size:12.5px;color:#a8334a;">سيتم حذف الملف عند الحفظ. اضغط حفظ لتأكيد الحذف.</div>';
+}
+
 function onFileSelected(e){
   const file = e.target.files[0];
   if(!file) return;
   pendingFile = file;
+  removeFileFlag = false;
   const preview = document.getElementById('filePreview');
   const url = URL.createObjectURL(file);
   if(file.type.startsWith('video')){
@@ -720,6 +732,17 @@ async function saveDay(){
   const item = currentItems.find(i=>i.id===activeDayId);
   let filePath = item.file_url; // stores the storage PATH, not a permanent URL (bucket is private)
   let fileName = item.file_name;
+
+  if(removeFileFlag && item.file_url){
+    const { error: delErr } = await db.storage.from('ct-content-media').remove([item.file_url]);
+    if(delErr){
+      console.error('Storage delete error:', delErr);
+      // Continue anyway — better to clear the DB reference than leave the UI stuck,
+      // and an orphaned storage file is a minor cleanup issue rather than a blocker.
+    }
+    filePath = null;
+    fileName = null;
+  }
 
   if(pendingFile){
     const ext = pendingFile.name.split('.').pop();
@@ -757,18 +780,28 @@ async function saveDay(){
   if(error){ showToast('خطأ في الحفظ'); console.error(error); return; }
 
   showToast('تم الحفظ');
+  removeFileFlag = false;
+  pendingFile = null;
   closeDayModal();
   await loadPlan(currentPlanId);
 }
 
 // ---------- New month ----------
 let createMode = 'empty';
+let selectedPlatform = 'tiktok';
 
 function openNewMonthModal(){
   document.getElementById('newMonthOverlay').style.display='flex';
   setCreateMode('empty');
+  setPlatform('tiktok');
 }
 function closeNewMonthModal(){ document.getElementById('newMonthOverlay').style.display='none'; }
+
+function setPlatform(platform){
+  selectedPlatform = platform;
+  document.getElementById('platformTiktokBtn').classList.toggle('active', platform==='tiktok');
+  document.getElementById('platformInstaBtn').classList.toggle('active', platform==='instagram');
+}
 
 function setCreateMode(mode){
   createMode = mode;
@@ -856,7 +889,7 @@ function previewBulkPaste(){
 
 async function createNewMonth(){
   const label = document.getElementById('newMonthLabel').value.trim();
-  const platform = document.getElementById('newMonthPlatform').value;
+  const platform = selectedPlatform;
   if(!label){ showToast('أدخل اسم الشهر أولًا'); return; }
 
   let parsedDays = null;
