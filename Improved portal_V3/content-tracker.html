@@ -432,9 +432,40 @@
           <option value="instagram">إنستغرام (٤ أسابيع)</option>
         </select>
       </div>
-      <div class="field" style="background:#f7f5f0;border-radius:10px;padding:12px;font-size:12.5px;color:#555;">
-        سيتم إنشاء ٣٠ صفًا فارغًا (أو حسب المنصة) لهذا الشهر. اطلب من Claude في محادثة أخرى توليد الخطّافات والسكربتات، ثم أدخلوها هنا يدويًا — أو لصق سريع لاحقًا.
+
+      <div class="field">
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <div class="status-btn active" id="modeEmptyBtn" onclick="setCreateMode('empty')" style="flex:1;cursor:pointer;">أيام فارغة</div>
+          <div class="status-btn" id="modePasteBtn" onclick="setCreateMode('paste')" style="flex:1;cursor:pointer;">لصق خطة جاهزة</div>
+        </div>
       </div>
+
+      <div id="emptyModeNote" class="field" style="background:#f7f5f0;border-radius:10px;padding:12px;font-size:12.5px;color:#555;">
+        سيتم إنشاء ٣٠ صفًا فارغًا (أو حسب المنصة) لهذا الشهر. يمكنكم تعبئة كل يوم يدويًا بعد ذلك.
+      </div>
+
+      <div id="pasteModeArea" style="display:none;">
+        <div class="field" style="background:#eef6f3;border-radius:10px;padding:12px;font-size:12.5px;color:#0a4f47;">
+          اطلبوا من Claude توليد خطة الشهر بهذا الشكل بالضبط، ثم الصقوها هنا كاملة.
+        </div>
+        <div class="field">
+          <label>الصق الخطة الكاملة هنا</label>
+          <textarea id="bulkPasteInput" rows="10" placeholder="اليوم: 1
+الركيزة: نصائح العناية
+الشكل: ريلز / فيديو
+يحتاج مراجعة الطبيب: لا
+الخطّاف: ...
+السكربت: ...
+---
+اليوم: 2
+..."></textarea>
+        </div>
+        <div class="field">
+          <button class="btn btn-ghost" style="width:100%;" onclick="previewBulkPaste()">معاينة قبل الإنشاء</button>
+        </div>
+        <div id="pastePreview" style="display:none; background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:14px; max-height:200px; overflow-y:auto; font-size:12.5px;"></div>
+      </div>
+
       <button class="btn btn-primary" onclick="createNewMonth()" id="createMonthBtn">إنشاء الخطة</button>
     </div>
   </div>
@@ -731,13 +762,113 @@ async function saveDay(){
 }
 
 // ---------- New month ----------
-function openNewMonthModal(){ document.getElementById('newMonthOverlay').style.display='flex'; }
+let createMode = 'empty';
+
+function openNewMonthModal(){
+  document.getElementById('newMonthOverlay').style.display='flex';
+  setCreateMode('empty');
+}
 function closeNewMonthModal(){ document.getElementById('newMonthOverlay').style.display='none'; }
+
+function setCreateMode(mode){
+  createMode = mode;
+  document.getElementById('modeEmptyBtn').classList.toggle('active', mode==='empty');
+  document.getElementById('modePasteBtn').classList.toggle('active', mode==='paste');
+  document.getElementById('emptyModeNote').style.display = mode==='empty' ? 'block' : 'none';
+  document.getElementById('pasteModeArea').style.display = mode==='paste' ? 'block' : 'none';
+  document.getElementById('pastePreview').style.display = 'none';
+}
+
+// Parses the structured paste format into an array of day objects.
+// Expected block format, separated by lines of "---":
+//   اليوم: 1
+//   الركيزة: نصائح العناية
+//   الشكل: ريلز / فيديو
+//   يحتاج مراجعة الطبيب: لا
+//   الخطّاف: ...
+//   السكربت: ...
+function parseBulkPaste(text){
+  const blocks = text.split(/^-{3,}$/m).map(b=>b.trim()).filter(b=>b.length>0);
+  const days = [];
+  const errors = [];
+
+  blocks.forEach((block, idx)=>{
+    const lines = block.split('\n');
+    const item = { day_number:null, pillar:'', format:'', needs_doctor_review:false, hook:'', script:'' };
+    let currentField = null;
+
+    lines.forEach(line=>{
+      const dayMatch = line.match(/^اليوم\s*:\s*(\d+)/);
+      const pillarMatch = line.match(/^الركيزة\s*:\s*(.*)/);
+      const formatMatch = line.match(/^الشكل\s*:\s*(.*)/);
+      const doctorMatch = line.match(/^يحتاج مراجعة الطبيب\s*:\s*(.*)/);
+      const hookMatch = line.match(/^الخطّاف\s*:\s*(.*)/);
+      const scriptMatch = line.match(/^السكربت\s*:\s*(.*)/);
+
+      if(dayMatch){ item.day_number = parseInt(dayMatch[1]); currentField=null; }
+      else if(pillarMatch){ item.pillar = pillarMatch[1].trim(); currentField=null; }
+      else if(formatMatch){ item.format = formatMatch[1].trim(); currentField=null; }
+      else if(doctorMatch){ item.needs_doctor_review = /نعم|yes|true/i.test(doctorMatch[1].trim()); currentField=null; }
+      else if(hookMatch){ item.hook = hookMatch[1].trim(); currentField='hook'; }
+      else if(scriptMatch){ item.script = scriptMatch[1].trim(); currentField='script'; }
+      else if(currentField && line.trim().length>0){
+        // continuation line of a multi-line hook/script
+        item[currentField] += ' ' + line.trim();
+      }
+    });
+
+    if(!item.day_number){
+      errors.push(`الكتلة رقم ${idx+1} لا تحتوي على رقم يوم صحيح`);
+    } else {
+      days.push(item);
+    }
+  });
+
+  return { days, errors };
+}
+
+function previewBulkPaste(){
+  const text = document.getElementById('bulkPasteInput').value;
+  const { days, errors } = parseBulkPaste(text);
+  const preview = document.getElementById('pastePreview');
+  preview.style.display = 'block';
+
+  if(days.length===0){
+    preview.innerHTML = '<div style="color:#a8334a;">لم يتم العثور على أي يوم صالح. تحقق من التنسيق.</div>';
+    return;
+  }
+
+  let html = `<div style="font-weight:700;margin-bottom:8px;color:#0a4f47;">تم العثور على ${days.length} يومًا</div>`;
+  if(errors.length>0){
+    html += `<div style="color:#a8334a;margin-bottom:8px;">${errors.join('<br>')}</div>`;
+  }
+  days.slice(0,5).forEach(d=>{
+    html += `<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #eee;">
+      <b>اليوم ${d.day_number}</b> — ${d.pillar || 'بدون ركيزة'}<br>
+      <span style="color:#555;">${(d.hook||'').slice(0,60)}${d.hook && d.hook.length>60 ? '…' : ''}</span>
+    </div>`;
+  });
+  if(days.length>5){
+    html += `<div style="color:#7a7468;">و ${days.length-5} يومًا إضافيًا...</div>`;
+  }
+  preview.innerHTML = html;
+}
 
 async function createNewMonth(){
   const label = document.getElementById('newMonthLabel').value.trim();
   const platform = document.getElementById('newMonthPlatform').value;
   if(!label){ showToast('أدخل اسم الشهر أولًا'); return; }
+
+  let parsedDays = null;
+  if(createMode === 'paste'){
+    const text = document.getElementById('bulkPasteInput').value;
+    const { days, errors } = parseBulkPaste(text);
+    if(days.length===0){
+      showToast('لم يتم العثور على أيام صالحة في النص الملصوق');
+      return;
+    }
+    parsedDays = days;
+  }
 
   const btn = document.getElementById('createMonthBtn');
   btn.disabled = true;
@@ -746,19 +877,35 @@ async function createNewMonth(){
   const { data: plan, error } = await db.from('ct_content_plans').insert({ month_label: label, platform, created_by: currentUser ? currentUser.id : null }).select().single();
   if(error){ showToast('خطأ في إنشاء الخطة'); console.error(error); btn.disabled=false; btn.textContent='إنشاء الخطة'; return; }
 
-  const dayCount = platform === 'tiktok' ? 30 : 12; // instagram: ~3/week x 4 weeks
-  const rows = [];
-  for(let i=1;i<=dayCount;i++){
-    rows.push({ plan_id: plan.id, day_number: i, status: 'لم يبدأ' });
+  let rows;
+  if(parsedDays){
+    rows = parsedDays.map(d=>({
+      plan_id: plan.id,
+      day_number: d.day_number,
+      pillar: d.pillar || null,
+      format: d.format || null,
+      needs_doctor_review: d.needs_doctor_review,
+      hook: d.hook || null,
+      script: d.script || null,
+      status: 'لم يبدأ',
+    }));
+  } else {
+    const dayCount = platform === 'tiktok' ? 30 : 12; // instagram: ~3/week x 4 weeks
+    rows = [];
+    for(let i=1;i<=dayCount;i++){
+      rows.push({ plan_id: plan.id, day_number: i, status: 'لم يبدأ' });
+    }
   }
+
   const { error: itemsErr } = await db.from('ct_content_items').insert(rows);
   btn.disabled = false;
   btn.textContent = 'إنشاء الخطة';
   if(itemsErr){ showToast('خطأ في إنشاء الأيام'); console.error(itemsErr); return; }
 
-  showToast('تم إنشاء الخطة');
+  showToast(parsedDays ? `تم إنشاء الخطة بـ ${rows.length} يومًا من النص الملصوق` : 'تم إنشاء الخطة');
   closeNewMonthModal();
   document.getElementById('newMonthLabel').value='';
+  document.getElementById('bulkPasteInput').value='';
   await loadMonthList();
   document.getElementById('monthSelect').value = plan.id;
   currentPlanId = plan.id;
