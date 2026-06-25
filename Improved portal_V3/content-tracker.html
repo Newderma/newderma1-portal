@@ -813,7 +813,7 @@ function parseBulkPaste(text){
       else if(scriptMatch){ item.script = scriptMatch[1].trim(); currentField='script'; }
       else if(currentField && line.trim().length>0){
         // continuation line of a multi-line hook/script
-        item[currentField] += ' ' + line.trim();
+        item[currentField] += ' | ' + line.trim();
       }
     });
 
