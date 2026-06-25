@@ -517,7 +517,10 @@ function initSupabase(){
     document.getElementById('lockError').textContent = 'تعذّر تحميل مكتبة Supabase — تحقق من الاتصال بالإنترنت وأعد تحميل الصفحة';
     return;
   }
-  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // persistSession:false — every visit requires a fresh login, no "stay signed in"
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
 }
 
 // ---------- Auth ----------
@@ -568,14 +571,10 @@ function showApp(){
 
 document.getElementById('passwordInput').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
 
-window.addEventListener('DOMContentLoaded', async ()=>{
+window.addEventListener('DOMContentLoaded', ()=>{
   initSupabase();
-  // Check if there's already a valid session (so people stay logged in on their phone)
-  const { data } = await db.auth.getSession();
-  if(data.session){
-    currentUser = data.session.user;
-    showApp();
-  }
+  // No session check here on purpose — every visit to this page requires
+  // a fresh email/password login, regardless of any previous session.
 });
 
 
