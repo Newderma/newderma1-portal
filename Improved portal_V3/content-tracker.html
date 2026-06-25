@@ -451,7 +451,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_iVq5pMW0RUCQzx-Y7Vpr7w_BoBhiAkc";
 // No PIN needed anymore — each person logs in with their own email/password,
 // created in Supabase Dashboard → Authentication → Users.
 
-let supabase;
+let db;
 let currentPlanId = null;
 let currentItems = [];
 let activeDayId = null;
@@ -463,7 +463,7 @@ function initSupabase(){
     document.getElementById('lockError').textContent = 'تعذّر تحميل مكتبة Supabase — تحقق من الاتصال بالإنترنت وأعد تحميل الصفحة';
     return;
   }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 // ---------- Auth ----------
@@ -479,7 +479,7 @@ async function tryLogin(){
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
   try{
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
     btn.disabled = false;
     btn.textContent = 'دخول';
     if(error){
@@ -498,7 +498,7 @@ async function tryLogin(){
 }
 
 async function lockApp(){
-  await supabase.auth.signOut();
+  await db.auth.signOut();
   currentUser = null;
   document.getElementById('app').style.display='none';
   document.getElementById('lockScreen').style.display='flex';
@@ -517,7 +517,7 @@ document.getElementById('passwordInput').addEventListener('keydown', e=>{ if(e.k
 window.addEventListener('DOMContentLoaded', async ()=>{
   initSupabase();
   // Check if there's already a valid session (so people stay logged in on their phone)
-  const { data } = await supabase.auth.getSession();
+  const { data } = await db.auth.getSession();
   if(data.session){
     currentUser = data.session.user;
     showApp();
@@ -531,7 +531,7 @@ async function boot(){
 }
 
 async function loadMonthList(){
-  const { data, error } = await supabase.from('ct_content_plans').select('*').order('created_at', { ascending:false });
+  const { data, error } = await db.from('ct_content_plans').select('*').order('created_at', { ascending:false });
   if(error){ showToast('خطأ في تحميل الأشهر'); console.error(error); return; }
   const sel = document.getElementById('monthSelect');
   sel.innerHTML = '';
@@ -559,8 +559,8 @@ function onMonthChange(){
 
 async function loadPlan(planId){
   document.getElementById('emptyState').style.display='none';
-  const { data: planData } = await supabase.from('ct_content_plans').select('*').eq('id', planId).single();
-  const { data, error } = await supabase.from('ct_content_items').select('*').eq('plan_id', planId).order('day_number', { ascending:true });
+  const { data: planData } = await db.from('ct_content_plans').select('*').eq('id', planId).single();
+  const { data, error } = await db.from('ct_content_items').select('*').eq('plan_id', planId).order('day_number', { ascending:true });
   if(error){ showToast('خطأ في تحميل الخطة'); console.error(error); return; }
   currentItems = data || [];
   document.getElementById('platformLabel').textContent = planData ? (planData.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام') : '';
@@ -635,7 +635,7 @@ async function openDayModal(itemId){
   if(item.file_url){
     preview.innerHTML = '<div style="font-size:12px;color:#7a7468;">جاري تحميل المعاينة...</div>';
     // bucket is private — resolve a temporary signed URL for viewing
-    const { data: signedData, error: signErr } = await supabase.storage
+    const { data: signedData, error: signErr } = await db.storage
       .from('ct-content-media')
       .createSignedUrl(item.file_url, 3600); // valid for 1 hour
     if(signErr || !signedData){
@@ -693,7 +693,7 @@ async function saveDay(){
   if(pendingFile){
     const ext = pendingFile.name.split('.').pop();
     const path = `${currentPlanId}/day-${item.day_number}-${Date.now()}.${ext}`;
-    const { data: upData, error: upErr } = await supabase.storage.from('ct-content-media').upload(path, pendingFile);
+    const { data: upData, error: upErr } = await db.storage.from('ct-content-media').upload(path, pendingFile);
     if(upErr){
       showToast('فشل رفع الملف');
       console.error(upErr);
@@ -720,7 +720,7 @@ async function saveDay(){
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase.from('ct_content_items').update(updates).eq('id', activeDayId);
+  const { error } = await db.from('ct_content_items').update(updates).eq('id', activeDayId);
   btn.disabled = false;
   btn.textContent = 'حفظ';
   if(error){ showToast('خطأ في الحفظ'); console.error(error); return; }
@@ -743,7 +743,7 @@ async function createNewMonth(){
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> جاري الإنشاء...';
 
-  const { data: plan, error } = await supabase.from('ct_content_plans').insert({ month_label: label, platform, created_by: currentUser ? currentUser.id : null }).select().single();
+  const { data: plan, error } = await db.from('ct_content_plans').insert({ month_label: label, platform, created_by: currentUser ? currentUser.id : null }).select().single();
   if(error){ showToast('خطأ في إنشاء الخطة'); console.error(error); btn.disabled=false; btn.textContent='إنشاء الخطة'; return; }
 
   const dayCount = platform === 'tiktok' ? 30 : 12; // instagram: ~3/week x 4 weeks
@@ -751,7 +751,7 @@ async function createNewMonth(){
   for(let i=1;i<=dayCount;i++){
     rows.push({ plan_id: plan.id, day_number: i, status: 'لم يبدأ' });
   }
-  const { error: itemsErr } = await supabase.from('ct_content_items').insert(rows);
+  const { error: itemsErr } = await db.from('ct_content_items').insert(rows);
   btn.disabled = false;
   btn.textContent = 'إنشاء الخطة';
   if(itemsErr){ showToast('خطأ في إنشاء الأيام'); console.error(itemsErr); return; }
