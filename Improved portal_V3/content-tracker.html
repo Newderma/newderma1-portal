@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>متابعة المحتوى — مركز البشرة الجديدة الأولى</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#1b2430;
+    --paper:#faf7f2;
+    --line:#e4ddd1;
+    --teal:#0f6e63;
+    --teal-deep:#0a4f47;
+    --amber:#c4791f;
+    --rose:#a8334a;
+    --muted:#7a7468;
+    --card:#ffffff;
+    --done:#0f6e63;
+    --progress:#c4791f;
+    --notstarted:#9a948a;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Tahoma','Segoe UI',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    direction:rtl;
+  }
+  .topbar{
+    background:var(--teal-deep);
+    color:#fff;
+    padding:16px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .topbar h1{
+    font-size:18px;
+    margin:0;
+    font-weight:700;
+    letter-spacing:0.2px;
+  }
+  .topbar .sub{
+    font-size:12px;
+    opacity:0.8;
+    margin-top:2px;
+  }
+  .lock-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:16px;
+  }
+  .lock-screen h2{ color:var(--teal-deep); font-size:20px; }
+  .lock-screen input{
+    font-size:22px;
+    text-align:center;
+    padding:12px 18px;
+    border-radius:10px;
+    border:2px solid var(--line);
+    width:160px;
+    letter-spacing:6px;
+  }
+  .lock-screen button{
+    background:var(--teal);
+    color:#fff;
+    border:none;
+    padding:10px 28px;
+    border-radius:10px;
+    font-size:15px;
+    cursor:pointer;
+  }
+  .lock-error{ color:var(--rose); font-size:13px; min-height:18px; }
+
+  .container{ max-width:1100px; margin:0 auto; padding:18px 16px 60px; }
+
+  .month-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:18px;
+  }
+  select, .btn{
+    font-family:inherit;
+    font-size:14px;
+    padding:9px 16px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .btn-primary{
+    background:var(--teal);
+    color:#fff;
+    border:none;
+    font-weight:600;
+  }
+  .btn-primary:hover{ background:var(--teal-deep); }
+  .btn-ghost{ background:transparent; }
+
+  .progress-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    margin-bottom:22px;
+  }
+  .progress-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .progress-top .count{
+    font-size:26px;
+    font-weight:800;
+    color:var(--teal-deep);
+  }
+  .progress-top .label{ font-size:13px; color:var(--muted); }
+  .progress-track{
+    height:10px;
+    background:#eee;
+    border-radius:6px;
+    overflow:hidden;
+    display:flex;
+  }
+  .progress-seg{ height:100%; }
+  .legend{ display:flex; gap:16px; margin-top:10px; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+  .day-grid{ display:flex; flex-direction:column; gap:10px; }
+
+  .day-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    cursor:pointer;
+    transition:box-shadow .15s, border-color .15s;
+  }
+  .day-card:hover{ border-color:var(--teal); box-shadow:0 2px 10px rgba(0,0,0,0.06); }
+
+  .day-card-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .day-num{
+    background:var(--teal-deep);
+    color:#fff;
+    font-weight:700;
+    font-size:13px;
+    border-radius:8px;
+    padding:4px 10px;
+    min-width:30px;
+    text-align:center;
+  }
+  .day-hook{
+    flex:1;
+    font-size:14px;
+    font-weight:600;
+    margin:0 10px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .status-pill{
+    font-size:12px;
+    padding:4px 12px;
+    border-radius:20px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .status-لم_يبدأ{ background:#eee; color:#777; }
+  .status-تم_التصوير{ background:#fde9cf; color:#8a5a16; }
+  .status-تم_المونتاج{ background:#dde8fb; color:#274b8a; }
+  .status-تم_النشر{ background:#d8efe9; color:#0f6e63; }
+
+  .day-meta{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .tag{
+    font-size:11px;
+    padding:3px 9px;
+    border-radius:6px;
+    background:#f1ede4;
+    color:var(--muted);
+  }
+  .tag.doctor{ background:#fbe3e7; color:var(--rose); font-weight:600; }
+
+  .empty-state{
+    text-align:center;
+    padding:60px 20px;
+    color:var(--muted);
+  }
+  .empty-state .btn-primary{ margin-top:14px; }
+
+  /* Modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,20,20,0.45);
+    display:flex; align-items:flex-end; justify-content:center;
+    z-index:50;
+  }
+  @media(min-width:720px){
+    .overlay{ align-items:center; }
+  }
+  .modal{
+    background:#fff;
+    width:100%;
+    max-width:640px;
+    max-height:92vh;
+    overflow-y:auto;
+    border-radius:18px 18px 0 0;
+    padding:22px 20px 30px;
+  }
+  @media(min-width:720px){
+    .modal{ border-radius:18px; }
+  }
+  .modal h3{ margin:0 0 14px; color:var(--teal-deep); font-size:18px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:13px; font-weight:600; margin-bottom:5px; color:var(--ink); }
+  .field textarea, .field input[type=text], .field select{
+    width:100%;
+    font-family:inherit;
+    font-size:14px;
+    padding:9px 12px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    resize:vertical;
+  }
+  .status-buttons{ display:flex; gap:8px; flex-wrap:wrap; }
+  .status-btn{
+    flex:1;
+    min-width:90px;
+    padding:9px 6px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:#f7f5f0;
+    font-size:12px;
+    cursor:pointer;
+    text-align:center;
+  }
+  .status-btn.active{ background:var(--teal); color:#fff; border-color:var(--teal); font-weight:700; }
+  .file-drop{
+    border:2px dashed var(--line);
+    border-radius:10px;
+    padding:18px;
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+    cursor:pointer;
+  }
+  .file-preview{ margin-top:10px; }
+  .file-preview video, .file-preview img{ max-width:100%; border-radius:8px; max-height:260px; }
+  .modal-actions{ display:flex; gap:10px; margin-top:18px; }
+  .modal-actions .btn{ flex:1; }
+  .close-x{
+    position:absolute; top:14px; left:18px;
+    font-size:22px; color:var(--muted); cursor:pointer; border:none; background:none;
+  }
+  .modal{ position:relative; }
+  .doctor-flag-row{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .doctor-flag-row input{ width:18px; height:18px; }
+
+  .toast{
+    position:fixed; bottom:24px; right:50%; transform:translateX(50%);
+    background:var(--teal-deep); color:#fff; padding:10px 22px; border-radius:30px;
+    font-size:13px; z-index:99; opacity:0; transition:opacity .25s;
+  }
+  .toast.show{ opacity:1; }
+
+  .new-month-form{ display:flex; flex-direction:column; gap:12px; }
+  .spinner{
+    display:inline-block; width:16px; height:16px; border:2px solid #fff; border-top-color:transparent;
+    border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="lockScreen" class="lock-screen">
+  <h2>متابعة المحتوى</h2>
+  <div class="sub" style="color:#7a7468;font-size:13px;">مركز البشرة الجديدة الأولى</div>
+  <input type="email" id="emailInput" placeholder="البريد الإلكتروني" style="font-size:15px;letter-spacing:normal;width:240px;text-align:right;padding:11px 16px;">
+  <input type="password" id="passwordInput" placeholder="كلمة المرور" style="font-size:15px;letter-spacing:normal;width:240px;text-align:right;padding:11px 16px;">
+  <button class="btn btn-primary" onclick="tryLogin()" id="loginBtn">دخول</button>
+  <div class="lock-error" id="lockError"></div>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <div>
+      <h1>متابعة المحتوى</h1>
+      <div class="sub">مركز البشرة الجديدة الأولى</div>
+    </div>
+    <button class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.3);" onclick="lockApp()">تسجيل خروج</button>
+  </div>
+
+  <div class="container">
+    <div class="month-bar">
+      <select id="monthSelect" onchange="onMonthChange()"></select>
+      <button class="btn btn-primary" onclick="openNewMonthModal()">+ خطة شهر جديد</button>
+    </div>
+
+    <div id="progressCard" class="progress-card" style="display:none;">
+      <div class="progress-top">
+        <div>
+          <span class="count" id="postedCount">0</span>
+          <span class="label"> من <span id="totalCount">30</span> تم نشرها</span>
+        </div>
+        <div class="label" id="platformLabel"></div>
+      </div>
+      <div class="progress-track" id="progressTrack"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#9a948a;"></i> لم يبدأ</span>
+        <span><i class="dot" style="background:#c4791f;"></i> تم التصوير</span>
+        <span><i class="dot" style="background:#274b8a;"></i> تم المونتاج</span>
+        <span><i class="dot" style="background:#0f6e63;"></i> تم النشر</span>
+      </div>
+    </div>
+
+    <div id="dayGrid" class="day-grid"></div>
+    <div id="emptyState" class="empty-state" style="display:none;">
+      <div>لا توجد خطة لهذا الشهر بعد</div>
+      <button class="btn btn-primary" onclick="openNewMonthModal()">+ إنشاء خطة شهر جديد</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day detail modal -->
+<div id="dayModalOverlay" class="overlay" style="display:none;" onclick="if(event.target===this)closeDayModal()">
+  <div class="modal">
+    <button class="close-x" onclick="closeDayModal()">×</button>
+    <h3 id="dayModalTitle">اليوم</h3>
+
+    <div class="doctor-flag-row">
+      <input type="checkbox" id="doctorFlag">
+      <label for="doctorFlag" style="margin:0;font-weight:600;font-size:13px;">يحتاج مراجعة الطبيب</label>
+    </div>
+
+    <div class="field">
+      <label>الركيزة</label>
+      <select id="pillarInput">
+        <option>نصائح العناية</option>
+        <option>علاجات وتقنيات</option>
+        <option>خرافات وحقائق</option>
+        <option>كل يوم في العيادة</option>
+        <option>أسئلتكم</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>الشكل</label>
+      <select id="formatInput">
+        <option>ريلز / فيديو</option>
+        <option>كاروسيل</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>الخطّاف</label>
+      <textarea id="hookInput" rows="2"></textarea>
+    </div>
+
+    <div class="field">
+      <label>السكربت</label>
+      <textarea id="scriptInput" rows="4"></textarea>
+    </div>
+
+    <div class="field">
+      <label>الحالة</label>
+      <div class="status-buttons" id="statusButtons">
+        <div class="status-btn" data-status="لم يبدأ">لم يبدأ</div>
+        <div class="status-btn" data-status="تم التصوير">تم التصوير</div>
+        <div class="status-btn" data-status="تم المونتاج">تم المونتاج</div>
+        <div class="status-btn" data-status="تم النشر">تم النشر</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>الملف (فيديو أو صورة)</label>
+      <div class="file-drop" onclick="document.getElementById('fileInput').click()">
+        اضغط لرفع فيديو أو صورة
+      </div>
+      <input type="file" id="fileInput" accept="video/*,image/*" style="display:none;" onchange="onFileSelected(event)">
+      <div id="filePreview" class="file-preview"></div>
+    </div>
+
+    <div class="field">
+      <label>رابط المنشور (اختياري)</label>
+      <input type="text" id="postedLinkInput" placeholder="https://...">
+    </div>
+
+    <div class="field">
+      <label>ملاحظات</label>
+      <textarea id="notesInput" rows="2"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="saveBtn" onclick="saveDay()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- New month modal -->
+<div id="newMonthOverlay" class="overlay" style="display:none;" onclick="if(event.target===this)closeNewMonthModal()">
+  <div class="modal">
+    <button class="close-x" onclick="closeNewMonthModal()">×</button>
+    <h3>خطة شهر جديد</h3>
+    <div class="new-month-form">
+      <div class="field">
+        <label>اسم الشهر</label>
+        <input type="text" id="newMonthLabel" placeholder="مثال: يوليو 2026">
+      </div>
+      <div class="field">
+        <label>المنصة</label>
+        <select id="newMonthPlatform">
+          <option value="tiktok">تيك توك (٣٠ فيديو)</option>
+          <option value="instagram">إنستغرام (٤ أسابيع)</option>
+        </select>
+      </div>
+      <div class="field" style="background:#f7f5f0;border-radius:10px;padding:12px;font-size:12.5px;color:#555;">
+        سيتم إنشاء ٣٠ صفًا فارغًا (أو حسب المنصة) لهذا الشهر. اطلب من Claude في محادثة أخرى توليد الخطّافات والسكربتات، ثم أدخلوها هنا يدويًا — أو لصق سريع لاحقًا.
+      </div>
+      <button class="btn btn-primary" onclick="createNewMonth()" id="createMonthBtn">إنشاء الخطة</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIG — fill these in once after running setup_v2.sql
+// ============================================================
+const SUPABASE_URL = "https://pdlhcgdjrqzjanonevqx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_iVq5pMW0RUCQzx-Y7Vpr7w_BoBhiAkc";
+// No PIN needed anymore — each person logs in with their own email/password,
+// created in Supabase Dashboard → Authentication → Users.
+
+let supabase;
+let currentPlanId = null;
+let currentItems = [];
+let activeDayId = null;
+let pendingFile = null;
+let currentUser = null;
+
+function initSupabase(){
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ---------- Auth ----------
+async function tryLogin(){
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  const btn = document.getElementById('loginBtn');
+  document.getElementById('lockError').textContent = '';
+  if(!email || !password){
+    document.getElementById('lockError').textContent = 'أدخل البريد الإلكتروني وكلمة المرور';
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  btn.disabled = false;
+  btn.textContent = 'دخول';
+  if(error){
+    document.getElementById('lockError').textContent = 'بيانات الدخول غير صحيحة';
+    return;
+  }
+  currentUser = data.user;
+  showApp();
+}
+
+async function lockApp(){
+  await supabase.auth.signOut();
+  currentUser = null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('lockScreen').style.display='flex';
+  document.getElementById('emailInput').value='';
+  document.getElementById('passwordInput').value='';
+}
+
+function showApp(){
+  document.getElementById('lockScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  boot();
+}
+
+document.getElementById('passwordInput').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+
+window.addEventListener('DOMContentLoaded', async ()=>{
+  initSupabase();
+  // Check if there's already a valid session (so people stay logged in on their phone)
+  const { data } = await supabase.auth.getSession();
+  if(data.session){
+    currentUser = data.session.user;
+    showApp();
+  }
+});
+
+
+// ---------- Boot ----------
+async function boot(){
+  await loadMonthList();
+}
+
+async function loadMonthList(){
+  const { data, error } = await supabase.from('ct_content_plans').select('*').order('created_at', { ascending:false });
+  if(error){ showToast('خطأ في تحميل الأشهر'); console.error(error); return; }
+  const sel = document.getElementById('monthSelect');
+  sel.innerHTML = '';
+  if(!data || data.length===0){
+    document.getElementById('emptyState').style.display='block';
+    document.getElementById('progressCard').style.display='none';
+    document.getElementById('dayGrid').innerHTML='';
+    return;
+  }
+  data.forEach(plan=>{
+    const opt = document.createElement('option');
+    opt.value = plan.id;
+    opt.textContent = `${plan.month_label} (${plan.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام'})`;
+    sel.appendChild(opt);
+  });
+  currentPlanId = data[0].id;
+  sel.value = currentPlanId;
+  await loadPlan(currentPlanId);
+}
+
+function onMonthChange(){
+  currentPlanId = document.getElementById('monthSelect').value;
+  loadPlan(currentPlanId);
+}
+
+async function loadPlan(planId){
+  document.getElementById('emptyState').style.display='none';
+  const { data: planData } = await supabase.from('ct_content_plans').select('*').eq('id', planId).single();
+  const { data, error } = await supabase.from('ct_content_items').select('*').eq('plan_id', planId).order('day_number', { ascending:true });
+  if(error){ showToast('خطأ في تحميل الخطة'); console.error(error); return; }
+  currentItems = data || [];
+  document.getElementById('platformLabel').textContent = planData ? (planData.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام') : '';
+  renderProgress();
+  renderDayGrid();
+}
+
+function renderProgress(){
+  const total = currentItems.length;
+  if(total===0){ document.getElementById('progressCard').style.display='none'; return; }
+  document.getElementById('progressCard').style.display='block';
+  const counts = { 'لم يبدأ':0, 'تم التصوير':0, 'تم المونتاج':0, 'تم النشر':0 };
+  currentItems.forEach(i=>{ counts[i.status] = (counts[i.status]||0)+1; });
+  document.getElementById('postedCount').textContent = counts['تم النشر'];
+  document.getElementById('totalCount').textContent = total;
+  const colors = { 'لم يبدأ':'#9a948a', 'تم التصوير':'#c4791f', 'تم المونتاج':'#274b8a', 'تم النشر':'#0f6e63' };
+  const track = document.getElementById('progressTrack');
+  track.innerHTML = '';
+  Object.keys(counts).forEach(k=>{
+    if(counts[k]>0){
+      const seg = document.createElement('div');
+      seg.className='progress-seg';
+      seg.style.width = (counts[k]/total*100)+'%';
+      seg.style.background = colors[k];
+      track.appendChild(seg);
+    }
+  });
+}
+
+function renderDayGrid(){
+  const grid = document.getElementById('dayGrid');
+  grid.innerHTML = '';
+  currentItems.forEach(item=>{
+    const card = document.createElement('div');
+    card.className='day-card';
+    card.onclick = ()=>openDayModal(item.id);
+    const statusClass = 'status-' + item.status.replace(/ /g,'_');
+    card.innerHTML = `
+      <div class="day-card-top">
+        <span class="day-num">${item.day_number}</span>
+        <span class="day-hook">${item.hook ? item.hook : '— بدون خطّاف بعد —'}</span>
+        <span class="status-pill ${statusClass}">${item.status}</span>
+      </div>
+      <div class="day-meta">
+        ${item.pillar ? `<span class="tag">${item.pillar}</span>` : ''}
+        ${item.format ? `<span class="tag">${item.format}</span>` : ''}
+        ${item.needs_doctor_review ? `<span class="tag doctor">يحتاج مراجعة الطبيب</span>` : ''}
+        ${item.file_url ? `<span class="tag">📎 ملف مرفق</span>` : ''}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ---------- Day modal ----------
+async function openDayModal(itemId){
+  activeDayId = itemId;
+  pendingFile = null;
+  const item = currentItems.find(i=>i.id===itemId);
+  document.getElementById('dayModalTitle').textContent = `اليوم ${item.day_number}`;
+  document.getElementById('doctorFlag').checked = !!item.needs_doctor_review;
+  document.getElementById('pillarInput').value = item.pillar || 'نصائح العناية';
+  document.getElementById('formatInput').value = item.format || 'ريلز / فيديو';
+  document.getElementById('hookInput').value = item.hook || '';
+  document.getElementById('scriptInput').value = item.script || '';
+  document.getElementById('postedLinkInput').value = item.posted_link || '';
+  document.getElementById('notesInput').value = item.notes || '';
+  setActiveStatus(item.status || 'لم يبدأ');
+
+  const preview = document.getElementById('filePreview');
+  preview.innerHTML = '';
+  if(item.file_url){
+    preview.innerHTML = '<div style="font-size:12px;color:#7a7468;">جاري تحميل المعاينة...</div>';
+    // bucket is private — resolve a temporary signed URL for viewing
+    const { data: signedData, error: signErr } = await supabase.storage
+      .from('ct-content-media')
+      .createSignedUrl(item.file_url, 3600); // valid for 1 hour
+    if(signErr || !signedData){
+      preview.innerHTML = '<div style="font-size:12px;color:#a8334a;">تعذّر تحميل المعاينة</div>';
+    } else {
+      const signedUrl = signedData.signedUrl;
+      if(item.file_url.match(/\.(mp4|mov|webm)$/i)){
+        preview.innerHTML = `<video src="${signedUrl}" controls></video>`;
+      } else {
+        preview.innerHTML = `<img src="${signedUrl}">`;
+      }
+    }
+  }
+
+  document.getElementById('dayModalOverlay').style.display='flex';
+}
+function closeDayModal(){ document.getElementById('dayModalOverlay').style.display='none'; }
+
+document.getElementById('statusButtons').addEventListener('click', e=>{
+  const btn = e.target.closest('.status-btn');
+  if(btn) setActiveStatus(btn.dataset.status);
+});
+function setActiveStatus(status){
+  document.querySelectorAll('.status-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.status===status);
+  });
+}
+function getActiveStatus(){
+  const active = document.querySelector('.status-btn.active');
+  return active ? active.dataset.status : 'لم يبدأ';
+}
+
+function onFileSelected(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  pendingFile = file;
+  const preview = document.getElementById('filePreview');
+  const url = URL.createObjectURL(file);
+  if(file.type.startsWith('video')){
+    preview.innerHTML = `<video src="${url}" controls></video>`;
+  } else {
+    preview.innerHTML = `<img src="${url}">`;
+  }
+}
+
+async function saveDay(){
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> جاري الحفظ...';
+
+  const item = currentItems.find(i=>i.id===activeDayId);
+  let filePath = item.file_url; // stores the storage PATH, not a permanent URL (bucket is private)
+  let fileName = item.file_name;
+
+  if(pendingFile){
+    const ext = pendingFile.name.split('.').pop();
+    const path = `${currentPlanId}/day-${item.day_number}-${Date.now()}.${ext}`;
+    const { data: upData, error: upErr } = await supabase.storage.from('ct-content-media').upload(path, pendingFile);
+    if(upErr){
+      showToast('فشل رفع الملف');
+      console.error(upErr);
+      btn.disabled = false;
+      btn.textContent = 'حفظ';
+      return;
+    }
+    filePath = path;
+    fileName = pendingFile.name;
+  }
+
+  const updates = {
+    pillar: document.getElementById('pillarInput').value,
+    format: document.getElementById('formatInput').value,
+    hook: document.getElementById('hookInput').value,
+    script: document.getElementById('scriptInput').value,
+    needs_doctor_review: document.getElementById('doctorFlag').checked,
+    status: getActiveStatus(),
+    posted_link: document.getElementById('postedLinkInput').value,
+    notes: document.getElementById('notesInput').value,
+    file_url: filePath,
+    file_name: fileName,
+    updated_by: currentUser ? currentUser.id : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from('ct_content_items').update(updates).eq('id', activeDayId);
+  btn.disabled = false;
+  btn.textContent = 'حفظ';
+  if(error){ showToast('خطأ في الحفظ'); console.error(error); return; }
+
+  showToast('تم الحفظ');
+  closeDayModal();
+  await loadPlan(currentPlanId);
+}
+
+// ---------- New month ----------
+function openNewMonthModal(){ document.getElementById('newMonthOverlay').style.display='flex'; }
+function closeNewMonthModal(){ document.getElementById('newMonthOverlay').style.display='none'; }
+
+async function createNewMonth(){
+  const label = document.getElementById('newMonthLabel').value.trim();
+  const platform = document.getElementById('newMonthPlatform').value;
+  if(!label){ showToast('أدخل اسم الشهر أولًا'); return; }
+
+  const btn = document.getElementById('createMonthBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> جاري الإنشاء...';
+
+  const { data: plan, error } = await supabase.from('ct_content_plans').insert({ month_label: label, platform, created_by: currentUser ? currentUser.id : null }).select().single();
+  if(error){ showToast('خطأ في إنشاء الخطة'); console.error(error); btn.disabled=false; btn.textContent='إنشاء الخطة'; return; }
+
+  const dayCount = platform === 'tiktok' ? 30 : 12; // instagram: ~3/week x 4 weeks
+  const rows = [];
+  for(let i=1;i<=dayCount;i++){
+    rows.push({ plan_id: plan.id, day_number: i, status: 'لم يبدأ' });
+  }
+  const { error: itemsErr } = await supabase.from('ct_content_items').insert(rows);
+  btn.disabled = false;
+  btn.textContent = 'إنشاء الخطة';
+  if(itemsErr){ showToast('خطأ في إنشاء الأيام'); console.error(itemsErr); return; }
+
+  showToast('تم إنشاء الخطة');
+  closeNewMonthModal();
+  document.getElementById('newMonthLabel').value='';
+  await loadMonthList();
+  document.getElementById('monthSelect').value = plan.id;
+  currentPlanId = plan.id;
+  await loadPlan(plan.id);
+}
+
+// ---------- Toast ----------
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
