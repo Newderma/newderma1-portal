@@ -1606,6 +1606,26 @@ async function sbUpdate(table, match, data){
 async function cfgGet(key){ var r=await sbGet('ct_config','key=eq.'+key); return r.length?r[0].value:null; }
 async function cfgSet(key, value){ await sbUpsert('ct_config',[{key:key,value:value}]); }
 
+// RPC helper — calls a Supabase SECURITY DEFINER function and returns its result.
+// Scalar jsonb functions (like verify_inner_login) return their value directly.
+async function sbRpc(fn, params){
+  var res = await fetch(SB_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':        SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY
+    },
+    body: JSON.stringify(params || {})
+  });
+  if(!res.ok){
+    var errBody = '';
+    try{ var j = await res.json(); errBody = j.message || j.hint || JSON.stringify(j); }catch(ex){}
+    throw new Error('RPC ' + fn + ' failed: ' + res.status + ' — ' + errBody);
+  }
+  return res.json();
+}
+
 // ══════════════════════════════════════════
 //  SETUP
 // ══════════════════════════════════════════
@@ -1678,16 +1698,14 @@ var staffPrivileges = {}; // { 'Name': ['entry','records','vacation'] } // stand
 async function loadConfig(){
   try{
     // ONE call to fetch all config keys at once instead of 9 separate calls
-    var keys = ['lists','itemCosts','annualDays','staffPasswords','adminPassword','empProfiles','shiftHours','staffPrivileges','emailjsConfig','autoStaff','hrDocsData','hrNAData','hrUrlData','hrLettersData','hrRecipsData'];
+    var keys = ['lists','itemCosts','annualDays','empProfiles','shiftHours','staffPrivileges','emailjsConfig','autoStaff','hrDocsData','hrNAData','hrUrlData','hrLettersData','hrRecipsData'];
     var rows = await sbGet('ct_config', 'key=in.('+keys.join(',')+')');
     var map = {};
     rows.forEach(function(r){ map[r.key] = r.value; });
     if(map.lists)           lists           = map.lists;
     if(map.itemCosts)       itemCosts       = map.itemCosts;
     if(map.annualDays)      annualDays      = parseInt(map.annualDays)||21;
-    if(map.staffPasswords)  staffPasswords  = map.staffPasswords;
     if(map.autoStaff)       autoStaff       = map.autoStaff||[];
-    if(map.adminPassword)   adminPassword   = map.adminPassword;
     if(map.empProfiles)     empProfiles     = map.empProfiles;
     if(map.shiftHours)      shiftHours      = parseFloat(map.shiftHours)||8;
     if(map.staffPrivileges) staffPrivileges = map.staffPrivileges;
@@ -1826,19 +1844,16 @@ function onUserSelect(){
 }
 
 async function doLogin(){
-  var u = document.getElementById('lu').value.trim();
-  var p = document.getElementById('lp').value;
+  var u   = document.getElementById('lu').value.trim();
+  var p   = document.getElementById('lp').value;
   var btn = document.getElementById('btnLogin');
   if(!u){ document.getElementById('lerr').textContent='Please select your name.'; document.getElementById('lerr').classList.add('show'); return; }
   btn.innerHTML = '<span class="spinner"></span>Signing in...';
-  btn.disabled = true;
+  btn.disabled  = true;
 
-  // Recovery key — resets admin password back to admin123
+  // Recovery key — resets admin password back to admin123 (unchanged)
   if(u.toLowerCase()==='admin' && p===RECOVERY_KEY){
-    try{
-      await saveConfig('adminPassword','admin123');
-      adminPassword='admin123';
-    }catch(e){}
+    try{ await saveConfig('adminPassword','admin123'); adminPassword='admin123'; }catch(e){}
     document.getElementById('lerr').classList.remove('show');
     btn.innerHTML='Sign In'; btn.disabled=false;
     document.getElementById('lp').value='';
@@ -1846,25 +1861,59 @@ async function doLogin(){
     return;
   }
 
+  // Resolve exact-case staff name from lists (needed by both RPC and local paths)
+  if(!lists.staff) lists.staff=[];
+  var allNames = lists.doctors.concat(lists.nurses).concat(lists.staff);
+  var matched  = null;
+  for(var i=0; i<allNames.length; i++){
+    if(allNames[i].toLowerCase()===u.toLowerCase()){ matched=allNames[i]; break; }
+  }
+  // RPC receives 'admin' for admin login, or the exact-case matched name for staff.
+  var rpcUsername = (u.toLowerCase()==='admin') ? 'admin' : (matched||u);
+
+  // ── RPC path (primary) ────────────────────────────────────────────────────
+  // verify_inner_login runs SECURITY DEFINER server-side — passwords never
+  // travel to the browser.  If the call throws (network down, function gone),
+  // we fall through to the local path below.
+  var rpcResult = null;
+  try{
+    rpcResult = await sbRpc('verify_inner_login', {p_username: rpcUsername, p_pin: p});
+  }catch(rpcErr){
+    console.warn('verify_inner_login RPC unavailable, falling back to local check:', rpcErr.message);
+  }
+
+  if(rpcResult !== null){
+    // RPC responded definitively — trust it, no further fallback.
+    if(rpcResult.valid===true){
+      CU = (rpcResult.role==='gm')
+        ? {role:'gm',    name:'General Manager', empName:''}
+        : {role:'staff', name:rpcUsername,        empName:rpcUsername};
+      document.getElementById('lerr').classList.remove('show');
+      btn.innerHTML='Sign In'; btn.disabled=false;
+      await startApp();
+      return;
+    }
+    // valid:false — wrong credentials, no further fallback.
+    document.getElementById('lerr').classList.add('show');
+    document.getElementById('lp').value='';
+    btn.innerHTML='Sign In'; btn.disabled=false;
+    return;
+  }
+
+  // ── Local fallback (old path — kept until Step 4, only reached if RPC threw) ─
   if(u.toLowerCase()==='admin' && p===getAdminPass()){
     CU = {role:'gm', name:'General Manager', empName:''};
     document.getElementById('lerr').classList.remove('show');
     await startApp();
+  } else if(matched && p===getStaffPass(matched)){
+    CU = {role:'staff', name:matched, empName:matched};
+    document.getElementById('lerr').classList.remove('show');
+    await startApp();
   } else {
-    if(!lists.staff) lists.staff=[];
-  var all = lists.doctors.concat(lists.nurses).concat(lists.staff);
-    var matched = null;
-    for(var i=0;i<all.length;i++){ if(all[i].toLowerCase()===u.toLowerCase()){ matched=all[i]; break; } }
-    if(matched && p===getStaffPass(matched)){
-      CU = {role:'staff', name:matched, empName:matched};
-      document.getElementById('lerr').classList.remove('show');
-      await startApp();
-    } else {
-      document.getElementById('lerr').classList.add('show');
-      document.getElementById('lp').value='';
-    }
+    document.getElementById('lerr').classList.add('show');
+    document.getElementById('lp').value='';
   }
-  btn.innerHTML = 'Sign In'; btn.disabled = false;
+  btn.innerHTML='Sign In'; btn.disabled=false;
 }
 
 async function startApp(){
