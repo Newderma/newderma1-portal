@@ -123,6 +123,12 @@
   }
   .btn-primary:hover{ background:var(--teal-deep); }
   .btn-ghost{ background:transparent; }
+  .archived-toggle{
+    display:flex; align-items:center; gap:6px;
+    font-size:13px; color:#7a7468; cursor:pointer; user-select:none;
+    margin-inline-start:auto;
+  }
+  .archived-toggle input{ accent-color: var(--teal); cursor:pointer; }
 
   .progress-card{
     background:var(--card);
@@ -335,6 +341,8 @@
     <div class="month-bar">
       <select id="monthSelect" onchange="onMonthChange()"></select>
       <button class="btn btn-primary" onclick="openNewMonthModal()">+ خطة شهر جديد</button>
+      <button class="btn btn-ghost" id="archiveBtn" onclick="toggleArchiveCurrent()" style="display:none;">أرشفة الخطة</button>
+      <label class="archived-toggle"><input type="checkbox" id="showArchivedChk" onchange="onToggleShowArchived()"> عرض المؤرشفة</label>
     </div>
 
     <div id="progressCard" class="progress-card" style="display:none;">
@@ -583,31 +591,84 @@ async function boot(){
   await loadMonthList();
 }
 
-async function loadMonthList(){
+let allPlans = [];
+let showArchived = false;
+
+async function loadMonthList(keepSelection){
   const { data, error } = await db.from('ct_content_plans').select('*').order('created_at', { ascending:false });
   if(error){ showToast('خطأ في تحميل الأشهر'); console.error(error); return; }
+  allPlans = data || [];
+  const visible = allPlans.filter(p => showArchived ? true : !p.archived);
   const sel = document.getElementById('monthSelect');
   sel.innerHTML = '';
-  if(!data || data.length===0){
+  if(visible.length===0){
     document.getElementById('emptyState').style.display='block';
     document.getElementById('progressCard').style.display='none';
     document.getElementById('dayGrid').innerHTML='';
+    document.getElementById('archiveBtn').style.display='none';
+    currentPlanId = null;
+    // If plans exist but all are archived, hint the user
+    if(allPlans.length>0 && !showArchived){
+      document.querySelector('#emptyState div').textContent = 'كل الخطط مؤرشفة — فعّل «عرض المؤرشفة» لاستعادتها';
+    } else {
+      document.querySelector('#emptyState div').textContent = 'لا توجد خطة لهذا الشهر بعد';
+    }
     return;
   }
-  data.forEach(plan=>{
+  document.getElementById('emptyState').style.display='none';
+  visible.forEach(plan=>{
     const opt = document.createElement('option');
     opt.value = plan.id;
-    opt.textContent = `${plan.month_label} (${plan.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام'})`;
+    const base = `${plan.month_label} (${plan.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام'})`;
+    opt.textContent = plan.archived ? `📦 ${base} — مؤرشفة` : base;
     sel.appendChild(opt);
   });
-  currentPlanId = data[0].id;
-  sel.value = currentPlanId;
+  // Keep current selection if still visible, otherwise first visible plan
+  if(keepSelection && currentPlanId && visible.some(p=>p.id===currentPlanId)){
+    sel.value = currentPlanId;
+  } else {
+    currentPlanId = visible[0].id;
+    sel.value = currentPlanId;
+  }
+  updateArchiveBtn();
   await loadPlan(currentPlanId);
 }
 
 function onMonthChange(){
   currentPlanId = document.getElementById('monthSelect').value;
+  updateArchiveBtn();
   loadPlan(currentPlanId);
+}
+
+function updateArchiveBtn(){
+  const btn = document.getElementById('archiveBtn');
+  const plan = allPlans.find(p=>p.id===currentPlanId);
+  if(!plan){ btn.style.display='none'; return; }
+  btn.style.display='inline-block';
+  btn.textContent = plan.archived ? 'استعادة الخطة' : 'أرشفة الخطة';
+}
+
+function onToggleShowArchived(){
+  showArchived = document.getElementById('showArchivedChk').checked;
+  loadMonthList(true);
+}
+
+async function toggleArchiveCurrent(){
+  const plan = allPlans.find(p=>p.id===currentPlanId);
+  if(!plan) return;
+  const archiving = !plan.archived;
+  const msg = archiving
+    ? `أرشفة خطة «${plan.month_label}»؟\n\nالخطة وكل أيامها وملفاتها ستبقى محفوظة، وستختفي فقط من القائمة الرئيسية. يمكن استعادتها في أي وقت من «عرض المؤرشفة».`
+    : `استعادة خطة «${plan.month_label}» إلى القائمة الرئيسية؟`;
+  if(!confirm(msg)) return;
+  const { error } = await db.from('ct_content_plans').update({ archived: archiving }).eq('id', plan.id);
+  if(error){
+    showToast('خطأ في العملية — تأكد من إضافة عمود archived في قاعدة البيانات');
+    console.error(error);
+    return;
+  }
+  showToast(archiving ? 'تمت أرشفة الخطة' : 'تمت استعادة الخطة');
+  await loadMonthList();
 }
 
 async function loadPlan(planId){
