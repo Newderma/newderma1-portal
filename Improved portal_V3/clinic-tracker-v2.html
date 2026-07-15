@@ -599,11 +599,14 @@ tr:hover td{background:#f8fafc}
           </div>
           <div id="itemRows"></div>
           <button type="button" class="btn badd" onclick="addItemRow()">+ Add Item</button>
-        </div>
-        <div class="tbar">
-          <div class="tc"><div class="lb">Total Selling</div><div class="vl" id="tSell">SAR 0.00</div></div>
-        </div>
-      </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:.9rem">
+            <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:.6rem 1.1rem;display:flex;align-items:center;gap:.7rem;min-width:200px">
+              <span style="font-size:.78rem;font-weight:600;color:#1e40af;text-transform:uppercase;letter-spacing:.05em">Items Total</span>
+              <span style="font-size:1.15rem;font-weight:700;color:#1e40af;margin-left:auto" id="tSell">SAR 0.00</span>
+            </div>
+          </div>
+        </div><!-- /.iw -->
+      </div><!-- /.card -->
       <div class="brow">
         <button class="btn bs" onclick="clearForm()">Clear</button>
         <button class="btn bp" id="btnSaveRec" onclick="saveRecord()">Save Procedure</button>
@@ -1405,6 +1408,12 @@ tr:hover td{background:#f8fafc}
         </div>
         <div id="editItemRows"></div>
         <button type="button" class="btn badd" onclick="addEditItemRow(null)" style="min-width:0;width:100%">+ Add Item</button>
+        <div style="display:flex;justify-content:flex-end;margin-top:.9rem">
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:.6rem 1.1rem;display:flex;align-items:center;gap:.7rem;min-width:200px">
+            <span style="font-size:.78rem;font-weight:600;color:#1e40af;text-transform:uppercase;letter-spacing:.05em">Items Total</span>
+            <span style="font-size:1.15rem;font-weight:700;color:#1e40af;margin-left:auto" id="tSellEdit">SAR 0.00</span>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -2965,6 +2974,7 @@ function openEditModal(id){
   var areaSel=document.getElementById('eAreaSel');
   if(areaSel) areaSel.value=rec.area||'';
   if(rec.items&&rec.items.length) rec.items.forEach(function(it){addEditItemRow(it);}); else addEditItemRow(null);
+  calcEditTotals();
   // For staff: lock date field and restrict doctor/nurse/patient fields
   var dateField = document.getElementById('eProcDate');
   var ptNameField = document.getElementById('ePtName');
@@ -3006,11 +3016,23 @@ function addEditItemRow(p){
     calcEditRow(id);
   });
 }
-function removeEditRow(id){ var el=document.getElementById('erow'+id); if(el)el.remove(); }
+function removeEditRow(id){ var el=document.getElementById('erow'+id); if(el)el.remove(); calcEditTotals(); }
 function calcEditRow(id){
   var q=parseFloat(document.getElementById('eqty'+id).value)||0;
   var s=parseFloat(document.getElementById('esel'+id).value)||0;
   document.getElementById('edsp'+id).textContent='SAR '+(q*s).toFixed(2);
+  calcEditTotals();
+}
+function calcEditTotals(){
+  var ts=0;
+  for(var i=1;i<=editRowId;i++){
+    if(!document.getElementById('erow'+i)) continue;
+    var q=parseFloat(document.getElementById('eqty'+i).value)||0;
+    var s=parseFloat(document.getElementById('esel'+i).value)||0;
+    ts+=q*s;
+  }
+  var el=document.getElementById('tSellEdit');
+  if(el) el.textContent='SAR '+ts.toFixed(2);
 }
 async function saveEditRecord(){
   var id=parseInt(document.getElementById('editId').value);
