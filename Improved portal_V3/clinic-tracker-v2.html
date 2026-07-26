@@ -470,6 +470,7 @@ tr:hover td{background:#f8fafc}
   req_date    <span class="ty">text</span>,
   status      <span class="ty">text</span> <span class="kw">DEFAULT</span> <span class="ty">'Pending'</span>,
   reject_reason <span class="ty">text</span>,
+  approve_note  <span class="ty">text</span>,
   decided_at  <span class="ty">text</span>
 );
 
@@ -1469,6 +1470,21 @@ tr:hover td{background:#f8fafc}
   </div>
 </div>
 
+<!-- APPROVE MODAL -->
+<div class="modal-bg hidden" id="approveModal">
+  <div class="modal reject-modal">
+    <h3>Approve Request</h3>
+    <p style="font-size:.88rem;color:var(--sm);margin-bottom:1rem">Optionally add a note for the employee.</p>
+    <input type="hidden" id="approveId">
+    <label>Note (optional)</label>
+    <textarea id="approveNoteInput" placeholder="e.g. Accepted this time, but please submit an official sick leave next time…" style="margin-top:.4rem;min-height:90px"></textarea>
+    <div class="modal-footer">
+      <button class="btn bs" onclick="closeApproveModal()">Cancel</button>
+      <button class="btn" style="background:var(--grn);color:#fff" onclick="confirmApprove()">Confirm Approval</button>
+    </div>
+  </div>
+</div>
+
 <!-- CUSTOM CONFIRM MODAL (replaces browser confirm()) -->
 <div class="modal-bg hidden" id="customConfirmModal">
   <div class="modal reject-modal" style="max-width:420px">
@@ -1995,7 +2011,7 @@ function normVac(r){
   return {
     id: r.id, employee: r.employee, from: r.from_date, to: r.to_date,
     days: r.days, type: r.type, note: r.note||'', reqDate: r.req_date,
-    status: r.status, rejectReason: r.reject_reason||'', decidedAt: r.decided_at||'',
+    status: r.status, rejectReason: r.reject_reason||'', approveNote: r.approve_note||'', decidedAt: r.decided_at||'',
     signature: r.signature||'', attachmentUrl: r.attachment_url||'', attachmentName: r.attachment_name||'',
     contact: r.contact||'', nameConfirm: r.name_confirm||'', idNumber: r.id_number||''
   };
@@ -3195,6 +3211,47 @@ async function confirmReject(){
   }
 }
 
+function openApproveModal(id){
+  document.getElementById('approveId').value = id;
+  document.getElementById('approveNoteInput').value = '';
+  document.getElementById('approveModal').classList.remove('hidden');
+}
+
+function closeApproveModal(){
+  document.getElementById('approveModal').classList.add('hidden');
+  document.getElementById('approveId').value = '';
+  document.getElementById('approveNoteInput').value = '';
+}
+
+async function confirmApprove(){
+  var id   = parseInt(document.getElementById('approveId').value);
+  var note = document.getElementById('approveNoteInput').value.trim();
+  closeApproveModal();
+  setSyncDot('syncing');
+  try {
+    var today = new Date().toISOString().slice(0,10);
+    await sbUpdate('ct_vacation', 'id=eq.'+id, { status: 'Approved', approve_note: note, decided_at: today });
+    var rec = null;
+    for(var i=0;i<vacReqs.length;i++){
+      if(vacReqs[i].id==id){
+        vacReqs[i].status      = 'Approved';
+        vacReqs[i].approveNote = note;
+        vacReqs[i].decidedAt   = today;
+        rec = vacReqs[i];
+        break;
+      }
+    }
+    setSyncDot('on');
+    renderPending(); renderBalances(); renderVacH();
+    toast('Request approved! ✅', true);
+    // Email the staff member with the approval note (silently no-ops if EmailJS isn't configured)
+    if(rec) sendVacNotification(rec.employee, 'Approved', rec.type, rec.from, rec.to, rec.days, note);
+  } catch(e) {
+    setSyncDot('off');
+    toast('Approval failed: ' + e.message, false);
+  }
+}
+
 async function staffDeletePending(id, empName){
   id = parseInt(id);
   if(!confirm('Cancel this vacation request for ' + empName + '?')) return;
@@ -3305,7 +3362,7 @@ function exportDashXLS(){
 }
 function exportVacXLS(){
   var rows=[['#','Employee','Type','From','To','Days','Status','Note','Reject Reason','Submitted']];
-  vacReqs.forEach(function(r,i){rows.push([i+1,r.employee,r.type,r.from,r.to,r.days,r.status,r.note||'',r.rejectReason||'',r.reqDate]);});
+  vacReqs.forEach(function(r,i){rows.push([i+1,r.employee,r.type,r.from,r.to,r.days,r.status,r.note||'',(r.rejectReason||r.approveNote||''),r.reqDate]);});
   dlXLS(rows,'Vacation_Records');
 }
 
@@ -3682,7 +3739,7 @@ function renderPending(){
       html+='</div>';
     }
     html+='</div><div class="reqact"><span class="stbadge stp">Pending</span>';
-    if(isGM())html+='<button class="bok" onclick="decideVac('+r.id+',\'Approved\')">Approve</button><button class="bno" onclick="openRejectModal('+r.id+')">Reject</button><button onclick="confirmDeleteVac('+r.id+',\''+r.employee.replace(/'/g,'')+'\')" style="padding:.3rem .6rem;border:none;border-radius:6px;background:#fee2e2;color:var(--red);font-weight:600;font-size:.78rem;cursor:pointer">🗑</button>';
+    if(isGM())html+='<button class="bok" onclick="openApproveModal('+r.id+')">Approve</button><button class="bno" onclick="openRejectModal('+r.id+')">Reject</button><button onclick="confirmDeleteVac('+r.id+',\''+r.employee.replace(/'/g,'')+'\')" style="padding:.3rem .6rem;border:none;border-radius:6px;background:#fee2e2;color:var(--red);font-weight:600;font-size:.78rem;cursor:pointer">🗑</button>';
     html+='</div></div>';
   });
   el.innerHTML=html;
@@ -3969,7 +4026,8 @@ function checkVacStatusAlerts(){
     var left=document.createElement('div');
     left.innerHTML='<div style="font-weight:700;color:'+color+';font-size:.92rem;margin-bottom:.25rem">'+icon+' Your '+esc(r.type)+' request was <strong>'+r.status+'</strong></div>'+
       '<div style="font-size:.8rem;color:'+color+';opacity:.85">'+fmtD(r.from)+' → '+fmtD(r.to)+' · '+r.days+' day'+(r.days>1?'s':'')+'</div>'+
-      (r.rejectReason?'<div style="font-size:.78rem;color:'+color+';margin-top:.3rem">Reason: '+esc(r.rejectReason)+'</div>':'');
+      (r.rejectReason?'<div style="font-size:.78rem;color:'+color+';margin-top:.3rem">Reason: '+esc(r.rejectReason)+'</div>':'')+
+      (r.approveNote?'<div style="font-size:.78rem;color:'+color+';margin-top:.3rem">Note: '+esc(r.approveNote)+'</div>':'');
     var btn=document.createElement('button');
     btn.textContent='✕';
     btn.style.cssText='background:none;border:none;font-size:1.1rem;cursor:pointer;color:'+color+';opacity:.7;flex-shrink:0';
@@ -4018,7 +4076,7 @@ function renderVacH(){
       '<td>'+toDisplay+'</td>'+
       '<td>'+r.days+'</td>'+
       '<td><span style="color:'+statusColor+';font-weight:600">'+r.status+'</span></td>'+
-      '<td style="font-size:.82rem;color:var(--ss)">'+esc(r.note||r.rejectReason||'')+'</td>'+
+      '<td style="font-size:.82rem;color:var(--ss)">'+esc(r.note||r.rejectReason||r.approveNote||'')+'</td>'+
       '<td style="font-size:.82rem;color:var(--ss)">'+fmtD(r.reqDate)+'</td>'+
       '<td>'+pdfBtn+'</td>';
     tbody.appendChild(tr);
