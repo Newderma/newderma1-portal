@@ -1264,6 +1264,24 @@ tr:hover td{background:#f8fafc}
         <div class="brow" style="margin-top:1rem"><button class="btn bp" onclick="savePasswords()">💾 Save All Passwords</button></div>
       </div>
       <div id="pwdGrid" style="display:none"></div>
+
+      <!-- Old / Archived Staff -->
+      <div class="card" style="margin-top:1.4rem">
+        <div class="ct">📦 Old / Archived Staff</div>
+        <p style="font-size:.83rem;color:var(--sm);margin-bottom:1rem">Staff who have left the clinic. They're hidden from all active lists, dropdowns, and logins — their vacation history and records are preserved and their balance is frozen. Restore to bring them back as active staff.</p>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:.83rem">
+            <thead><tr>
+              <th style="text-align:left;padding:.5rem .75rem;color:var(--ss);font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)">Name</th>
+              <th style="text-align:left;padding:.5rem .75rem;color:var(--ss);font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)">Role</th>
+              <th style="text-align:left;padding:.5rem .75rem;color:var(--ss);font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)">Archived On</th>
+              <th style="text-align:left;padding:.5rem .75rem;color:var(--ss);font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)">Frozen Balance</th>
+              <th style="text-align:center;padding:.5rem .75rem;color:var(--ss);font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)">Actions</th>
+            </tr></thead>
+            <tbody id="archivedStaffTable"></tbody>
+          </table>
+        </div>
+      </div>
       <!-- Email Notifications -->
       <div class="card">
         <div class="ct">📧 Email Notifications <span style="font-size:.72rem;font-weight:400;color:var(--ss);text-transform:none">(optional — sends staff email on approval/rejection)</span></div>
@@ -1697,6 +1715,12 @@ function resetSetup(){
 var records    = [];
 var allRecords = []; // full unfiltered set — used for patient history lookups
 var vacReqs    = [];
+// Fast-load: on login we first fetch only the last RECENT_RECORDS_DAYS of ct_records
+// (that table can hold years of procedure history and was making every login slow),
+// then quietly fetch the full set in the background and swap it in once ready —
+// see loadAllData() / loadFullRecordsInBackground().
+var RECENT_RECORDS_DAYS = 120;
+var _fullRecordsLoaded = false;
 var itemCosts  = {};
 var annualDays = 21;
 var staffPasswords = {};
@@ -1728,6 +1752,7 @@ async function loadConfig(){
     var map = {};
     rows.forEach(function(r){ map[r.key] = r.value; });
     if(map.lists)           lists           = map.lists;
+    if(!lists.archived)     lists.archived  = []; // {name, role, date} of departed staff
     if(map.itemCosts)       itemCosts       = map.itemCosts;
     if(map.annualDays)      annualDays      = parseInt(map.annualDays)||21;
     if(map.autoStaff)       autoStaff       = map.autoStaff||[];
@@ -1957,6 +1982,7 @@ function doLogout(){
   clearVac(); clearNamePad();
   try{sessionStorage.removeItem('ct_page');}catch(e){}
   CU=null; records=[]; allRecords=[]; vacReqs=[];
+  _fullRecordsLoaded=false;
   sessionStorage.removeItem('ct_cu');
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('appShell').style.display='none';
@@ -1973,9 +1999,15 @@ async function loadAllData(){
   setSyncDot('syncing');
   try{
     var vacQuery = isGM() ? 'order=req_date.desc' : 'employee=eq.'+encodeURIComponent(CU.empName)+'&order=req_date.desc';
+    // Fast path for the initial page load: only fetch the last RECENT_RECORDS_DAYS of
+    // ct_records instead of the entire table's history. Full history is fetched quietly
+    // right after in the background (loadFullRecordsInBackground) and swapped in once ready.
+    var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - RECENT_RECORDS_DAYS);
+    var cutoffStr = cutoff.toISOString().slice(0,10);
+    var recQuery = 'order=date.desc&date=gte.'+cutoffStr;
     // Run all fetches in parallel instead of sequentially
     var results = await Promise.all([
-      sbGet('ct_records', 'order=date.desc'),
+      sbGet('ct_records', recQuery),
       sbGet('ct_vacation', vacQuery),
       isGM() ? loadPayrollData() : Promise.resolve()
     ]);
@@ -1988,9 +2020,36 @@ async function loadAllData(){
     }
     vacReqs = results[1].map(normVac);
     setSyncDot('on');
+    loadFullRecordsInBackground();
   }catch(e){
     setSyncDot('off');
     toast('Could not load data: '+e.message, false);
+  }
+}
+
+// Quietly fetches the FULL ct_records history (no date limit) after the fast initial
+// load has already rendered, then swaps allRecords/records over to the complete set —
+// this is what patient-history search and old reports rely on. Runs once per session;
+// failure here is non-fatal since the recent-window data is already loaded and usable.
+async function loadFullRecordsInBackground(){
+  if(_fullRecordsLoaded) return;
+  try{
+    var allRows = await sbGet('ct_records', 'order=date.desc');
+    allRecords = allRows.map(normRec);
+    if(isGM()){
+      records = allRecords;
+    } else {
+      records = allRecords.filter(function(r){ return r.nurse===CU.empName || r.doctor===CU.empName; });
+    }
+    _fullRecordsLoaded = true;
+    // If the user is already sitting on a records-dependent page, refresh it in place
+    // so it reflects the full history rather than waiting for their next tab switch.
+    var curPage=''; try{ curPage=sessionStorage.getItem('ct_page')||''; }catch(e){}
+    if(curPage==='records'){ updateFilters(); renderRecords(); }
+    if(curPage==='dashboard'){ renderDash(); }
+    if(curPage==='utilization'){ renderUtilization(); }
+  }catch(e){
+    console.warn('Background full-history load failed:', e.message);
   }
 }
 
@@ -2180,7 +2239,7 @@ function showPage(id,btn){
     renderStaffBalCard();
     setTimeout(function(){ buildSearchSelect('areaSI', lists.areas||[], '', null); }, 30);
   }
-  if(id==='manage')    { renderManage(); renderPasswordGrid(); renderEmpProfiles(); renderAutoStaffList(); renderManageShiftHours(); loadEmailjsConfig(); }
+  if(id==='manage')    { renderManage(); renderPasswordGrid(); renderEmpProfiles(); renderAutoStaffList(); renderManageShiftHours(); loadEmailjsConfig(); renderArchivedStaff(); }
   if(id==='payroll')   {
     renderDrProfiles();
     var pm = document.getElementById('prMonth');
@@ -2649,6 +2708,7 @@ function renderPasswordGrid(){
       '<td style="padding:.55rem .75rem;text-align:center"><input type="checkbox" data-emp="'+esc(emp)+'" data-tab="vacation"'+(privs.indexOf('vacation')>=0?' checked':'')+' onchange="updatePrivilege(this)" style="width:auto;cursor:pointer;transform:scale(1.2)"></td>'+
       '<td style="padding:.55rem .75rem;text-align:center">'+
         '<button class="btn bs btn-sm" data-name="'+esc(emp)+'" data-role="'+role.toLowerCase()+'" onclick="editStaffName(this.dataset.name,this.dataset.role)" style="font-size:.74rem;margin-right:.3rem">✏️ Edit</button>'+
+        '<button class="btn btn-sm" style="font-size:.74rem;background:#fef3c7;color:#92400e;border:1.5px solid rgba(245,158,11,.35);margin-right:.3rem" data-name="'+esc(emp)+'" data-role="'+role.toLowerCase()+'" onclick="archiveStaff(this.dataset.name,this.dataset.role)">📦 Archive</button>'+
         '<button class="btn btn-sm" style="font-size:.74rem;background:var(--redb);color:var(--red);border:1.5px solid rgba(239,68,68,.3)" data-name="'+esc(emp)+'" data-role="'+role.toLowerCase()+'" onclick="removeStaffFromRole(this.dataset.name,this.dataset.role)">🗑 Delete</button>'+
       '</td>';
     tb.appendChild(tr);
@@ -2667,8 +2727,9 @@ function editStaffName(oldName, role){
       if(!newName){toast('Name cannot be empty.',false);return;}
       if(newName!==oldName) _doEditStaffName(oldName,role,newName);
       if(newPwd){
-        staffPasswords[newName||oldName]=newPwd;
-        saveConfig('staffPasswords',staffPasswords).then(function(){
+        var pwTarget=newName||oldName;
+        setStaffPasswordSafe(pwTarget,newPwd).then(function(){
+          staffPasswords[pwTarget]=newPwd;
           toast('Password updated!',true);
           renderPasswordGrid();
         }).catch(function(e){toast('Password save failed: '+e.message,false);});
@@ -2696,14 +2757,17 @@ function _doEditStaffName(oldName,role,newName){
   var idx=lists[key].indexOf(oldName);
   if(idx<0){toast('Not found.',false);return;}
   lists[key][idx]=newName;
-  if(staffPasswords[oldName]!==undefined){staffPasswords[newName]=staffPasswords[oldName];delete staffPasswords[oldName];}
   if(staffPrivileges[oldName]!==undefined){staffPrivileges[newName]=staffPrivileges[oldName];delete staffPrivileges[oldName];}
   if(empProfiles[oldName]!==undefined){empProfiles[newName]=empProfiles[oldName];delete empProfiles[oldName];}
-  Promise.all([saveConfig('lists',lists),saveConfig('staffPasswords',staffPasswords),saveConfig('staffPrivileges',staffPrivileges),saveConfig('empProfiles',empProfiles)])
+  // Note: staffPasswords is intentionally NOT touched here — the browser never holds
+  // the real password blob (see set_staff_password RPC), so there's nothing safe to
+  // carry over client-side. Their password now falls back to the 'staff123' default
+  // under the new name; set a new one for them via Staff Management if needed.
+  Promise.all([saveConfig('lists',lists),saveConfig('staffPrivileges',staffPrivileges),saveConfig('empProfiles',empProfiles)])
     .then(function(){
       populateDDL();populateVacEmp();renderManage();renderPasswordGrid();renderEmpProfiles();renderCostGrid();
       populateLoginDropdown();
-      toast(oldName+' renamed to '+newName,true);
+      toast(oldName+' renamed to '+newName+' — remember to set their password again.',true);
     }).catch(function(e){toast('Save failed: '+e.message,false);});
 }
 
@@ -2723,6 +2787,101 @@ function removeStaffFromRole(name, role){
         toast(name+' removed.',true);
       }catch(e){lists[key].splice(idx,0,name);toast('Failed: '+e.message,false);}
     }
+  });
+}
+
+// ── Archive / Restore departed staff ──
+// Archiving hides someone from every active picker (login, new vacation requests,
+// balances, auto-attendance sync, etc.) the same way removeStaffFromRole does,
+// but — unlike a full delete — keeps a record of who they were and when they left,
+// with a Restore button to bring them back if rehired. Their vacation history and
+// frozen balance stay fully visible under Old / Archived Staff.
+function archiveStaff(name, role){
+  showConfirm({icon:'📦',title:'Archive Staff Member?',msg:'Archive '+name+'?',
+    detail:'They\'ll be hidden from logins, dropdowns, and new vacation/attendance activity. Their vacation history and current balance stay visible under Old / Archived Staff, and you can restore them anytime.',
+    okLabel:'Yes, Archive',okStyle:'var(--amb)',
+    onOk:async function(){
+      var key=role==='doctor'?'doctors':role==='nurse'?'nurses':'staff';
+      var idx=lists[key].indexOf(name);
+      if(idx<0){toast('Not found.',false);return;}
+      lists[key].splice(idx,1);
+      if(!lists.archived) lists.archived=[];
+      // Remove any stale prior entry for this name, then add the fresh one.
+      // Balance is snapshotted NOW (at archive time) and stored — calcBalance() is a
+      // live, date-based accrual calculation, so calling it again later would keep
+      // "accruing" days forward even though this person no longer works here.
+      var frozenBal='—';
+      try{ var fb=calcBalance(name); if(fb&&typeof fb.available==='number') frozenBal=fb.available; }catch(e){}
+      lists.archived = lists.archived.filter(function(a){ return a.name!==name; });
+      lists.archived.push({name:name, role:role, date:new Date().toISOString().slice(0,10), frozenBalance:frozenBal});
+      var wasAutoStaff = autoStaff.indexOf(name)>=0;
+      try{
+        await saveConfig('lists',lists);
+        if(wasAutoStaff){
+          autoStaff.splice(autoStaff.indexOf(name),1);
+          await saveConfig('autoStaff', autoStaff);
+          await mirrorAutoStaffToAtt();
+        }
+        // Best-effort pause on the attendance app's side too (see setAttStaffActive note above)
+        var attPaused = await setAttStaffActive(name, false);
+        populateDDL();populateVacEmp();renderManage();renderPasswordGrid();renderEmpProfiles();renderCostGrid();renderBalances();
+        populateLoginDropdown();renderArchivedStaff();renderAutoStaffList();
+        toast(name+' archived.'+(attPaused?' Attendance app record paused too.':''),true);
+      }catch(e){
+        lists[key].splice(idx,0,name);
+        lists.archived = lists.archived.filter(function(a){ return a.name!==name; });
+        toast('Failed: '+e.message,false);
+      }
+    }
+  });
+}
+
+function restoreStaff(name){
+  var idx=-1;
+  for(var i=0;i<(lists.archived||[]).length;i++){ if(lists.archived[i].name===name){ idx=i; break; } }
+  if(idx<0){toast('Not found.',false);return;}
+  var entry=lists.archived[idx];
+  var key=entry.role==='doctor'?'doctors':entry.role==='nurse'?'nurses':'staff';
+  showConfirm({icon:'↩️',title:'Restore Staff Member?',msg:'Restore '+name+' as active '+entry.role+'?',
+    detail:'They\'ll reappear in logins, dropdowns, and vacation/attendance again.',
+    okLabel:'Yes, Restore',okStyle:'var(--grn)',
+    onOk:async function(){
+      lists.archived.splice(idx,1);
+      if(!lists[key]) lists[key]=[];
+      if(lists[key].indexOf(name)<0) lists[key].push(name);
+      try{
+        await saveConfig('lists',lists);
+        await setAttStaffActive(name, true);
+        populateDDL();populateVacEmp();renderManage();renderPasswordGrid();renderEmpProfiles();renderCostGrid();renderBalances();
+        populateLoginDropdown();renderArchivedStaff();
+        toast(name+' restored.',true);
+      }catch(e){
+        lists.archived.splice(idx,0,entry);
+        var ri=lists[key].indexOf(name); if(ri>=0) lists[key].splice(ri,1);
+        toast('Failed: '+e.message,false);
+      }
+    }
+  });
+}
+
+function renderArchivedStaff(){
+  var tb=document.getElementById('archivedStaffTable'); if(!tb) return;
+  var arch=lists.archived||[];
+  if(!arch.length){ tb.innerHTML='<tr><td colspan="5" class="norec">No archived staff.</td></tr>'; return; }
+  tb.innerHTML='';
+  arch.forEach(function(a){
+    var roleLabel=a.role==='doctor'?'Doctor':a.role==='nurse'?'Nurse':'Staff';
+    var roleColor=roleLabel==='Doctor'?'color:#1e40af;background:#dbeafe':roleLabel==='Nurse'?'color:#166534;background:#dcfce7':'color:#92400e;background:#fef9c3';
+    var bal=(typeof a.frozenBalance==='number')?a.frozenBalance+' days':'—';
+    var tr=document.createElement('tr');
+    tr.style.borderBottom='1px solid #f1f5f9';
+    tr.innerHTML=
+      '<td style="padding:.55rem .75rem;font-weight:600;font-size:.85rem">'+esc(a.name)+'</td>'+
+      '<td style="padding:.55rem .75rem"><span style="font-size:.7rem;font-weight:700;padding:.18rem .55rem;border-radius:99px;'+roleColor+'">'+roleLabel+'</span></td>'+
+      '<td style="padding:.55rem .75rem;font-size:.82rem;color:var(--ss)">'+fmtD(a.date)+'</td>'+
+      '<td style="padding:.55rem .75rem;font-size:.82rem;color:var(--ss)">'+bal+'</td>'+
+      '<td style="padding:.55rem .75rem;text-align:center"><button class="btn bs btn-sm" style="font-size:.74rem" data-name="'+esc(a.name)+'" onclick="restoreStaff(this.dataset.name)">↩ Restore</button></td>';
+    tb.appendChild(tr);
   });
 }
 
@@ -2749,19 +2908,34 @@ async function updatePrivilege(checkbox){
     toast(emp+' tabs updated!', true);
   }catch(e){ toast('Save failed: '+e.message, false); }
 }
+// Updates one staff member's password via the set_staff_password RPC, which merges
+// into the existing ct_config.staffPasswords blob server-side (SECURITY DEFINER) —
+// the browser never reads or holds the full blob, so this can't clobber anyone else's
+// password the way a plain overwrite of the whole object would.
+async function setStaffPasswordSafe(name, pwd){
+  await sbRpc('set_staff_password', {p_username: name, p_password: pwd});
+}
+
 async function savePasswords(){
   var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
-  var pw={};
+  var changed=[];
   all.forEach(function(emp){
     var eid=emp.replace(/[^a-zA-Z0-9]/g,'_');
     var inp=document.getElementById('pwd-'+eid);
-    if(inp&&inp.value.trim()) pw[emp]=inp.value.trim();
+    if(inp&&inp.value.trim()) changed.push({emp:emp, pwd:inp.value.trim(), inp:inp});
   });
-  try{
-    await saveConfig('staffPasswords',pw);
-    staffPasswords=pw;
-    toast('Passwords saved!',true);
-  }catch(e){toast('Save failed: '+e.message,false);}
+  if(!changed.length){ toast('No password changes to save.',false); return; }
+  var okCount=0, failed=[];
+  for(var i=0;i<changed.length;i++){
+    try{
+      await setStaffPasswordSafe(changed[i].emp, changed[i].pwd);
+      staffPasswords[changed[i].emp]=changed[i].pwd;
+      changed[i].inp.value=''; // don't leave the new password sitting visible in the field
+      okCount++;
+    }catch(e){ failed.push(changed[i].emp+' ('+e.message+')'); }
+  }
+  if(failed.length){ toast('Saved '+okCount+', failed: '+failed.join(', '), false); }
+  else { toast(okCount===1?'Password saved!':okCount+' passwords saved!', true); }
 }
 
 // ══════════════════════════════════════════
@@ -4517,6 +4691,21 @@ async function addToAttStaff(name){
     // Save back using sbUpsert
     await sbUpsert('att_config', {key:'attStaff', value:JSON.stringify(attStaffList)});
   }catch(e){ console.warn('addToAttStaff error:',e.message); throw e; }
+}
+// Best-effort: flip the existing 'active' flag on a shared att_config attStaff record
+// (used by the separate attendance.html app). Only updates a record that already
+// exists under this name — never creates one. Returns true if a matching record was
+// found and updated, false otherwise (e.g. this person was never in the attendance app).
+async function setAttStaffActive(name, active){
+  try{
+    var rows = await sbGet('att_config','key=eq.attStaff');
+    var attStaffList=(rows&&rows[0])?JSON.parse(rows[0].value):[];
+    var rec = attStaffList.find(function(s){return s.name.toLowerCase()===name.toLowerCase();});
+    if(!rec) return false;
+    rec.active = active;
+    await sbUpsert('att_config', {key:'attStaff', value:JSON.stringify(attStaffList)});
+    return true;
+  }catch(e){ console.warn('setAttStaffActive failed:', e.message); return false; }
 }
 async function removeAutoStaff(i){
   var name=autoStaff[i];
