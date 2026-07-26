@@ -1666,7 +1666,12 @@ async function sbRpc(fn, params){
     try{ var j = await res.json(); errBody = j.message || j.hint || JSON.stringify(j); }catch(ex){}
     throw new Error('RPC ' + fn + ' failed: ' + res.status + ' — ' + errBody);
   }
-  return res.json();
+  // Void-returning RPCs (e.g. set_staff_password) come back with an empty body —
+  // res.json() throws "Unexpected end of JSON input" on that, even though the call
+  // itself succeeded. Read as text first and only parse if there's actually something there.
+  var text = await res.text();
+  if(!text) return null;
+  try{ return JSON.parse(text); }catch(ex){ return null; }
 }
 
 // ══════════════════════════════════════════
