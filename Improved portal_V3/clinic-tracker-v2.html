@@ -2015,16 +2015,13 @@ async function loadAllData(){
 
     var vacCutoff = new Date(); vacCutoff.setDate(vacCutoff.getDate() - RECENT_VACATION_DAYS);
     var vacCutoffStr = vacCutoff.toISOString().slice(0,10);
-    var vacQuery = isGM()
-      ? 'order=req_date.desc&req_date=gte.'+vacCutoffStr
-      : 'employee=eq.'+encodeURIComponent(CU.empName)+'&order=req_date.desc&req_date=gte.'+vacCutoffStr;
 
     // payrollHistory is NOT fetched here anymore — it's a single JSON blob that had
     // grown to several MB and was blocking every login even for people who never open
     // the Payroll tab. It's loaded lazily instead (see ensurePayrollHistoryLoaded).
     var results = await Promise.all([
       sbGet('ct_records', recQuery),
-      sbGet('ct_vacation', vacQuery),
+      fetchVacationRows(vacCutoffStr),
       isGM() ? loadDrProfiles() : Promise.resolve()
     ]);
     var allRows = results[0];
@@ -2034,7 +2031,7 @@ async function loadAllData(){
     } else {
       records = allRecords.filter(function(r){ return r.nurse===CU.empName || r.doctor===CU.empName; });
     }
-    vacReqs = results[1].map(normVac);
+    vacReqs = results[1];
     setSyncDot('on');
     loadFullRecordsInBackground();
     loadFullVacationInBackground();
@@ -2071,6 +2068,32 @@ async function loadFullRecordsInBackground(){
   }
 }
 
+// Every column EXCEPT the heavy embedded-image ones (signature, attachment_url,
+// name_confirm) — see fetchVacationRows below for why this is what actually fixes the
+// multi-MB vacation payload.
+var VAC_LIGHT_COLUMNS = 'id,employee,from_date,to_date,days,type,note,req_date,status,reject_reason,approve_note,decided_at,attachment_name,contact,id_number,selected_dates';
+
+// Pending requests always come back with EVERY column, including embedded signature/
+// attachment/handwritten-name images — the GM needs to actually see those to approve or
+// reject. Already-decided requests come back WITHOUT those heavy columns, since they're
+// only needed later, on demand, for one specific record's PDF (see generateVacPDF, which
+// lazily fetches the full row for a record if it finds _heavyOmitted set). This is what
+// actually shrinks the payload — for a clinic whose whole history is still within the
+// date window, trimming which COLUMNS come back matters far more than which ROWS do.
+async function fetchVacationRows(cutoffStr){
+  var base = isGM() ? '' : 'employee=eq.'+encodeURIComponent(CU.empName)+'&';
+  var dateFilter = cutoffStr ? '&req_date=gte.'+cutoffStr : '';
+  var pendingQuery = base+'status=eq.Pending&order=req_date.desc';
+  var decidedQuery = base+'status=neq.Pending&order=req_date.desc'+dateFilter+'&select='+VAC_LIGHT_COLUMNS;
+  var results = await Promise.all([
+    sbGet('ct_vacation', pendingQuery),
+    sbGet('ct_vacation', decidedQuery)
+  ]);
+  var pendingRows = results[0].map(function(r){ return normVac(r, false); });
+  var decidedRows = results[1].map(function(r){ return normVac(r, true); });
+  return pendingRows.concat(decidedRows).sort(function(a,b){ return (b.reqDate||'').localeCompare(a.reqDate||''); });
+}
+
 // Same pattern as loadFullRecordsInBackground, for ct_vacation — this table can be the
 // slowest of all if signature images are stored inline per request, so its full,
 // unbounded history is likewise deferred to a quiet background fetch after login.
@@ -2078,9 +2101,7 @@ var _fullVacationLoaded = false;
 async function loadFullVacationInBackground(){
   if(_fullVacationLoaded) return;
   try{
-    var vacQuery = isGM() ? 'order=req_date.desc' : 'employee=eq.'+encodeURIComponent(CU.empName)+'&order=req_date.desc';
-    var rows = await sbGet('ct_vacation', vacQuery);
-    vacReqs = rows.map(normVac);
+    vacReqs = await fetchVacationRows(null);
     _fullVacationLoaded = true;
     var curPage=''; try{ curPage=sessionStorage.getItem('ct_page')||''; }catch(e){}
     if(curPage==='vacation'){
@@ -2102,7 +2123,7 @@ function normRec(r){
     sessionType: r.session_type||''
   };
 }
-function normVac(r){
+function normVac(r, isLight){
   var selDates=[];
   try{ if(r.selected_dates) selDates=JSON.parse(r.selected_dates); }catch(e){}
   return {
@@ -2110,7 +2131,12 @@ function normVac(r){
     days: r.days, type: r.type, note: r.note||'', reqDate: r.req_date,
     status: r.status, rejectReason: r.reject_reason||'', approveNote: r.approve_note||'', decidedAt: r.decided_at||'',
     signature: r.signature||'', attachmentUrl: r.attachment_url||'', attachmentName: r.attachment_name||'',
-    contact: r.contact||'', nameConfirm: r.name_confirm||'', idNumber: r.id_number||''
+    contact: r.contact||'', nameConfirm: r.name_confirm||'', idNumber: r.id_number||'',
+    // _heavyOmitted marks records fetched WITHOUT signature/attachmentUrl/nameConfirm (see
+    // the light-column fetch in loadAllData) so a blank signature here doesn't get mistaken
+    // for "employee never signed" — generateVacPDF checks this before lazily fetching the
+    // full row for just that one record.
+    _heavyOmitted: !!isLight
   };
 }
 
@@ -3958,10 +3984,23 @@ function renderPending(){
   });
   el.innerHTML=html;
 }
-function generateVacPDF(vacId){
+async function generateVacPDF(vacId){
   var r=null;
   for(var i=0;i<vacReqs.length;i++){if(vacReqs[i].id==vacId){r=vacReqs[i];break;}}
   if(!r){toast('Request not found.',false);return;}
+  // This record may have come from the light-column fetch (see fetchVacationRows), which
+  // omits signature/attachment/handwritten-name to keep the bulk vacation payload small.
+  // Fetch the full row for just this one record before building the PDF.
+  if(r._heavyOmitted){
+    try{
+      var full = await sbGet('ct_vacation', 'id=eq.'+vacId);
+      if(full && full[0]){
+        var fr = full[0];
+        r.signature = fr.signature||''; r.attachmentUrl = fr.attachment_url||''; r.nameConfirm = fr.name_confirm||'';
+        r._heavyOmitted = false;
+      }
+    }catch(e){ console.warn('Could not fetch full vacation record for PDF:', e.message); }
+  }
   var cn='';try{cn=localStorage.getItem('clinicName')||'Newderma1';}catch(e){cn='Newderma1';}
   var b=calcBalance(r.employee);
   var approvedDate=r.decidedAt?fmtD(r.decidedAt):fmtD(new Date().toISOString().slice(0,10));
