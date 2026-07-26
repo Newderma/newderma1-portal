@@ -1983,6 +1983,9 @@ function doLogout(){
   try{sessionStorage.removeItem('ct_page');}catch(e){}
   CU=null; records=[]; allRecords=[]; vacReqs=[];
   _fullRecordsLoaded=false;
+  _fullVacationLoaded=false;
+  _payrollHistoryLoaded=false;
+  _payrollHistoryLoadPromise=null;
   sessionStorage.removeItem('ct_cu');
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('appShell').style.display='none';
@@ -1995,21 +1998,34 @@ function doLogout(){
 // ══════════════════════════════════════════
 //  LOAD DATA FROM SUPABASE
 // ══════════════════════════════════════════
+var RECENT_VACATION_DAYS = 400; // a bit over a year, so the current contract-year balance calc is always covered
+
 async function loadAllData(){
   setSyncDot('syncing');
   try{
-    var vacQuery = isGM() ? 'order=req_date.desc' : 'employee=eq.'+encodeURIComponent(CU.empName)+'&order=req_date.desc';
     // Fast path for the initial page load: only fetch the last RECENT_RECORDS_DAYS of
-    // ct_records instead of the entire table's history. Full history is fetched quietly
-    // right after in the background (loadFullRecordsInBackground) and swapped in once ready.
-    var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - RECENT_RECORDS_DAYS);
-    var cutoffStr = cutoff.toISOString().slice(0,10);
-    var recQuery = 'order=date.desc&date=gte.'+cutoffStr;
-    // Run all fetches in parallel instead of sequentially
+    // ct_records, and the last RECENT_VACATION_DAYS of ct_vacation, instead of the
+    // entire tables' history — ct_vacation in particular can carry embedded signature
+    // images per row and grow to several MB, which was the main cause of slow logins.
+    // Full history for both loads quietly in the background right after and swaps in
+    // once ready (see loadFullRecordsInBackground / loadFullVacationInBackground).
+    var recCutoff = new Date(); recCutoff.setDate(recCutoff.getDate() - RECENT_RECORDS_DAYS);
+    var recCutoffStr = recCutoff.toISOString().slice(0,10);
+    var recQuery = 'order=date.desc&date=gte.'+recCutoffStr;
+
+    var vacCutoff = new Date(); vacCutoff.setDate(vacCutoff.getDate() - RECENT_VACATION_DAYS);
+    var vacCutoffStr = vacCutoff.toISOString().slice(0,10);
+    var vacQuery = isGM()
+      ? 'order=req_date.desc&req_date=gte.'+vacCutoffStr
+      : 'employee=eq.'+encodeURIComponent(CU.empName)+'&order=req_date.desc&req_date=gte.'+vacCutoffStr;
+
+    // payrollHistory is NOT fetched here anymore — it's a single JSON blob that had
+    // grown to several MB and was blocking every login even for people who never open
+    // the Payroll tab. It's loaded lazily instead (see ensurePayrollHistoryLoaded).
     var results = await Promise.all([
       sbGet('ct_records', recQuery),
       sbGet('ct_vacation', vacQuery),
-      isGM() ? loadPayrollData() : Promise.resolve()
+      isGM() ? loadDrProfiles() : Promise.resolve()
     ]);
     var allRows = results[0];
     allRecords = allRows.map(normRec);
@@ -2021,6 +2037,8 @@ async function loadAllData(){
     vacReqs = results[1].map(normVac);
     setSyncDot('on');
     loadFullRecordsInBackground();
+    loadFullVacationInBackground();
+    if(isGM()) ensurePayrollHistoryLoaded();
   }catch(e){
     setSyncDot('off');
     toast('Could not load data: '+e.message, false);
@@ -2050,6 +2068,26 @@ async function loadFullRecordsInBackground(){
     if(curPage==='utilization'){ renderUtilization(); }
   }catch(e){
     console.warn('Background full-history load failed:', e.message);
+  }
+}
+
+// Same pattern as loadFullRecordsInBackground, for ct_vacation — this table can be the
+// slowest of all if signature images are stored inline per request, so its full,
+// unbounded history is likewise deferred to a quiet background fetch after login.
+var _fullVacationLoaded = false;
+async function loadFullVacationInBackground(){
+  if(_fullVacationLoaded) return;
+  try{
+    var vacQuery = isGM() ? 'order=req_date.desc' : 'employee=eq.'+encodeURIComponent(CU.empName)+'&order=req_date.desc';
+    var rows = await sbGet('ct_vacation', vacQuery);
+    vacReqs = rows.map(normVac);
+    _fullVacationLoaded = true;
+    var curPage=''; try{ curPage=sessionStorage.getItem('ct_page')||''; }catch(e){}
+    if(curPage==='vacation'){
+      renderBalances(); renderStaffBalCard(); renderVacH(); renderPending();
+    }
+  }catch(e){
+    console.warn('Background full-vacation load failed:', e.message);
   }
 }
 
@@ -2244,7 +2282,9 @@ function showPage(id,btn){
     renderDrProfiles();
     var pm = document.getElementById('prMonth');
     if(pm && !pm.value){ var now=new Date(); pm.value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); }
-    if(prCurrentDr) prCheckCarryForward(document.getElementById('prDrSel').value);
+    ensurePayrollHistoryLoaded().then(function(){
+      if(prCurrentDr) prCheckCarryForward(document.getElementById('prDrSel').value);
+    });
   }
 }
 
@@ -5043,15 +5083,12 @@ var prCurrentDr = null;
 var prFileData = { gross: 0, vat: 0, net: 0, tabbyIncome: 0, tabbyFee: 0 };
 
 // Load/save helpers (piggyback on existing saveConfig/loadConfig pattern)
-async function loadPayrollData() {
-  // Load from localStorage cache instantly first
+// Fast — needed at initial boot for renderDrProfiles(). Small payload, unlike payrollHistory.
+async function loadDrProfiles() {
   try {
     var cached = localStorage.getItem('pr_profiles_cache');
     if(cached) drProfiles = JSON.parse(cached);
-    var cachedH = localStorage.getItem('pr_history_cache');
-    if(cachedH) payrollHistory = JSON.parse(cachedH);
   } catch(e) {}
-  // Then refresh from Supabase
   try {
     var r1 = await sbGet('ct_config', 'key=eq.drProfiles');
     if (r1 && r1.length && r1[0].value) {
@@ -5059,13 +5096,36 @@ async function loadPayrollData() {
       drProfiles = (typeof v1 === 'string') ? JSON.parse(v1) : v1;
       try{ localStorage.setItem('pr_profiles_cache', JSON.stringify(drProfiles)); }catch(e){}
     }
-    var r2 = await sbGet('ct_config', 'key=eq.payrollHistory');
-    if (r2 && r2.length && r2[0].value) {
-      var v2 = r2[0].value;
-      payrollHistory = (typeof v2 === 'string') ? JSON.parse(v2) : v2;
-      try{ localStorage.setItem('pr_history_cache', JSON.stringify(payrollHistory)); }catch(e){}
-    }
-  } catch(e) { console.warn('loadPayrollData error:', e); }
+  } catch(e) { console.warn('loadDrProfiles error:', e); }
+}
+// payrollHistory is a single JSON blob that can grow to several MB (every saved monthly
+// payout, for every doctor, going back years) and was blocking every single login even
+// for people who never open the Payroll tab. It's now loaded lazily: once quietly in the
+// background right after login (see loadAllData), and guaranteed-loaded when the Payroll
+// tab is actually opened, whichever happens first. Runs at most once per session.
+var _payrollHistoryLoaded = false;
+var _payrollHistoryLoadPromise = null;
+async function ensurePayrollHistoryLoaded() {
+  if(_payrollHistoryLoaded) return;
+  if(_payrollHistoryLoadPromise) return _payrollHistoryLoadPromise;
+  _payrollHistoryLoadPromise = (async function(){
+    try {
+      var cachedH = localStorage.getItem('pr_history_cache');
+      if(cachedH) payrollHistory = JSON.parse(cachedH);
+    } catch(e) {}
+    try {
+      var r2 = await sbGet('ct_config', 'key=eq.payrollHistory');
+      if (r2 && r2.length && r2[0].value) {
+        var v2 = r2[0].value;
+        payrollHistory = (typeof v2 === 'string') ? JSON.parse(v2) : v2;
+        try{ localStorage.setItem('pr_history_cache', JSON.stringify(payrollHistory)); }catch(e){}
+      }
+      _payrollHistoryLoaded = true;
+      var curPage=''; try{ curPage=sessionStorage.getItem('ct_page')||''; }catch(e){}
+      if(curPage==='payroll' && prCurrentDr){ prCheckCarryForward(document.getElementById('prDrSel').value); }
+    } catch(e) { console.warn('ensurePayrollHistoryLoaded error:', e); }
+  })();
+  return _payrollHistoryLoadPromise;
 }
 async function savePayrollProfiles() {
   await cfgSet('drProfiles', JSON.stringify(drProfiles));
