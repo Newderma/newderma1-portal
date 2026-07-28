@@ -487,6 +487,8 @@ async function bootApp(){
       '<button class="ntab" onclick="showPage(\'settings\',this)">Settings</button>'
     ].join('');
     content.innerHTML=buildLivePage()+buildLogsPage()+buildMonthlyPage()+buildSettingsPage();
+    var lf=document.getElementById('logFrom'),lt=document.getElementById('logTo');
+    if(lf)lf.value='';if(lt)lt.value='';
     await loadTodayRecs();
     renderLive();renderSettings();
     document.getElementById('appShell').style.display='flex';
@@ -771,8 +773,8 @@ function buildLogsPage(){
     '<div class="ph"><h2>Attendance Logs</h2><p>Full history with punctuality tracking.</p></div>',
     '<div class="card">',
     '<div class="filter-row">',
-    '<input type="date" id="logFrom" onchange="renderLogs()">',
-    '<input type="date" id="logTo" onchange="renderLogs()">',
+    '<input type="date" id="logFrom" autocomplete="off" onchange="renderLogs()">',
+    '<input type="date" id="logTo" autocomplete="off" onchange="renderLogs()">',
     '<select id="logStaff" onchange="filterLogs()"><option value="">All Staff</option></select>',
     '<button class="btn btn-s btn-sm" onclick="exportXLS()">XLS</button>',
     '<button class="btn btn-s btn-sm" onclick="exportCSV()">CSV</button>',
