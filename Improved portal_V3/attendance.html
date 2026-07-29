@@ -393,19 +393,22 @@ async function sbGetRange(t,q,start,end){
   var data=await r.json();
   return {data:data,total:total};
 }
+async function sbGetAllPaged(t,q){
+  var pageSize=1000,offset=0,all=[],guard=0;
+  while(guard<50){
+    guard++;
+    var res=await sbGetRange(t,q,offset,offset+pageSize-1);
+    all=all.concat(res.data);
+    offset+=pageSize;
+    if(res.data.length<pageSize)break;
+    if(res.total!=null&&offset>=res.total)break;
+  }
+  return all;
+}
 async function loadAllRecs(from,to){
   try{
     var q='order=date.desc,clock_in.desc';if(from)q+='&date=gte.'+from;if(to)q+='&date=lte.'+to;
-    var pageSize=1000,offset=0,all=[],guard=0;
-    while(guard<50){
-      guard++;
-      var res=await sbGetRange('att_records',q,offset,offset+pageSize-1);
-      all=all.concat(res.data);
-      offset+=pageSize;
-      if(res.data.length<pageSize)break;
-      if(res.total!=null&&offset>=res.total)break;
-    }
-    return all;
+    return await sbGetAllPaged('att_records',q);
   }catch(e){return[];}
 }
 
@@ -1308,7 +1311,7 @@ async function runAutoAttendance(){
     // 5. Load existing auto-staff records to know which days already exist
     var existingRows = [];
     try{
-      existingRows = await sbGet('att_records','staff_name=in.('+autoStaff.map(function(n){return encodeURIComponent(n);}).join(',')+')'+'&order=date.asc');
+      existingRows = await sbGetAllPaged('att_records','staff_name=in.('+autoStaff.map(function(n){return encodeURIComponent(n);}).join(',')+')'+'&order=date.asc');
     }catch(e){}
     var existingSet = {};
     existingRows.forEach(function(r){
