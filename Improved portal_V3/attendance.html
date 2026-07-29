@@ -370,11 +370,13 @@ function toast(msg,ok){
 
 // CONFIG
 async function loadCfg(){
-  var r=await sbGet('att_config','key=eq.attConfig');if(r&&r[0])cfg=Object.assign(cfg,JSON.parse(r[0].value));
-  try{
-    var ar=await sbGet('att_config','key=eq.autoStaff');
-    autoStaffNames=(ar&&ar[0])?JSON.parse(ar[0].value):[];
-  }catch(e){ autoStaffNames=[]; }
+  var results=await Promise.all([
+    sbGet('att_config','key=eq.attConfig'),
+    sbGet('att_config','key=eq.autoStaff').catch(function(){return[];})
+  ]);
+  var r=results[0],ar=results[1];
+  if(r&&r[0])cfg=Object.assign(cfg,JSON.parse(r[0].value));
+  autoStaffNames=(ar&&ar[0])?JSON.parse(ar[0].value):[];
 }
 async function saveCfg(){await fetch(SB_URL+'/rest/v1/att_config',{method:'POST',headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),body:JSON.stringify({key:'attConfig',value:JSON.stringify(cfg)})});}
 async function loadStaff(){
@@ -1264,19 +1266,28 @@ function withTimeout(p,ms){
 // ══════════════════════════════════════════
 async function runAutoAttendance(){
   try{
-    // 1. Re-fetch autoStaff to ensure latest (from att_config)
-    try{
-      var ar2=await sbGet('att_config','key=eq.autoStaff');
-      autoStaffNames=(ar2&&ar2[0])?JSON.parse(ar2[0].value):[];
-    }catch(e){}
+    // 1&3: these two don't depend on each other — fetch together
+    var pre = await Promise.all([
+      sbGet('att_config','key=eq.autoStaff').catch(function(){return[];}),
+      sbGet('att_records','order=date.asc&limit=1').catch(function(){return[];})
+    ]);
+    var ar2=pre[0], firstRow=pre[1];
+    autoStaffNames=(ar2&&ar2[0])?JSON.parse(ar2[0].value):[];
     var autoStaff = autoStaffNames;
     if(!autoStaff.length) return;
 
-    // 2. Load approved vacations for these staff from ct_vacation
-    var vacRows = [];
-    try{
-      vacRows = await sbGet('ct_vacation','status=eq.Approved&employee=in.('+autoStaff.map(function(n){return '"'+n+'"';}).join(',')+')&select=employee,from_date,to_date,selected_dates');
-    }catch(e){ vacRows=[]; }
+    var earliest = (firstRow&&firstRow[0]) ? firstRow[0].date : null;
+    if(!earliest){
+      var d = new Date(); d.setDate(d.getDate()-60);
+      earliest = d.toISOString().slice(0,10);
+    }
+
+    // 2&5: both only depend on autoStaff names, not on each other — fetch together
+    var mid = await Promise.all([
+      sbGet('ct_vacation','status=eq.Approved&employee=in.('+autoStaff.map(function(n){return '"'+n+'"';}).join(',')+')&select=employee,from_date,to_date,selected_dates').catch(function(){return[];}),
+      sbGetAllPaged('att_records','staff_name=in.('+autoStaff.map(function(n){return encodeURIComponent(n);}).join(',')+')'+'&order=date.asc').catch(function(){return[];})
+    ]);
+    var vacRows = mid[0], existingRows = mid[1];
     // Build vacation date set: "name|YYYY-MM-DD"
     var vacSet = {};
     vacRows.forEach(function(v){
@@ -1290,17 +1301,6 @@ async function runAutoAttendance(){
       dates.forEach(function(dt){ vacSet[(v.employee+'|'+dt)]=true; });
     });
 
-    // 3. Find earliest date in att_records
-    var earliest = null;
-    try{
-      var firstRow = await sbGet('att_records','order=date.asc&limit=1');
-      if(firstRow&&firstRow[0]) earliest = firstRow[0].date;
-    }catch(e){}
-    if(!earliest){
-      var d = new Date(); d.setDate(d.getDate()-60);
-      earliest = d.toISOString().slice(0,10);
-    }
-
     // 4. Find staff_ids for auto staff from staffList
     var staffMap = {};
     autoStaff.forEach(function(name){
@@ -1308,11 +1308,6 @@ async function runAutoAttendance(){
       staffMap[name] = s ? s.id : ('auto_'+name.replace(/\s/g,'_').toLowerCase());
     });
 
-    // 5. Load existing auto-staff records to know which days already exist
-    var existingRows = [];
-    try{
-      existingRows = await sbGetAllPaged('att_records','staff_name=in.('+autoStaff.map(function(n){return encodeURIComponent(n);}).join(',')+')'+'&order=date.asc');
-    }catch(e){}
     var existingSet = {};
     existingRows.forEach(function(r){
       // Only count complete records (with clock_out) as valid
@@ -1383,8 +1378,9 @@ async function init(){
     document.getElementById('loginScreen').style.display='flex';
   },7000);
 
-  try{await withTimeout(loadCfg(),5000);}catch(e){}
-  try{await withTimeout(loadStaff(),5000);}catch(e){}
+  try{
+    await withTimeout(Promise.all([loadCfg(),loadStaff()]),5000);
+  }catch(e){}
   clearTimeout(fb);
   // Run auto-attendance silently in background
   runAutoAttendance().catch(function(e){ console.warn('auto-att:',e); });
