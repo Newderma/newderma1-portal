@@ -267,6 +267,14 @@ if(id==='letters') { hrShowSaved(); }
 - Loop ceiling: YESTERDAY only (never includes today)
 - Clock-in: 1:50–2:10 PM · Clock-out: 9:50–10:05 PM
 
+## Data safety (added July 2026)
+- `att_records` has a real unique constraint: **`att_records_staff_date_unique` on (staff_name, date)** — one record per staff per day is enforced at the database level, not just in app logic. Any future feature assuming multiple same-day records for one staff member needs a schema change first.
+- All `att_records` reads that could exceed Supabase's default 1,000-row cap MUST use the paginated helper `sbGetAllPaged(table, query)` (Range-header based, reads `Content-Range` for the true total, hard-capped at 50 pages as a safety valve) — never a plain unpaginated `sbGet` for this table. `loadAllRecs()` and the auto-attendance existing-records check both use it.
+- Logs page defaults to **current month only** (`monthBounds()` sets `logFrom`/`logTo` on boot) rather than loading full history — full history for any staff member is still available by widening the date range, which triggers a fresh fetch. This was a deliberate GM decision (recent month is the normal use case; older months are checked on-demand, e.g. at the start of the next month).
+- Logs staff dropdown is built from the actual staff list, not from whichever names appear in the currently-loaded date range — otherwise anyone with zero activity in the loaded range (leave, new hire) would silently disappear from the picker.
+- `ct_vacation` reads from this file use `select=employee,from_date,to_date,selected_dates` to exclude large embedded signature/attachment columns (same bloat issue as documented for clinic-tracker's vacation fetch).
+- Config load at boot (`loadCfg`, `loadStaff`, and the two independent halves of `runAutoAttendance`'s pre-fetch) run via `Promise.all` rather than sequential awaits, to cut round-trip time.
+
 ---
 
 # MODULE 3 — BANK RECONCILIATION (`finance.html`)
@@ -298,6 +306,9 @@ Match M3N accounting entries against bank statements.
 11. hrRenderGrid called but function named hrGrid → fixed all references
 12. Arabic clinic name constant `CA` was wrong/transliterated ("عيادة نيو ديرما سنتر") → corrected to match official letterhead ("مركز البشرة الجديدة الاولي")
 13. Letter print used `direction:auto` (guesses direction per line, doesn't align/justify) → replaced with explicit RTL/LTR side-by-side table layout
+14. (July 2026) `attendance.html` Logs page appeared to "lose" older staff history → root cause was `att_records` growing past Supabase's default 1,000-row cap combined with an unpaginated fetch (`order=date.desc` with no pagination), so only the newest ~1,000 rows across ALL staff combined ever loaded. Fixed via Range-header pagination (`sbGetAllPaged`).
+15. (July 2026) Underneath bug #14: `runAutoAttendance()`'s own "does this staff already have a record today" check had the *same* unpaginated-fetch flaw, so once auto-staff had >1,000 combined records it could no longer see its own older history — it kept mistaking real history for missing days and re-inserting backfilled records on every single page load. Table grew from ~7,700 to ~79,500 rows in about 15 minutes of testing before caught. Fixed by pointing this check at `sbGetAllPaged` too, cleaned up via `ROW_NUMBER()` de-dup SQL (kept lowest `id` per staff/date, backed up to `att_records_backup_20260729` first), and closed permanently at the schema level with the `att_records_staff_date_unique` constraint (see Data safety note above) so it's structurally impossible even if a future code change reintroduces the pattern.
+16. (July 2026) Browser was silently restoring old typed values into the Logs page's date-range inputs on reload (native browser form-restore behavior) → added `autocomplete="off"` to both date fields plus an explicit blank-on-boot reset (superseded by the "default to current month" change in the Data safety note above).
 
 ---
 
@@ -309,5 +320,5 @@ Match M3N accounting entries against bank statements.
 
 ---
 
-*Last updated: June 18, 2026 — Newderma1 Medical Center, Jeddah KSA*
-*Major updates: Letterhead printing (real PDF header/footer), Calibri font, side-by-side EN/AR letter layout, editable letter templates, delete-letter feature, corrected Arabic clinic name, Supabase RLS security audit (Stage 0 complete, Stage 1 pending)*
+*Last updated: July 29, 2026 — Newderma1 Medical Center, Jeddah KSA*
+*Major updates: Letterhead printing (real PDF header/footer), Calibri font, side-by-side EN/AR letter layout, editable letter templates, delete-letter feature, corrected Arabic clinic name, Supabase RLS security audit (Stage 0 complete, Stage 1 pending). July 2026: `attendance.html` data-loss and runaway-duplication bugs found and fixed (see Module 2 and Known Bugs Fixed #14–16), `att_records` unique constraint added, Logs page defaulted to current-month view for speed.*
