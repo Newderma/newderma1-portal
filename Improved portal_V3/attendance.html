@@ -859,7 +859,7 @@ var _mthCache={};
 
 async function loadApprovedLeaves(from,to){
   try{
-    var q='status=eq.Approved&order=from_date.asc';
+    var q='status=eq.Approved&order=from_date.asc&select=employee,from_date,to_date';
     if(from&&to){q+='&from_date=lte.'+to+'&to_date=gte.'+from;}
     vacationLeaves=await sbGet('ct_vacation',q);
   }catch(e){vacationLeaves=[];}
@@ -1275,7 +1275,7 @@ async function runAutoAttendance(){
     // 2. Load approved vacations for these staff from ct_vacation
     var vacRows = [];
     try{
-      vacRows = await sbGet('ct_vacation','status=eq.Approved&employee=in.('+autoStaff.map(function(n){return '"'+n+'"';}).join(',')+')');
+      vacRows = await sbGet('ct_vacation','status=eq.Approved&employee=in.('+autoStaff.map(function(n){return '"'+n+'"';}).join(',')+')&select=employee,from_date,to_date,selected_dates');
     }catch(e){ vacRows=[]; }
     // Build vacation date set: "name|YYYY-MM-DD"
     var vacSet = {};
