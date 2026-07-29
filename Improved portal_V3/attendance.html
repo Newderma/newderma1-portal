@@ -385,15 +385,26 @@ async function loadStaff(){
 async function saveStaff(){await fetch(SB_URL+'/rest/v1/att_config',{method:'POST',headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),body:JSON.stringify({key:'attStaff',value:JSON.stringify(staffList)})});}
 function todayStr(){return new Date().toISOString().slice(0,10);}
 async function loadTodayRecs(){try{records=await sbGet('att_records','date=eq.'+todayStr()+'&order=clock_in.asc');}catch(e){records=[];}}
+async function sbGetRange(t,q,start,end){
+  var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+(q||'order=id.desc'),{headers:sbH({'Range-Unit':'items','Range':start+'-'+end,'Prefer':'count=exact'})});
+  if(!r.ok)throw new Error(await r.text());
+  var total=null,cr=r.headers.get('content-range');
+  if(cr){var parts=cr.split('/');if(parts[1]&&parts[1]!=='*')total=parseInt(parts[1],10);}
+  var data=await r.json();
+  return {data:data,total:total};
+}
 async function loadAllRecs(from,to){
   try{
     var q='order=date.desc,clock_in.desc';if(from)q+='&date=gte.'+from;if(to)q+='&date=lte.'+to;
-    var pageSize=1000,offset=0,all=[],page;
-    do{
-      page=await sbGet('att_records',q+'&limit='+pageSize+'&offset='+offset);
-      all=all.concat(page);
+    var pageSize=1000,offset=0,all=[],guard=0;
+    while(guard<50){
+      guard++;
+      var res=await sbGetRange('att_records',q,offset,offset+pageSize-1);
+      all=all.concat(res.data);
       offset+=pageSize;
-    }while(page.length===pageSize);
+      if(res.data.length<pageSize)break;
+      if(res.total!=null&&offset>=res.total)break;
+    }
     return all;
   }catch(e){return[];}
 }
