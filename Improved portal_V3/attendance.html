@@ -386,6 +386,12 @@ async function loadStaff(){
 }
 async function saveStaff(){await fetch(SB_URL+'/rest/v1/att_config',{method:'POST',headers:sbH({'Prefer':'resolution=merge-duplicates,return=representation'}),body:JSON.stringify({key:'attStaff',value:JSON.stringify(staffList)})});}
 function todayStr(){return new Date().toISOString().slice(0,10);}
+function monthBounds(){
+  var now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  var pad=function(n){return n<10?'0'+n:n;};
+  var lastDay=new Date(y,m+1,0).getDate();
+  return {from:y+'-'+pad(m+1)+'-01',to:y+'-'+pad(m+1)+'-'+pad(lastDay)};
+}
 async function loadTodayRecs(){try{records=await sbGet('att_records','date=eq.'+todayStr()+'&order=clock_in.asc');}catch(e){records=[];}}
 async function sbGetRange(t,q,start,end){
   var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+(q||'order=id.desc'),{headers:sbH({'Range-Unit':'items','Range':start+'-'+end,'Prefer':'count=exact'})});
@@ -515,7 +521,8 @@ async function bootApp(){
     ].join('');
     content.innerHTML=buildLivePage()+buildLogsPage()+buildMonthlyPage()+buildSettingsPage();
     var lf=document.getElementById('logFrom'),lt=document.getElementById('logTo');
-    if(lf)lf.value='';if(lt)lt.value='';
+    var mb=monthBounds();
+    if(lf)lf.value=mb.from;if(lt)lt.value=mb.to;
     await loadTodayRecs();
     renderLive();renderSettings();
     document.getElementById('appShell').style.display='flex';
@@ -822,7 +829,7 @@ async function renderLogs(){
   var sf=document.getElementById('logStaff');
   if(sf){
     var cur=sf.value;
-    var names=[...new Set(allLogs.map(function(r){return r.staff_name;}))].sort();
+    var names=staffList.map(function(s){return s.name;}).sort();
     sf.innerHTML='<option value="">All Staff</option>'+names.map(function(n){
       return '<option'+(n===cur?' selected':'')+'>'+n+'</option>';
     }).join('');
