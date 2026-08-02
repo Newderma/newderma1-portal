@@ -3567,7 +3567,7 @@ function exportRecXLS(){
   if(fn) fname+='_'+fn.replace(/\s+/g,'_');
   if(fd) fname+='_'+fd.replace(/\s+/g,'_');
   if(fm) fname+='_'+fm;
-  var rows=[['#','Date','Patient','File No.','Doctor','Procedure','Area Treated','Item','Qty (ml)','Sell/ml (SAR)','Selling','Cost','Profit','Margin','Nurse','Notes']];
+  var rows=[['#','Date','Patient','File No.','Doctor','Procedure','Area Treated','Item','Qty (ml)','Sell/ml (SAR)','Selling','Cost','Profit','Margin','Nurse','Notes','Case Selling Total','Case Cost Total','Case Profit Total']];
   filtered.forEach(function(r,i){
     var base=[i+1,r.date,r.patient,r.patientId||'',r.doctor,r.procedure,r.area||''];
     if(r.items&&r.items.length){
@@ -3582,13 +3582,14 @@ function exportRecXLS(){
           '',
           j===0?r.margin+'%':'',
           j===0?(r.nurse||''):'',
-          j===0?(r.notes||''):''
+          j===0?(r.notes||''):'',
+          '','',''
         ]));
       });
-      // Totals row
-      rows.push(base.concat(['','','TOTAL',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),'','','']));
+      // Totals row — case totals now live in their own dedicated columns, not the item Selling/Cost/Profit columns
+      rows.push(base.concat(['TOTAL','','','','','','','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2)]));
     } else {
-      rows.push(base.concat(['—','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),r.margin+'%',r.nurse||'',r.notes||'']));
+      rows.push(base.concat(['—','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),r.margin+'%',r.nurse||'',r.notes||'',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2)]));
     }
   });
   if(!filtered.length){toast('No records match current filters.',false);return;}
