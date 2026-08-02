@@ -3568,8 +3568,11 @@ function exportRecXLS(){
   if(fd) fname+='_'+fd.replace(/\s+/g,'_');
   if(fm) fname+='_'+fm;
   var rows=[['#','Date','Patient','File No.','Doctor','Procedure','Area Treated','Item','Qty (ml)','Sell/ml (SAR)','Selling','Cost','Profit','Margin','Nurse','Notes','Case Selling Total','Case Cost Total','Case Profit Total']];
+  var grandSell=0,grandCost=0,grandProfit=0;
   filtered.forEach(function(r,i){
     var base=[i+1,r.date,r.patient,r.patientId||'',r.doctor,r.procedure,r.area||''];
+    // Same rule as the GUI totals bar (renderRecords): Retouch is excluded from totals, Complimentary is included
+    if(r.procedure!=='Retouch'){ grandSell+=r.totalSell; grandCost+=r.totalCost; grandProfit+=r.profit; }
     if(r.items&&r.items.length){
       r.items.forEach(function(it,j){
         var itemCost=(it.qty*(it.costPerMl||0)).toFixed(2);
@@ -3593,6 +3596,8 @@ function exportRecXLS(){
     }
   });
   if(!filtered.length){toast('No records match current filters.',false);return;}
+  rows.push(['','','','','','','','','','','','','','','','','','','']);
+  rows.push(['GRAND TOTAL (excludes Retouch)','','','','','','','','','','','','','','','',grandSell.toFixed(2),grandCost.toFixed(2),grandProfit.toFixed(2)]);
   toast('Exporting '+filtered.length+' record'+(filtered.length>1?'s':'')+'...',true);
   dlXLS(rows,fname);
 }
