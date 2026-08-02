@@ -3567,12 +3567,9 @@ function exportRecXLS(){
   if(fn) fname+='_'+fn.replace(/\s+/g,'_');
   if(fd) fname+='_'+fd.replace(/\s+/g,'_');
   if(fm) fname+='_'+fm;
-  var rows=[['#','Date','Patient','File No.','Doctor','Procedure','Area Treated','Item','Qty (ml)','Sell/ml (SAR)','Selling','Cost','Profit','Margin','Nurse','Notes','Case Selling Total','Case Cost Total','Case Profit Total']];
-  var grandSell=0,grandCost=0,grandProfit=0;
+  var rows=[['#','Date','Patient','File No.','Doctor','Procedure','Area Treated','Item','Qty (ml)','Sell/ml (SAR)','Selling','Cost','Profit','Margin','Nurse','Notes']];
   filtered.forEach(function(r,i){
     var base=[i+1,r.date,r.patient,r.patientId||'',r.doctor,r.procedure,r.area||''];
-    // Same rule as the GUI totals bar (renderRecords): Retouch is excluded from totals, Complimentary is included
-    if(r.procedure!=='Retouch'){ grandSell+=r.totalSell; grandCost+=r.totalCost; grandProfit+=r.profit; }
     if(r.items&&r.items.length){
       r.items.forEach(function(it,j){
         var itemCost=(it.qty*(it.costPerMl||0)).toFixed(2);
@@ -3585,19 +3582,16 @@ function exportRecXLS(){
           '',
           j===0?r.margin+'%':'',
           j===0?(r.nurse||''):'',
-          j===0?(r.notes||''):'',
-          '','',''
+          j===0?(r.notes||''):''
         ]));
       });
-      // Totals row — case totals now live in their own dedicated columns, not the item Selling/Cost/Profit columns
-      rows.push(base.concat(['TOTAL','','','','','','','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2)]));
+      // Totals row
+      rows.push(base.concat(['','','TOTAL',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),'','','']));
     } else {
-      rows.push(base.concat(['—','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),r.margin+'%',r.nurse||'',r.notes||'',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2)]));
+      rows.push(base.concat(['—','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),r.margin+'%',r.nurse||'',r.notes||'']));
     }
   });
   if(!filtered.length){toast('No records match current filters.',false);return;}
-  rows.push(['','','','','','','','','','','','','','','','','','','']);
-  rows.push(['GRAND TOTAL (excludes Retouch)','','','','','','','','','','','','','','','',grandSell.toFixed(2),grandCost.toFixed(2),grandProfit.toFixed(2)]);
   toast('Exporting '+filtered.length+' record'+(filtered.length>1?'s':'')+'...',true);
   dlXLS(rows,fname);
 }
@@ -5467,8 +5461,9 @@ function populatePrDrSel() {
   });
 }
 
-function prOnMonthChange(){
+async function prOnMonthChange(){
   if(!prCurrentDr) return;
+  await ensurePayrollHistoryLoaded();
   var dr    = document.getElementById('prDrSel').value;
   var month = document.getElementById('prMonth').value;
   if(!dr||!month) return;
@@ -5484,7 +5479,7 @@ function prOnMonthChange(){
   var saved = payrollHistory.find(function(h){ return h.doctor===dr && h.month===month; });
   if(saved){
     // Load saved record into form (same as clicking Edit in History)
-    prEditHistory(dr, month);
+    await prEditHistory(dr, month);
   } else {
     // Reset to profile defaults then show carry-forward for this month
     prResetToProfileDefaults();
@@ -5941,6 +5936,7 @@ function prCalc() {
 }
 
 async function prSaveHistory() {
+  await ensurePayrollHistoryLoaded();
   if(!window._prLastResult){ toast('Nothing to save yet.', false); return; }
   var r = window._prLastResult;
   if(!r.doctor||!r.month){ toast('Please select a doctor and month.', false); return; }
@@ -6184,6 +6180,7 @@ function renderPayrollHistory() {
 }
 
 async function prAddPayment(dr, mon, idx){
+  await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec){ toast('Record not found.',false); return; }
   var date   = (document.getElementById('pp-date-'+idx)||{}).value   || new Date().toISOString().slice(0,10);
@@ -6212,6 +6209,7 @@ function prConfirmRemovePayment(dr, mon, pi){
 }
 
 async function prRemovePayment(dr, mon, pi){
+  await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec||!rec.payments) return;
   rec.payments.splice(pi,1);
@@ -6329,6 +6327,7 @@ async function prDownloadXlsFromModal(){
 
 async function prAttachXls(input, dr, mon){
   var file = input.files[0]; if(!file) return;
+  await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec){ toast('Record not found.', false); return; }
 
@@ -6493,13 +6492,15 @@ async function exportAllData(){
 }
 
 async function prDeleteHistory(dr, mon){
+  await ensurePayrollHistoryLoaded();
   payrollHistory = payrollHistory.filter(function(h){ return !(h.doctor===dr && h.month===mon); });
   try { await savePayrollHistory(); renderPayrollHistory(); toast('Deleted.', true); }
   catch(e){ toast('Delete failed.',false); }
 }
 
-function prAttachSigned(input, dr, mon){
+async function prAttachSigned(input, dr, mon){
   var file = input.files[0]; if(!file) return;
+  await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec){ toast('Record not found.', false); return; }
   var reader = new FileReader();
@@ -6527,6 +6528,7 @@ function prViewSigned(dr, mon){
 }
 
 async function prRemoveSigned(dr, mon){
+  await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec) return;
   delete rec.signedCopy;
@@ -6535,7 +6537,8 @@ async function prRemoveSigned(dr, mon){
   catch(e){ toast('Remove failed.', false); }
 }
 
-function prEditHistory(dr, mon){
+async function prEditHistory(dr, mon){
+  await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec){ toast('Record not found.',false); return; }
   // Switch to calculator tab and pre-fill everything from saved record
