@@ -240,11 +240,30 @@ if(id==='letters') { hrShowSaved(); }
 | Shared Partner | ✅ Yes |
 | Salary+Performance | ❌ No |
 
+### Shared Partner — extra per-doctor options (added Aug 2026)
+Set via **Payroll → Profiles → Edit** (only visible when Type = Shared Partner):
+- **Apply 50% Split** checkbox — default checked (existing doctors unaffected). Unchecked → that doctor's payout uses the FULL net clinic income instead of halving it; the "50% Share" summary row is skipped entirely (goes straight from Total to deductions) rather than showing a redundant "Full Amount" line.
+- **GOSI SAR/month** — default value, mirrors the Renting type's GOSI field. Prefills into the monthly entry form, editable per month, deducts from the total normally.
+- **Show Salary as info only** checkbox — when checked, the Salary line still appears in the breakdown (so there's a record he was paid a salary) but does NOT subtract from the total — only GOSI/Lab/Chair/Special Deduction do. Displays in neutral gray with no minus sign, relabeled "Salary — already paid, not deducted here" (an earlier version showed it in red with a minus sign like a real deduction, which looked inconsistent with the total even though the math was already correct — fixed).
+
+Data fields added to a Shared Partner profile object: `splitShare` (bool), `gosi` (number), `salaryInfoOnly` (bool). Currently used for **Dr Abbas Abdulbaqi**.
+
 ### Saved Record Structure
 ```javascript
 { doctor, month, type, gross, vat, net, tabbyIncome, tabbyFee,
-  netOwed, grandTotal, rows, savedAt, baseSalary, perfBonus }
+  netOwed, grandTotal, rows, savedAt, baseSalary, perfBonus,
+  payments: [{ date, amount, method, ref, addedAt }] }
 ```
+`payments` (via "+ Add Payment" in History) now also drives the printed statement's Receipt Acknowledgment block — see below.
+
+### Payout Statement (Print/PDF) — reworked Aug 2026
+Two separate acknowledgment blocks, each with its OWN signature line (never shared):
+1. **Acknowledgment** — always shown. States only that the stated amount is correct/agreed; makes no claim about money changing hands. Signature pair: "Prepared by / Doctor Signature." Safe to print and sign on any month, paid or not.
+2. **Receipt Acknowledgment** — only appears once a real payment is recorded on that record (`prPaymentStatus(r).totalPaid > 0.01`, i.e. at least one entry in `payments`). Phrased as the doctor's own statement, quoting the actual recorded amount/method(Cash, Bank Transfer, WPS, Cheque)/date — e.g. "I, Dr X, acknowledge that I have received SAR 19,025 (via Cash on 04 Aug 2026)." Own separate signature pair: "Handed by / Received by (Doctor)."
+
+**Correct workflow:** record the payment via **History → + Add Payment** FIRST (amount, method, date), THEN print — that's what makes the Receipt Acknowledgment block and its signature appear, reflecting what's actually true at signing time. Printing before recording a payment shows only the neutral Acknowledgment block, with no receipt claim anywhere on the page.
+
+Print CSS (header, meta box, table row padding, ack blocks, signature line spacing) was tightened Aug 2026 so the statement still fits on one printed page even with both acknowledgment blocks + both signature areas present.
 
 ## Backup & Restore (added June 2026)
 - Location: **Manage tab → bottom → "🗄️ Data Backup & Restore"**
@@ -309,6 +328,7 @@ Match M3N accounting entries against bank statements.
 14. (July 2026) `attendance.html` Logs page appeared to "lose" older staff history → root cause was `att_records` growing past Supabase's default 1,000-row cap combined with an unpaginated fetch (`order=date.desc` with no pagination), so only the newest ~1,000 rows across ALL staff combined ever loaded. Fixed via Range-header pagination (`sbGetAllPaged`).
 15. (July 2026) Underneath bug #14: `runAutoAttendance()`'s own "does this staff already have a record today" check had the *same* unpaginated-fetch flaw, so once auto-staff had >1,000 combined records it could no longer see its own older history — it kept mistaking real history for missing days and re-inserting backfilled records on every single page load. Table grew from ~7,700 to ~79,500 rows in about 15 minutes of testing before caught. Fixed by pointing this check at `sbGetAllPaged` too, cleaned up via `ROW_NUMBER()` de-dup SQL (kept lowest `id` per staff/date, backed up to `att_records_backup_20260729` first), and closed permanently at the schema level with the `att_records_staff_date_unique` constraint (see Data safety note above) so it's structurally impossible even if a future code change reintroduces the pattern.
 16. (July 2026) Browser was silently restoring old typed values into the Logs page's date-range inputs on reload (native browser form-restore behavior) → added `autocomplete="off"` to both date fields plus an explicit blank-on-boot reset (superseded by the "default to current month" change in the Data safety note above).
+17. (Aug 2026) Shared Partner "Show Salary as info only" row displayed with a red minus sign like a real deduction, even though it was correctly excluded from the payout total — looked like a math error even though the total itself was right. Fixed by rendering that row neutrally (gray, no minus sign, relabeled "Salary — already paid, not deducted here") instead of red/deducted styling.
 
 ---
 
@@ -320,5 +340,5 @@ Match M3N accounting entries against bank statements.
 
 ---
 
-*Last updated: July 29, 2026 — Newderma1 Medical Center, Jeddah KSA*
-*Major updates: Letterhead printing (real PDF header/footer), Calibri font, side-by-side EN/AR letter layout, editable letter templates, delete-letter feature, corrected Arabic clinic name, Supabase RLS security audit (Stage 0 complete, Stage 1 pending). July 2026: `attendance.html` data-loss and runaway-duplication bugs found and fixed (see Module 2 and Known Bugs Fixed #14–16), `att_records` unique constraint added, Logs page defaulted to current-month view for speed.*
+*Last updated: August 4, 2026 — Newderma1 Medical Center, Jeddah KSA*
+*Major updates: Letterhead printing (real PDF header/footer), Calibri font, side-by-side EN/AR letter layout, editable letter templates, delete-letter feature, corrected Arabic clinic name, Supabase RLS security audit (Stage 0 complete, Stage 1 pending). July 2026: `attendance.html` data-loss and runaway-duplication bugs found and fixed (see Module 2 and Known Bugs Fixed #14–16), `att_records` unique constraint added, Logs page defaulted to current-month view for speed. August 2026: Shared Partner payroll type gained per-doctor "Apply 50% Split" toggle and "Show Salary as info only" option plus its own GOSI field (see Payroll System section); printed payout statement reworked with two independent acknowledgment + signature blocks (figures-correct vs actual-receipt, the latter driven by real "+ Add Payment" records) and tightened print CSS to keep it on one page.*
