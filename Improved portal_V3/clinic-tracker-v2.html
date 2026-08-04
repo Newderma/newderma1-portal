@@ -5830,7 +5830,9 @@ function prCalc() {
     rows.push({label:'Total / المجموع',  amount:combined,  deduct:false, bold:true});
     var noSplit = prCurrentDr.splitShare === false;
     var halfShare = noSplit ? combined : (combined / 2);
-    rows.push({label: noSplit ? 'Full Amount (No Split) / كامل المبلغ (بدون تقسيم)' : 'نسبة 50% / 50% Share', amount:halfShare, deduct:false, bold:true});
+    if(!noSplit){
+      rows.push({label:'نسبة 50% / 50% Share', amount:halfShare, deduct:false, bold:true});
+    }
     total = halfShare;
 
     if(lab)      { rows.push({label:'Lab Fees 50% / أتعاب المعمل ٥٠٪',          amount:lab,      deduct:true}); total -= lab; }
