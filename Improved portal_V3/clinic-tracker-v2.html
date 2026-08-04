@@ -5843,8 +5843,12 @@ function prCalc() {
     if(chair)    { rows.push({label:'Dental Chair Deduction / خصم كرسي الأسنان',                 amount:chair,    deduct:true}); total -= chair; }
     if(salary2)  {
       var salaryInfoOnly = prCurrentDr.salaryInfoOnly === true;
-      rows.push({label:'Salary / الراتب المدفوع', amount:salary2, deduct:true, sub:salaryInfoOnly});
-      if(!salaryInfoOnly) total -= salary2;
+      if(salaryInfoOnly){
+        rows.push({label:'Salary — already paid, not deducted here / الراتب — مدفوع مسبقاً، غير مخصوم هنا', amount:salary2, deduct:false, sub:true});
+      } else {
+        rows.push({label:'Salary / الراتب المدفوع', amount:salary2, deduct:true});
+        total -= salary2;
+      }
     }
     if(gosi2)    { rows.push({label:'GOSI / التأمينات الاجتماعية',               amount:gosi2,    deduct:true}); total -= gosi2; }
     if(special2) { rows.push({label:(specNote2 ? specNote2+' / خصم' : 'Special Deduction / خصم خاص'), amount:special2, deduct:true}); total -= special2; }
@@ -6699,9 +6703,9 @@ function prOpenPrintWindow(r){
   w.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">');
   w.document.write('<style>');
   w.document.write('*{box-sizing:border-box;margin:0;padding:0}');
-  w.document.write('body{font-family:"Inter",Arial,sans-serif;color:#1e293b;background:#fff;padding:2rem 2.5rem;max-width:760px;margin:0 auto;font-size:12px;line-height:1.5}');
+  w.document.write('body{font-family:"Inter",Arial,sans-serif;color:#1e293b;background:#fff;padding:1.4rem 2rem;max-width:760px;margin:0 auto;font-size:12px;line-height:1.4}');
   // Header
-  w.document.write('.header{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:.9rem;margin-bottom:1.1rem;border-bottom:2.5px solid #6abf4b}');
+  w.document.write('.header{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:.6rem;margin-bottom:.7rem;border-bottom:2px solid #6abf4b}');
   w.document.write('.logo-wrap{display:flex;align-items:flex-start;gap:.7rem}');
   w.document.write('.logo-wrap img{height:50px;width:auto;object-fit:contain;margin-top:2px}');
   w.document.write('.clinic-name{font-size:.9rem;font-weight:700;color:#1e293b;line-height:1.3}');
@@ -6714,12 +6718,12 @@ function prOpenPrintWindow(r){
   w.document.write('.doc-info .sub{font-size:.65rem;color:#64748b;margin-top:.25rem}');
   w.document.write('.doc-info .ar-s{font-size:.63rem;color:#64748b;font-family:"Noto Sans Arabic",Arial,sans-serif;direction:rtl;margin-top:.05rem}');
   // Meta
-  w.document.write('.meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:.65rem 1rem;margin-bottom:1.1rem}');
+  w.document.write('.meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:.5rem .9rem;margin-bottom:.7rem}');
   w.document.write('.meta-item label{display:block;font-size:.58rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.18rem}');
   w.document.write('.meta-item .val{font-size:.78rem;font-weight:600;color:#1e293b}');
   w.document.write('.meta-item .val-ar{font-size:.72rem;font-weight:500;color:#475569;font-family:"Noto Sans Arabic",Arial,sans-serif;direction:rtl;text-align:right}');
   // Table
-  w.document.write('table{width:100%;border-collapse:collapse;margin-bottom:1rem;table-layout:fixed}');
+  w.document.write('table{width:100%;border-collapse:collapse;margin-bottom:.5rem;table-layout:fixed}');
   w.document.write('col.c-desc{width:42%}col.c-ar{width:35%}col.c-amt{width:23%}');
   w.document.write('th{padding:.42rem .65rem;background:#f1f5f9;font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1.5px solid #e2e8f0;white-space:nowrap}');
   w.document.write('th.th-ar{font-family:"Noto Sans Arabic",Arial,sans-serif;text-transform:none;letter-spacing:0;text-align:right}');
@@ -6727,31 +6731,31 @@ function prOpenPrintWindow(r){
   w.document.write('td{padding:.35rem .65rem;border-bottom:1px solid #f1f5f9;font-size:.78rem;vertical-align:middle}');
   w.document.write('.ar-cell{font-family:"Noto Sans Arabic",Arial,sans-serif;font-size:.72rem;color:#64748b;text-align:right;direction:rtl;vertical-align:middle}');
   w.document.write('.amt{text-align:right;white-space:nowrap;vertical-align:middle}');
-  w.document.write('.sub-row td{background:#fafafa;font-size:.7rem;padding:.26rem .65rem;color:#64748b;font-style:italic}');
-  w.document.write('.sub-row .ar-cell{font-size:.67rem}');
-  w.document.write('.sub-row .amt{font-size:.7rem}');
-  w.document.write('.bold-row td{background:#f0fdf4;font-size:.8rem;padding:.48rem .65rem}');
-  w.document.write('.total-row td{font-size:.88rem;font-weight:700;padding:.7rem .65rem;border-top:2px solid #6abf4b;border-bottom:none;white-space:nowrap}');
+  w.document.write('.sub-row td{background:#fafafa;font-size:.68rem;padding:.2rem .65rem;color:#64748b;font-style:italic}');
+  w.document.write('.sub-row .ar-cell{font-size:.65rem}');
+  w.document.write('.sub-row .amt{font-size:.68rem}');
+  w.document.write('.bold-row td{background:#f0fdf4;font-size:.78rem;padding:.36rem .65rem}');
+  w.document.write('.total-row td{font-size:.85rem;font-weight:700;padding:.5rem .65rem;border-top:2px solid #6abf4b;border-bottom:none;white-space:nowrap}');
   // Acknowledgment
-  w.document.write('.ack{margin:1.1rem 0;padding:.85rem 1rem;border:1px solid #e2e8f0;border-radius:7px;background:#f8fafc}');
-  w.document.write('.ack-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:.55rem}');
-  w.document.write('.ack-title .en{font-size:.58rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em}');
-  w.document.write('.ack-title .ar{font-size:.65rem;font-weight:600;color:#64748b;font-family:"Noto Sans Arabic",Arial,sans-serif}');
-  w.document.write('.ack-en{font-size:.75rem;color:#1e293b;line-height:1.7;margin-bottom:.55rem}');
-  w.document.write('.ack-ar{font-size:.75rem;color:#1e293b;line-height:1.8;direction:rtl;text-align:right;font-family:"Noto Sans Arabic",Arial,sans-serif}');
+  w.document.write('.ack{margin:.5rem 0;padding:.5rem .8rem;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc}');
+  w.document.write('.ack-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem}');
+  w.document.write('.ack-title .en{font-size:.56rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em}');
+  w.document.write('.ack-title .ar{font-size:.63rem;font-weight:600;color:#64748b;font-family:"Noto Sans Arabic",Arial,sans-serif}');
+  w.document.write('.ack-en{font-size:.7rem;color:#1e293b;line-height:1.45;margin-bottom:.25rem}');
+  w.document.write('.ack-ar{font-size:.7rem;color:#1e293b;line-height:1.5;direction:rtl;text-align:right;font-family:"Noto Sans Arabic",Arial,sans-serif}');
   // Signatures
-  w.document.write('.sign-area{display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;margin-top:1.4rem}');
+  w.document.write('.sign-area{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:.5rem}');
   w.document.write('.sign-box{text-align:center}');
   w.document.write('.sign-labels{display:flex;justify-content:center;gap:.4rem;align-items:baseline;margin-bottom:0}');
-  w.document.write('.sign-en{font-size:.68rem;color:#64748b}');
-  w.document.write('.sign-sep{font-size:.65rem;color:#cbd5e1}');
-  w.document.write('.sign-ar{font-size:.68rem;color:#64748b;font-family:"Noto Sans Arabic",Arial,sans-serif}');
-  w.document.write('.sign-line{border-top:1px solid #cbd5e1;margin-top:2.5rem;padding-top:.35rem}');
-  w.document.write('.sign-name{font-size:.65rem;color:#94a3b8}');
+  w.document.write('.sign-en{font-size:.66rem;color:#64748b}');
+  w.document.write('.sign-sep{font-size:.63rem;color:#cbd5e1}');
+  w.document.write('.sign-ar{font-size:.66rem;color:#64748b;font-family:"Noto Sans Arabic",Arial,sans-serif}');
+  w.document.write('.sign-line{border-top:1px solid #cbd5e1;margin-top:1.3rem;padding-top:.25rem}');
+  w.document.write('.sign-name{font-size:.63rem;color:#94a3b8}');
   // Footer
-  w.document.write('.footer{margin-top:1.1rem;padding-top:.55rem;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;font-size:.62rem;color:#94a3b8}');
-  w.document.write('.print-btn{display:block;margin:1.2rem auto 0;padding:.48rem 1.6rem;background:#6abf4b;color:#fff;border:none;border-radius:6px;font-size:.8rem;cursor:pointer;font-family:"Inter",Arial,sans-serif}');
-  w.document.write('@media print{.print-btn{display:none!important}body{padding:1.2rem 1.5rem}}');
+  w.document.write('.footer{margin-top:.6rem;padding-top:.35rem;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;font-size:.6rem;color:#94a3b8}');
+  w.document.write('.print-btn{display:block;margin:.8rem auto 0;padding:.48rem 1.6rem;background:#6abf4b;color:#fff;border:none;border-radius:6px;font-size:.8rem;cursor:pointer;font-family:"Inter",Arial,sans-serif}');
+  w.document.write('@media print{.print-btn{display:none!important}body{padding:.8rem 1.1rem;font-size:11px}}');
   w.document.write('</style></head><body>');
 
   // Header
