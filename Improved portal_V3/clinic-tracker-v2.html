@@ -861,6 +861,10 @@ tr:hover td{background:#f8fafc}
                 <input type="number" id="prSharedSalary" min="0" step="0.01" placeholder="0">
               </div>
               <div>
+                <label>GOSI / التأمينات الاجتماعية SAR</label>
+                <input type="number" id="prSharedGosi" min="0" step="0.01" placeholder="0">
+              </div>
+              <div>
                 <label>Lab Fees 50% / أتعاب المعمل ٥٠٪ SAR</label>
                 <input type="number" id="prLab" min="0" step="0.01" placeholder="0">
               </div>
@@ -947,6 +951,14 @@ tr:hover td{background:#f8fafc}
                 <label>Fixed Salary / WPS SAR/month</label>
                 <input type="number" id="prpSharedSalary" min="0" step="0.01" placeholder="0">
               </div>
+              <div>
+                <label>GOSI SAR/month</label>
+                <input type="number" id="prpSharedGosi" min="0" step="0.01" placeholder="0">
+              </div>
+            </div>
+            <div style="margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" id="prpSharedSplit" checked style="width:auto">
+              <label for="prpSharedSplit" style="margin:0">Apply 50% Split / تطبيق نسبة 50% <span style="font-size:.7rem;color:var(--ss)">(uncheck to pay full net amount, no split)</span></label>
             </div>
           </div>
           <!-- SALARY + PERFORMANCE FIELDS -->
@@ -5438,7 +5450,7 @@ function renderDrProfiles() {
     if(p.arName) html += '<div style="font-size:.82rem;color:var(--sl);font-family:Arial,sans-serif;direction:rtl;margin-top:.1rem">'+esc(p.arName)+'</div>';
     html += '<div style="font-size:.75rem;color:var(--ss);margin-top:.2rem">'+(isShared?'PT':'RT')+' &nbsp;|&nbsp; ';
     if(isShared){
-      html += 'WPS: SAR '+fmtSAR(p.sharedSalary||0);
+      html += 'WPS: SAR '+fmtSAR(p.sharedSalary||0)+' &nbsp;|&nbsp; GOSI: SAR '+fmtSAR(p.gosi||0)+' &nbsp;|&nbsp; '+(p.splitShare===false?'No Split':'50% Split');
     } else {
       html += 'Rent: SAR '+fmtSAR(p.rent||0)+' &nbsp;|&nbsp; WPS: SAR '+fmtSAR(p.salary||0)+' &nbsp;|&nbsp; GOSI: SAR '+fmtSAR(p.gosi||0);
     }
@@ -5502,6 +5514,7 @@ function prResetToProfileDefaults(){
     document.getElementById('prAdditionNote').value = '';
   } else if(isShared){
     document.getElementById('prSharedSalary').value = prCurrentDr.sharedSalary || 0;
+    document.getElementById('prSharedGosi').value = prCurrentDr.gosi || 0;
     document.getElementById('prLab').value = 0;
     document.getElementById('prChair').value = 0;
     document.getElementById('prSharedSpecial').value = '';
@@ -5548,6 +5561,7 @@ function prLoadProfile() {
     document.getElementById('prAdditionNote').value = '';
   } else if(isShared){
     document.getElementById('prSharedSalary').value = prCurrentDr.sharedSalary || 0;
+    document.getElementById('prSharedGosi').value = prCurrentDr.gosi || 0;
     document.getElementById('prLab').value      = 0;
     document.getElementById('prChair').value    = 0;
     document.getElementById('prExternal').value = 0;
@@ -5786,6 +5800,7 @@ function prCalc() {
   } else if(isShared){
     var external   = parseFloat(document.getElementById('prExternal').value)        || 0;
     var salary2    = parseFloat(document.getElementById('prSharedSalary').value)    || 0;
+    var gosi2      = parseFloat(document.getElementById('prSharedGosi').value)      || 0;
     var lab        = parseFloat(document.getElementById('prLab').value)             || 0;
     var chair      = parseFloat(document.getElementById('prChair').value)           || 0;
     var special2   = parseFloat(document.getElementById('prSharedSpecial').value)   || 0;
@@ -5811,15 +5826,17 @@ function prCalc() {
     var combined = netInc2 + external - clinicTabbyFee;
     rows.push({label:'Net Clinic Income / صافي دخل العيادة',                amount:combined,        deduct:false, sub:true});
 
-    // Step 3: split 50/50
+    // Step 3: split 50/50 — unless this profile has the split disabled (splitShare===false)
     rows.push({label:'Total / المجموع',  amount:combined,  deduct:false, bold:true});
-    var halfShare = combined / 2;
-    rows.push({label:'نسبة 50% / 50% Share', amount:halfShare, deduct:false, bold:true});
+    var noSplit = prCurrentDr.splitShare === false;
+    var halfShare = noSplit ? combined : (combined / 2);
+    rows.push({label: noSplit ? 'Full Amount (No Split) / كامل المبلغ (بدون تقسيم)' : 'نسبة 50% / 50% Share', amount:halfShare, deduct:false, bold:true});
     total = halfShare;
 
     if(lab)      { rows.push({label:'Lab Fees 50% / أتعاب المعمل ٥٠٪',          amount:lab,      deduct:true}); total -= lab; }
     if(chair)    { rows.push({label:'Dental Chair Deduction / خصم كرسي الأسنان',                 amount:chair,    deduct:true}); total -= chair; }
     if(salary2)  { rows.push({label:'Salary / الراتب المدفوع',                   amount:salary2,  deduct:true}); total -= salary2; }
+    if(gosi2)    { rows.push({label:'GOSI / التأمينات الاجتماعية',               amount:gosi2,    deduct:true}); total -= gosi2; }
     if(special2) { rows.push({label:(specNote2 ? specNote2+' / خصم' : 'Special Deduction / خصم خاص'), amount:special2, deduct:true}); total -= special2; }
     if(addition2){ rows.push({label:(addNote2  ? addNote2+' / إضافة' : 'Addition / إضافة مستحقة'),    amount:addition2, deduct:false}); total += addition2; }
 
@@ -6602,10 +6619,11 @@ async function prEditHistory(dr, mon){
     if(addRowR){ document.getElementById('prAddition').value = addRowR.amount; document.getElementById('prAdditionNote').value = addRowR.label.split('/')[0].trim(); }
   } else {
     document.getElementById('prSharedSalary').value = getRowAmount('Salary') || getRowAmount('الراتب');
+    document.getElementById('prSharedGosi').value    = getRowAmount('GOSI') || getRowAmount('التأمينات');
     document.getElementById('prLab').value           = getRowAmount('Lab') || getRowAmount('المعمل');
     document.getElementById('prChair').value         = getRowAmount('Chair') || getRowAmount('الكرسي');
     document.getElementById('prExternal').value      = getRowAmount('External') || getRowAmount('الخارجي');
-    var specRow2 = rows.find(function(x){ return x.deduct && x.label && x.label.indexOf('Lab')<0 && x.label.indexOf('Chair')<0 && x.label.indexOf('Salary')<0 && x.label.indexOf('Tabby')<0 && x.label.indexOf('VAT')<0 && x.label.indexOf('Refund')<0 && x.label.indexOf('Monthly')<0 && x.label.indexOf('مصاريف')<0 && x.label.indexOf('Balance')<0; });
+    var specRow2 = rows.find(function(x){ return x.deduct && x.label && x.label.indexOf('Lab')<0 && x.label.indexOf('Chair')<0 && x.label.indexOf('Salary')<0 && x.label.indexOf('GOSI')<0 && x.label.indexOf('التأمينات')<0 && x.label.indexOf('Tabby')<0 && x.label.indexOf('VAT')<0 && x.label.indexOf('Refund')<0 && x.label.indexOf('Monthly')<0 && x.label.indexOf('مصاريف')<0 && x.label.indexOf('Balance')<0; });
     if(specRow2){ document.getElementById('prSharedSpecial').value = specRow2.amount; document.getElementById('prSharedSpecialNote').value = specRow2.label.split('/')[0].trim(); }
     var addRow2 = rows.find(function(x){ return !x.deduct && x.label && x.label.indexOf('Addition')>=0 || (x.label && x.label.indexOf('إضافة')>=0 && !x.sub && !x.bold); });
     if(addRow2){ document.getElementById('prSharedAddition').value = addRow2.amount; document.getElementById('prSharedAdditionNote').value = addRow2.label.split('/')[0].trim(); }
@@ -6834,9 +6852,10 @@ function prpToggleFields(){
 var _editingProfileName = null; // track original name when editing
 
 function prpClear(){
-  ['prpName','prpArName','prpRent','prpSalary','prpGosi','prpSharedSalary','prpBaseSalary','prpThreshold','prpPerfPct'].forEach(function(id){ var el=document.getElementById(id);if(el)el.value=''; });
+  ['prpName','prpArName','prpRent','prpSalary','prpGosi','prpSharedSalary','prpSharedGosi','prpBaseSalary','prpThreshold','prpPerfPct'].forEach(function(id){ var el=document.getElementById(id);if(el)el.value=''; });
   var nameEl=document.getElementById('prpName');
   if(nameEl){ nameEl.readOnly=false; nameEl.style.opacity=''; nameEl.title=''; }
+  var splitEl=document.getElementById('prpSharedSplit'); if(splitEl) splitEl.checked=true;
   document.getElementById('prpType').value='renting'; prpToggleFields();
   _editingProfileName = null;
   var btn = document.querySelector('#ptab-profiles .btn.bp');
@@ -6854,7 +6873,7 @@ async function prpSave(){
   if(type==='renting'){
     drProfiles[name] = { type:'renting', arName:arName, rent:parseFloat(document.getElementById('prpRent').value)||0, salary:parseFloat(document.getElementById('prpSalary').value)||0, gosi:parseFloat(document.getElementById('prpGosi').value)||0 };
   } else if(type==='shared'){
-    drProfiles[name] = { type:'shared', arName:arName, sharedSalary:parseFloat(document.getElementById('prpSharedSalary').value)||0 };
+    drProfiles[name] = { type:'shared', arName:arName, sharedSalary:parseFloat(document.getElementById('prpSharedSalary').value)||0, gosi:parseFloat(document.getElementById('prpSharedGosi').value)||0, splitShare: document.getElementById('prpSharedSplit').checked };
   } else {
     drProfiles[name] = {
       type:'salary_perf', arName:arName,
@@ -6890,6 +6909,8 @@ function prpEdit(name){
     document.getElementById('prpGosi').value   = p.gosi   ||0;
   } else if(p.type==='shared'){
     document.getElementById('prpSharedSalary').value = p.sharedSalary||0;
+    document.getElementById('prpSharedGosi').value   = p.gosi||0;
+    document.getElementById('prpSharedSplit').checked = (p.splitShare !== false);
   } else {
     document.getElementById('prpBaseSalary').value = p.baseSalary||0;
     document.getElementById('prpThreshold').value  = p.threshold||25000;
