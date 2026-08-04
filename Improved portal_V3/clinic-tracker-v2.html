@@ -6802,19 +6802,81 @@ function prOpenPrintWindow(r){
   }
   w.document.write('</tbody></table>');
 
-  // Acknowledgment
+  // Acknowledgment — confirms the AMOUNT is correct/agreed, does not assert the money has been handed over
   w.document.write('<div class="ack">');
   w.document.write('<div class="ack-title"><span class="en">Acknowledgment</span><span class="ar">إقرار</span></div>');
-  w.document.write('<div class="ack-en">I, <strong>'+r.doctor+'</strong>, confirm that I have reviewed the above payout statement for the month of <strong>'+r.month+'</strong> and that the figures are correct and agreed upon.</div>');
+  var _ackAmt = fmtSAR(Math.abs(_pdfTotal));
+  var _ackEn, _ackArTxt;
+  if(_pdfTotal >= 0){
+    _ackEn = 'I, <strong>'+r.doctor+'</strong>, confirm that I have reviewed the above payout statement for the month of <strong>'+r.month+'</strong>, and that the amount of <strong>SAR '+_ackAmt+'</strong> is correct and agreed upon.';
+  } else {
+    _ackEn = 'I, <strong>'+r.doctor+'</strong>, confirm that I have reviewed the above payout statement for the month of <strong>'+r.month+'</strong>, and that I owe the clinic the amount of <strong>SAR '+_ackAmt+'</strong>, which is correct and agreed upon.';
+  }
+  w.document.write('<div class="ack-en">'+_ackEn+'</div>');
   var _ackAr = _arN || r.doctor;
-  w.document.write('<div class="ack-ar">أنا، <strong>'+_ackAr+'</strong>، أقر بأنني اطلعت على كشف المستحقات أعلاه للشهر <strong>'+r.month+'</strong> وأن الأرقام صحيحة ومتفق عليها.</div>');
+  if(_pdfTotal >= 0){
+    _ackArTxt = 'أنا، <strong>'+_ackAr+'</strong>، أقر بأنني اطلعت على كشف المستحقات أعلاه للشهر <strong>'+r.month+'</strong>، وأن مبلغ <strong>'+_ackAmt+' ريال سعودي</strong> صحيح ومتفق عليه.';
+  } else {
+    _ackArTxt = 'أنا، <strong>'+_ackAr+'</strong>، أقر بأنني اطلعت على كشف المستحقات أعلاه للشهر <strong>'+r.month+'</strong>، وأنني مدين للعيادة بمبلغ <strong>'+_ackAmt+' ريال سعودي</strong>، وهو صحيح ومتفق عليه.';
+  }
+  w.document.write('<div class="ack-ar">'+_ackArTxt+'</div>');
   w.document.write('</div>');
 
-  // Signatures
+  // Signature for the figures Acknowledgment above — this is the only one always present.
+  // It is NOT a receipt claim — the doctor can sign this whether or not he's been paid yet.
   w.document.write('<div class="sign-area">');
   w.document.write('<div class="sign-box"><div class="sign-labels"><span class="sign-en">Prepared by</span><span class="sign-sep">/</span><span class="sign-ar">أعده</span></div><div class="sign-line"><div class="sign-name">Newderma1 Management</div></div></div>');
   w.document.write('<div class="sign-box"><div class="sign-labels"><span class="sign-en">Doctor Signature</span><span class="sign-sep">/</span><span class="sign-ar">توقيع الطبيب</span></div><div class="sign-line"><div class="sign-name">'+r.doctor+'</div></div></div>');
   w.document.write('</div>');
+
+  // Receipt Acknowledgment — only shown once a real payment is on file (via + Add Payment),
+  // phrased as the doctor's own statement of what he actually received, using the real recorded amount/method/date.
+  // Gets its OWN separate signature line below — never shares the signature above, so the doctor is
+  // never forced to sign a receipt claim on months where no cash/transfer/etc. was actually given.
+  if(_ps.totalPaid > 0.01){
+    var _payments = r.payments || [];
+    var _methodAr = { 'Bank Transfer':'تحويل بنكي', 'WPS':'نظام حماية الأجور (WPS)', 'Cash / نقدي':'نقدًا', 'Cheque':'شيك' };
+    var _payListEn = _payments.map(function(p){
+      var d = p.date ? new Date(p.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+      var m = (p.method||'payment').replace(' / نقدي','');
+      return 'SAR '+fmtSAR(p.amount)+' via '+m+(d?' on '+d:'');
+    }).join(', ');
+    var _payListAr = _payments.map(function(p){
+      var d = p.date ? new Date(p.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+      var m = _methodAr[p.method] || p.method || 'دفعة';
+      return m+' '+fmtSAR(p.amount)+' ريال'+(d?' بتاريخ '+d:'');
+    }).join('، ');
+    var _fullySettled = Math.abs(_ps.remaining) <= 0.01;
+    var _recvAckNameAr = _arN || r.doctor;
+    var _recvEn, _recvAr;
+    if(_pdfTotal >= 0){
+      if(_fullySettled){
+        _recvEn = 'I, <strong>'+r.doctor+'</strong>, acknowledge that I have received the full amount of <strong>SAR '+fmtSAR(_ps.totalPaid)+'</strong> for the month of <strong>'+r.month+'</strong> ('+_payListEn+').';
+        _recvAr = 'أنا، <strong>'+_recvAckNameAr+'</strong>، أقر بأنني استلمت كامل المبلغ <strong>'+fmtSAR(_ps.totalPaid)+' ريال سعودي</strong> عن شهر <strong>'+r.month+'</strong> ('+_payListAr+').';
+      } else {
+        _recvEn = 'I, <strong>'+r.doctor+'</strong>, acknowledge that I have received <strong>SAR '+fmtSAR(_ps.totalPaid)+'</strong> toward the amount owed for the month of <strong>'+r.month+'</strong> ('+_payListEn+'), with a remaining balance of <strong>SAR '+fmtSAR(Math.abs(_ps.remaining))+'</strong>.';
+        _recvAr = 'أنا، <strong>'+_recvAckNameAr+'</strong>، أقر بأنني استلمت مبلغ <strong>'+fmtSAR(_ps.totalPaid)+' ريال سعودي</strong> من المستحقات عن شهر <strong>'+r.month+'</strong> ('+_payListAr+')، مع رصيد متبقٍ قدره <strong>'+fmtSAR(Math.abs(_ps.remaining))+' ريال سعودي</strong>.';
+      }
+    } else {
+      if(_fullySettled){
+        _recvEn = 'Newderma1 Management acknowledges having received the full amount of <strong>SAR '+fmtSAR(_ps.totalPaid)+'</strong> from <strong>'+r.doctor+'</strong> for the month of <strong>'+r.month+'</strong> ('+_payListEn+').';
+        _recvAr = 'تقر إدارة نيوديرما1 باستلام كامل المبلغ <strong>'+fmtSAR(_ps.totalPaid)+' ريال سعودي</strong> من <strong>'+_recvAckNameAr+'</strong> عن شهر <strong>'+r.month+'</strong> ('+_payListAr+').';
+      } else {
+        _recvEn = 'Newderma1 Management acknowledges having received <strong>SAR '+fmtSAR(_ps.totalPaid)+'</strong> from <strong>'+r.doctor+'</strong> toward the amount owed for the month of <strong>'+r.month+'</strong> ('+_payListEn+'), with a remaining balance of <strong>SAR '+fmtSAR(Math.abs(_ps.remaining))+'</strong>.';
+        _recvAr = 'تقر إدارة نيوديرما1 باستلام مبلغ <strong>'+fmtSAR(_ps.totalPaid)+' ريال سعودي</strong> من <strong>'+_recvAckNameAr+'</strong> عن شهر <strong>'+r.month+'</strong> ('+_payListAr+')، مع رصيد متبقٍ قدره <strong>'+fmtSAR(Math.abs(_ps.remaining))+' ريال سعودي</strong>.';
+      }
+    }
+    w.document.write('<div class="ack" style="background:#f0fdf4;border-color:#bbf7d0;margin-top:1.4rem">');
+    w.document.write('<div class="ack-title"><span class="en">Receipt Acknowledgment</span><span class="ar">إقرار الاستلام</span></div>');
+    w.document.write('<div class="ack-en">'+_recvEn+'</div>');
+    w.document.write('<div class="ack-ar">'+_recvAr+'</div>');
+    w.document.write('</div>');
+
+    w.document.write('<div class="sign-area">');
+    w.document.write('<div class="sign-box"><div class="sign-labels"><span class="sign-en">Handed by</span><span class="sign-sep">/</span><span class="sign-ar">سلّمه</span></div><div class="sign-line"><div class="sign-name">Newderma1 Management</div></div></div>');
+    w.document.write('<div class="sign-box"><div class="sign-labels"><span class="sign-en">Received by (Doctor)</span><span class="sign-sep">/</span><span class="sign-ar">استلمه (الطبيب)</span></div><div class="sign-line"><div class="sign-name">'+r.doctor+'</div></div></div>');
+    w.document.write('</div>');
+  }
 
   // Footer
   w.document.write('<div class="footer"><span>Newderma1 Medical Center — Jeddah, KSA</span><span>'+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+'</span></div>');
