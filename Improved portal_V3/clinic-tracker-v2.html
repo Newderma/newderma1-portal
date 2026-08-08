@@ -1349,6 +1349,23 @@ tr:hover td{background:#f8fafc}
         </div>
       </div>
 
+      <!-- GM Approval Signature / Stamp -->
+      <div class="card">
+        <div class="ct">✍️ Approval Signature / Stamp <span style="font-size:.72rem;font-weight:400;color:var(--ss);text-transform:none">(applied automatically to the "Approved By · GM" box on approved leave PDFs)</span></div>
+        <p style="font-size:.83rem;color:var(--sm);margin-bottom:1rem">Upload an image of your signature or clinic stamp once (ideally a transparent PNG). It will then appear by default on every approved vacation form, instead of a blank line.</p>
+        <div style="display:flex;gap:1.2rem;align-items:center;flex-wrap:wrap">
+          <div id="gmSigPreviewWrap" style="border:1.5px dashed #e2e8f0;border-radius:8px;padding:.6rem 1rem;min-width:180px;min-height:70px;display:flex;align-items:center;justify-content:center;background:#f8fafc">
+            <span id="gmSigNone" style="font-size:.78rem;color:var(--ss)">No signature uploaded</span>
+            <img id="gmSigImg" style="max-height:70px;max-width:220px;object-fit:contain;display:none">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.5rem">
+            <input type="file" id="gmSigFile" accept="image/*" style="display:none" onchange="uploadGmSignature(this)">
+            <button class="btn bp" onclick="document.getElementById('gmSigFile').click()" style="font-size:.82rem">Upload Signature / Stamp</button>
+            <button class="btn bs" id="gmSigRemoveBtn" onclick="removeGmSignature()" style="font-size:.82rem;display:none">Remove</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Auto Attendance Staff -->
       <div class="card" style="margin-top:1.4rem">
         <div class="ct">🌐 Remote Staff</div>
@@ -1763,12 +1780,13 @@ var lists = {
 
 var adminPassword = 'admin123';
 var shiftHours = 8;
+var gmSignature = ''; // base64 data URL of the GM's default approval signature/stamp, or '' if none set
 var staffPrivileges = {}; // { 'Name': ['entry','records','vacation'] } // standard shift hours for utilization calculation
 
 async function loadConfig(){
   try{
     // ONE call to fetch all config keys at once instead of 9 separate calls
-    var keys = ['lists','itemCosts','annualDays','empProfiles','shiftHours','staffPrivileges','emailjsConfig','autoStaff','hrDocsData','hrNAData','hrUrlData','hrLettersData','hrRecipsData'];
+    var keys = ['lists','itemCosts','annualDays','empProfiles','shiftHours','staffPrivileges','emailjsConfig','autoStaff','hrDocsData','hrNAData','hrUrlData','hrLettersData','hrRecipsData','gmSignature'];
     var rows = await sbGet('ct_config', 'key=in.('+keys.join(',')+')');
     var map = {};
     rows.forEach(function(r){ map[r.key] = r.value; });
@@ -1785,6 +1803,7 @@ async function loadConfig(){
     if(map.hrUrlData)       hrUrlData       = map.hrUrlData;
     if(map.hrLettersData)   hrLettersData   = map.hrLettersData;
     if(map.hrRecipsData)    hrRecipsData    = map.hrRecipsData||[];
+    if(map.gmSignature)     gmSignature     = map.gmSignature||'';
     if(map.emailjsConfig){  emailjsCfg = map.emailjsConfig; try{ localStorage.setItem('ct_emailjs',JSON.stringify(emailjsCfg)); }catch(e){} }
   }catch(e){ console.warn('Config load failed',e); }
   // ── ONE-TIME MIGRATION: pull any legacy localStorage HR data (docs/url/lets/na)
@@ -2324,7 +2343,7 @@ function showPage(id,btn){
     renderStaffBalCard();
     setTimeout(function(){ buildSearchSelect('areaSI', lists.areas||[], '', null); }, 30);
   }
-  if(id==='manage')    { renderManage(); renderPasswordGrid(); renderEmpProfiles(); renderAutoStaffList(); renderManageShiftHours(); loadEmailjsConfig(); renderArchivedStaff(); }
+  if(id==='manage')    { renderManage(); renderPasswordGrid(); renderEmpProfiles(); renderAutoStaffList(); renderManageShiftHours(); loadEmailjsConfig(); renderArchivedStaff(); renderGmSignaturePreview(); }
   if(id==='payroll')   {
     renderDrProfiles();
     var pm = document.getElementById('prMonth');
@@ -4107,7 +4126,9 @@ async function generateVacPDF(vacId){
         '<div class="sig-lbl">Employee Signature · توقيع الموظف<br>'+esc(r.employee)+'</div>'+
       '</div>'+
       '<div class="sig-box">'+
-        '<div class="sig-line"></div>'+
+        (r.status==='Approved' && gmSignature?
+          '<div class="sig-line"><img src="'+gmSignature+'" style="max-height:46px;max-width:180px;object-fit:contain"></div>'
+          :'<div class="sig-line"></div>')+
         '<div class="sig-lbl">Approved By · اعتمد من<br>General Manager · المدير العام</div>'+
       '</div>'+
     '</div>'+
@@ -4704,6 +4725,44 @@ async function saveEmpProfiles() {
 
 function saveAnnual(){ annualDays=parseInt(document.getElementById('annDays')?document.getElementById('annDays').value:21)||21; saveConfig('annualDays',annualDays); }
 function saveClinicName(){ var n=document.getElementById('clinicNameInput').value.trim(); if(n){localStorage.setItem('clinicName',n); document.getElementById('clinicName').textContent=n; toast('Clinic name saved!',true);} }
+
+function renderGmSignaturePreview(){
+  var img = document.getElementById('gmSigImg');
+  var none = document.getElementById('gmSigNone');
+  var rmBtn = document.getElementById('gmSigRemoveBtn');
+  if(!img) return;
+  if(gmSignature){
+    img.src = gmSignature; img.style.display = 'block';
+    none.style.display = 'none';
+    rmBtn.style.display = 'inline-block';
+  } else {
+    img.style.display = 'none';
+    none.style.display = 'inline';
+    rmBtn.style.display = 'none';
+  }
+}
+async function uploadGmSignature(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ toast('Please choose an image file.', false); return; }
+  if(file.size > 2*1024*1024){ toast('Image too large — max 2MB.', false); return; }
+  var dataUrl = await new Promise(function(resolve){
+    var reader = new FileReader();
+    reader.onload = function(e){ resolve(e.target.result); };
+    reader.readAsDataURL(file);
+  });
+  gmSignature = dataUrl;
+  await saveConfig('gmSignature', gmSignature);
+  renderGmSignaturePreview();
+  toast('Signature saved — it will now appear on approved leave PDFs.', true);
+  input.value = '';
+}
+async function removeGmSignature(){
+  gmSignature = '';
+  await saveConfig('gmSignature', '');
+  renderGmSignaturePreview();
+  toast('Signature removed.', true);
+}
 
 // ══════════════════════════════════════════
 //  AUTO STAFF (GOSI) MANAGEMENT
