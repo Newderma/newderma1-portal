@@ -136,12 +136,12 @@ Finance tab opens `finance.html` in new tab via `openFinance()` — NOT part of 
 | Table | Contents |
 |-------|---------|
 | `ct_records` | Procedure records |
-| `ct_vacation` | Vacation requests (`selected_dates` TEXT column) |
+| `ct_vacation` | Vacation requests (`selected_dates` TEXT column; `bereavement_relation` TEXT column added Aug 2026 — **must be added via `ALTER TABLE ct_vacation ADD COLUMN bereavement_relation text;` before deploying that update, or every vacation submission of any type fails**) |
 | `ct_config` | All config as key/value pairs |
 | `att_config` | Attendance config + `autoStaff` list |
 
 ## Config Keys in `ct_config`
-`lists` · `itemCosts` · `annualDays` · `staffPasswords` · `adminPassword` · `empProfiles` · `shiftHours` · `staffPrivileges` · `emailjsConfig` · `autoStaff`
+`lists` · `itemCosts` · `annualDays` · `staffPasswords` · `adminPassword` · `empProfiles` · `shiftHours` · `staffPrivileges` · `emailjsConfig` · `autoStaff` · `gmSignature` (base64 image, Aug 2026 — see Approval Signature note under Vacation System)
 
 ## Key Data Structures
 ```javascript
@@ -205,13 +205,23 @@ Key functions: `hrGrid()`, `hrSelect(name)`, `hrSelectEl(el)`, `hrDetail(name)`,
 ## Vacation System
 
 ### Leave Types
-| Type | Deducts from balance? |
-|------|-----------------------|
-| Annual Leave | ✅ Yes |
-| Emergency Leave | ✅ Yes |
-| Unpaid Leave | ✅ Yes |
-| Sick Leave | ❌ No |
-| Maternity Leave | ❌ No |
+| Type | Deducts from balance? | Day cap | Notes |
+|------|-----------------------|---------|-------|
+| Annual Leave | ✅ Yes | — | |
+| Emergency Leave | ✅ Yes | — | |
+| Unpaid Leave | ✅ Yes | — | |
+| Sick Leave | ❌ No | — | |
+| Maternity Leave | ❌ No | 70 days | |
+| Marriage Leave · إجازة الزواج | ❌ No | 5 days | Added Aug 2026 |
+| Bereavement Leave · إجازة وفاة | ❌ No | 5 days | Added Aug 2026. Requires a mandatory **Relationship of Deceased** dropdown (not free text) limited to Spouse/Father/Mother/Grandfather/Grandmother/Son/Daughter/Grandson/Granddaughter — shown to GM on the pending-review card and printed on the approved PDF, so eligibility can be verified. Stored in `ct_vacation.bereavement_relation` (see Database Tables note above — column must exist before this type can be used) |
+| Newborn Leave · إجازة المولود الجديد | ❌ No | 3 days | Added Aug 2026 |
+
+All non-deducting types use the same explicit no-op pattern inside `calcBalance()` (a dedicated `else if` branch per type that does nothing) rather than a blanket "anything not in this list doesn't deduct" — keeps the exclusion visible and intentional per type.
+
+Leave Summary table (on-screen) and its Excel export (`exportLeaveSummaryXLS`) both have dedicated columns for Marriage/Bereavement/Newborn now (12 columns total including Employee/Role/Total) — a type left out of these two places would still calculate correctly but silently vanish from reporting, so any future leave type needs to be added in 4 places: the `vacType` dropdown, `calcBalance()`'s exclusion branch (if non-deducting), and both `types` arrays in `renderLeaveSummary()` + `exportLeaveSummaryXLS()` (plus matching `<td>`/array columns and header/colspan counts).
+
+### Approval Signature (GM) — added Aug 2026
+Manage tab → **"✍️ Approval Signature / Stamp"** card. GM uploads an image once (`uploadGmSignature()`, max 2MB, stored as base64 in `ct_config` key `gmSignature`). `generateVacPDF()` then renders that image automatically inside the **"Approved By · GM"** signature box for any request with `status === 'Approved'`, instead of leaving it blank. Falls back to a blank line if no signature uploaded. Employee's own signature box is untouched — still blank/theirs. Remove via the same card's Remove button (`removeGmSignature()`).
 
 ### Balance Formula
 ```
@@ -263,7 +273,7 @@ Two separate acknowledgment blocks, each with its OWN signature line (never shar
 
 **Correct workflow:** record the payment via **History → + Add Payment** FIRST (amount, method, date), THEN print — that's what makes the Receipt Acknowledgment block and its signature appear, reflecting what's actually true at signing time. Printing before recording a payment shows only the neutral Acknowledgment block, with no receipt claim anywhere on the page.
 
-Print CSS (header, meta box, table row padding, ack blocks, signature line spacing) was tightened Aug 2026 so the statement still fits on one printed page even with both acknowledgment blocks + both signature areas present.
+Print CSS (header, meta box, table row padding, ack blocks, signature line spacing) was tightened Aug 2026 so the statement still fits on one printed page even with both acknowledgment blocks + both signature areas present — signature-line reserve space (`.sign-line margin-top`) was the single biggest space saver since there can now be two of them stacked.
 
 ## Backup & Restore (added June 2026)
 - Location: **Manage tab → bottom → "🗄️ Data Backup & Restore"**
@@ -329,10 +339,13 @@ Match M3N accounting entries against bank statements.
 15. (July 2026) Underneath bug #14: `runAutoAttendance()`'s own "does this staff already have a record today" check had the *same* unpaginated-fetch flaw, so once auto-staff had >1,000 combined records it could no longer see its own older history — it kept mistaking real history for missing days and re-inserting backfilled records on every single page load. Table grew from ~7,700 to ~79,500 rows in about 15 minutes of testing before caught. Fixed by pointing this check at `sbGetAllPaged` too, cleaned up via `ROW_NUMBER()` de-dup SQL (kept lowest `id` per staff/date, backed up to `att_records_backup_20260729` first), and closed permanently at the schema level with the `att_records_staff_date_unique` constraint (see Data safety note above) so it's structurally impossible even if a future code change reintroduces the pattern.
 16. (July 2026) Browser was silently restoring old typed values into the Logs page's date-range inputs on reload (native browser form-restore behavior) → added `autocomplete="off"` to both date fields plus an explicit blank-on-boot reset (superseded by the "default to current month" change in the Data safety note above).
 17. (Aug 2026) Shared Partner "Show Salary as info only" row displayed with a red minus sign like a real deduction, even though it was correctly excluded from the payout total — looked like a math error even though the total itself was right. Fixed by rendering that row neutrally (gray, no minus sign, relabeled "Salary — already paid, not deducted here") instead of red/deducted styling.
+18. (Aug 2026) The vacation Type dropdown's `onchange="toggleSickFields()"` referenced a function that was never actually defined anywhere in the file (dead reference, silently did nothing — likely leftover from an earlier version). Repurposed it: `toggleSickFields()` is now defined and shows/hides the new Bereavement-Leave "Relationship of Deceased" field.
+19. (Aug 2026) `sbRpc()` always called `res.json()` on the response, which throws "Unexpected end of JSON input" for any void-returning RPC (`set_staff_password` returns void, so its response body is empty) — the password itself likely saved fine, but the app reported a false failure toast. Fixed `sbRpc()` to read the response as text first and only JSON-parse it if non-empty; `verify_inner_login` (which does return real JSON) is unaffected.
 
 ---
 
 ## NEXT SESSION — PENDING WORK
+- **⚠️ Run required SQL for Bereavement Leave** — `ALTER TABLE ct_vacation ADD COLUMN bereavement_relation text;` must be run in Supabase SQL Editor before/immediately after deploying the Aug 2026 leave-types update, or every vacation submission (any type) will fail. Confirm this was run.
 - **Drive links → Supabase migration** — GM wants Drive folder links to persist across devices/browsers instead of localStorage-only. Paused pending GM's decision on the RLS/security tradeoff (see Security Status section above). Revisit once GM decides whether to proceed under current exposure, or wait for Stage 1.
 - **Security Stage 1** — add real Supabase Auth for GM login only, lock `ct_config` behind authenticated-GM policy. Not started. Should be scoped as its own session, not bundled into feature requests.
 - **portal_settings table** — GM to confirm: enabled RLS with no policy (should be safe, nothing known depends on it), and changed the manager PIN away from `1969`. Confirm this was completed and nothing broke.
@@ -341,4 +354,4 @@ Match M3N accounting entries against bank statements.
 ---
 
 *Last updated: August 4, 2026 — Newderma1 Medical Center, Jeddah KSA*
-*Major updates: Letterhead printing (real PDF header/footer), Calibri font, side-by-side EN/AR letter layout, editable letter templates, delete-letter feature, corrected Arabic clinic name, Supabase RLS security audit (Stage 0 complete, Stage 1 pending). July 2026: `attendance.html` data-loss and runaway-duplication bugs found and fixed (see Module 2 and Known Bugs Fixed #14–16), `att_records` unique constraint added, Logs page defaulted to current-month view for speed. August 2026: Shared Partner payroll type gained per-doctor "Apply 50% Split" toggle and "Show Salary as info only" option plus its own GOSI field (see Payroll System section); printed payout statement reworked with two independent acknowledgment + signature blocks (figures-correct vs actual-receipt, the latter driven by real "+ Add Payment" records) and tightened print CSS to keep it on one page.*
+*Major updates: Letterhead printing (real PDF header/footer), Calibri font, side-by-side EN/AR letter layout, editable letter templates, delete-letter feature, corrected Arabic clinic name, Supabase RLS security audit (Stage 0 complete, Stage 1 pending). July 2026: `attendance.html` data-loss and runaway-duplication bugs found and fixed (see Module 2 and Known Bugs Fixed #14–16), `att_records` unique constraint added, Logs page defaulted to current-month view for speed. August 2026: Shared Partner payroll type gained per-doctor "Apply 50% Split" toggle and "Show Salary as info only" option plus its own GOSI field (see Payroll System section); printed payout statement reworked with two independent acknowledgment + signature blocks (figures-correct vs actual-receipt, the latter driven by real "+ Add Payment" records), then tightened to fit one page; `sbRpc()` fixed for void-returning RPCs (Known Bugs Fixed #19); added a default GM approval signature/stamp for vacation PDFs (Approval Signature section); added 3 new leave types — Marriage, Bereavement (with mandatory relationship dropdown), Newborn — none deducted from annual balance (see Leave Types table; **Bereavement Leave requires a Supabase column added first, see Pending Work**).*
