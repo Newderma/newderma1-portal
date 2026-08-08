@@ -1043,6 +1043,21 @@ tr:hover td{background:#f8fafc}
             <div><label>To · إلى</label><input type="date" id="vacTo" oninput="calcVacDays()"></div>
             <div><label>Duration · المدة</label><div id="vacDisp" style="padding:.6rem .85rem;background:var(--tbg);border-radius:var(--rs);font-weight:700;color:var(--td)">— days</div></div>
             <div><label>Type · النوع</label><select id="vacType" onchange="toggleSickFields()"><option value="Annual Leave">Annual Leave · إجازة سنوية</option><option value="Sick Leave">Sick Leave · إجازة مرضية</option><option value="Emergency Leave">Emergency Leave · إجازة طارئة</option><option value="Unpaid Leave">Unpaid Leave · إجازة بدون راتب</option><option value="Maternity Leave">Maternity Leave · إجازة أمومة</option><option value="Marriage Leave">Marriage Leave · إجازة الزواج</option><option value="Bereavement Leave">Bereavement Leave · إجازة وفاة</option><option value="Newborn Leave">Newborn Leave · إجازة المولود الجديد</option><option value="Other">Other · أخرى</option></select></div>
+            <div id="vacBereaveField" style="display:none"><label>Relationship of Deceased · صلة القرابة بالمتوفى <span style="color:var(--red)">*</span></label>
+              <select id="vacBereaveRelation">
+                <option value="">— Select —</option>
+                <option value="Spouse">Spouse (Husband/Wife) · الزوج / الزوجة</option>
+                <option value="Father">Father · الأب</option>
+                <option value="Mother">Mother · الأم</option>
+                <option value="Grandfather">Grandfather · الجد</option>
+                <option value="Grandmother">Grandmother · الجدة</option>
+                <option value="Son">Son · الابن</option>
+                <option value="Daughter">Daughter · الابنة</option>
+                <option value="Grandson">Grandson · الحفيد</option>
+                <option value="Granddaughter">Granddaughter · الحفيدة</option>
+              </select>
+              <div style="font-size:.72rem;color:var(--ss);margin-top:.3rem">Only spouse, parents/grandparents, or children/grandchildren qualify · تقتصر على الزوج/الزوجة، أو الأصول (الأبوين والأجداد)، أو الفروع (الأبناء والأحفاد)</div>
+            </div>
             <div><label>ID Number · رقم الهوية <span style="color:var(--red)">*</span></label><input type="text" id="vacIdNumber" placeholder="10-digit ID" inputmode="numeric" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)"></div>
             <div><label>Contact During Leave · للتواصل <span style="color:var(--red)">*</span></label><input type="tel" id="vacContact" placeholder="10-digit number" inputmode="numeric" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)"></div>
             <div class="ff"><label>Write Your Name · اكتب اسمك <span style="color:var(--red)">*</span></label>
@@ -2114,7 +2129,7 @@ async function loadFullRecordsInBackground(){
 // Every column EXCEPT the heavy embedded-image ones (signature, attachment_url,
 // name_confirm) — see fetchVacationRows below for why this is what actually fixes the
 // multi-MB vacation payload.
-var VAC_LIGHT_COLUMNS = 'id,employee,from_date,to_date,days,type,note,req_date,status,reject_reason,approve_note,decided_at,attachment_name,contact,id_number,selected_dates';
+var VAC_LIGHT_COLUMNS = 'id,employee,from_date,to_date,days,type,note,req_date,status,reject_reason,approve_note,decided_at,attachment_name,contact,id_number,selected_dates,bereavement_relation';
 
 // Pending requests always come back with EVERY column, including embedded signature/
 // attachment/handwritten-name images — the GM needs to actually see those to approve or
@@ -2175,6 +2190,7 @@ function normVac(r, isLight){
     status: r.status, rejectReason: r.reject_reason||'', approveNote: r.approve_note||'', decidedAt: r.decided_at||'',
     signature: r.signature||'', attachmentUrl: r.attachment_url||'', attachmentName: r.attachment_name||'',
     contact: r.contact||'', nameConfirm: r.name_confirm||'', idNumber: r.id_number||'',
+    bereavementRelation: r.bereavement_relation||'',
     // _heavyOmitted marks records fetched WITHOUT signature/attachmentUrl/nameConfirm (see
     // the light-column fetch in loadAllData) so a blank signature here doesn't get mistaken
     // for "employee never signed" — generateVacPDF checks this before lazily fetching the
@@ -3915,6 +3931,8 @@ async function submitVac(){
   if(type==='Marriage Leave'&&days>5){ toast('Marriage Leave is limited to 5 days. Please adjust dates.',false); return; }
   if(type==='Bereavement Leave'&&days>5){ toast('Bereavement Leave is limited to 5 days. Please adjust dates.',false); return; }
   if(type==='Newborn Leave'&&days>3){ toast('Newborn Leave is limited to 3 days. Please adjust dates.',false); return; }
+  var bereaveRelation = document.getElementById('vacBereaveRelation').value;
+  if(type==='Bereavement Leave'&&!bereaveRelation){ toast('Please select the relationship of the deceased.',false); return; }
   if(type==='Annual Leave'){
     var b=calcBalance(emp);
     if(b.available < days){ toast(emp+' only has '+b.available+' days available.',false); return; }
@@ -3959,7 +3977,8 @@ async function doSubmitVac(){
       signature:sigData, attachment_url:attachUrl, attachment_name:attachName,
       contact:document.getElementById('vacContact').value.trim(),
       name_confirm:document.getElementById('nameCanvas').toDataURL('image/png'),
-      id_number:document.getElementById('vacIdNumber').value.trim()};
+      id_number:document.getElementById('vacIdNumber').value.trim(),
+      bereavement_relation: type==='Bereavement Leave' ? bereaveRelation : null};
     await sbUpsert('ct_vacation',[vr]);
     vacReqs.unshift(normVac(vr));
     setSyncDot('on');
@@ -3989,11 +4008,18 @@ async function doSubmitVac(){
   }catch(e){ setSyncDot('off'); toast('Submit failed: '+e.message,false); }
   finally{ if(btnSubmit){ btnSubmit.disabled=false; btnSubmit.innerHTML='Submit Request'; } }
 }
+function toggleSickFields(){
+  var type = document.getElementById('vacType').value;
+  var f = document.getElementById('vacBereaveField');
+  if(f) f.style.display = (type==='Bereavement Leave') ? '' : 'none';
+}
 function clearVac(){
   ['vacEmp','vacFrom','vacTo','vacNote','vacContact','vacIdNumber'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   var chk=document.getElementById('vacConfirmCheck');if(chk)chk.checked=false;
   clearNamePad();;
   document.getElementById('vacType').value='Annual Leave';
+  var br=document.getElementById('vacBereaveRelation'); if(br) br.value='';
+  toggleSickFields();
   document.getElementById('vacReq').valueAsDate=new Date();
   document.getElementById('vacDisp').textContent='— days';
   clearSig();
@@ -4008,6 +4034,7 @@ function renderPending(){
     html+='<div class="reqcard"><div><div class="reqn">'+r.employee+'</div>';
     html+='<div class="reqd">'+fmtD(r.from)+' to '+fmtD(r.to)+' | '+r.type+'</div>';
     html+='<div class="reqs">'+r.days+' day'+(r.days>1?'s':'')+' | Submitted: '+fmtD(r.reqDate)+'</div>';
+    if(r.type==='Bereavement Leave')html+='<div class="reqnote" style="font-weight:600">Relationship of Deceased · صلة القرابة: '+esc(r.bereavementRelation||'—')+'</div>';
     if(r.note)html+='<div class="reqnote">"'+r.note+'"</div>';
     // Signature
     if(r.signature) html+='<div style="margin-top:.7rem"><div style="font-size:.72rem;font-weight:600;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem">✍️ Signature</div><img src="'+r.signature+'" style="max-height:70px;border:1px solid #e2e8f0;border-radius:6px;background:#fff"></div>';
@@ -4108,6 +4135,7 @@ async function generateVacPDF(vacId){
         '<div class="field"><div class="field-label">Duration · المدة</div><div class="field-value">'+r.days+' day'+(r.days>1?'s · أيام':' · يوم')+'</div></div>'+
         '<div class="field"><div class="field-label">Request Date · تاريخ الطلب</div><div class="field-value">'+fmtD(r.reqDate)+'</div></div>'+
         (r.idNumber?'<div class="field"><div class="field-label">ID Number · رقم الهوية</div><div class="field-value">'+esc(r.idNumber)+'</div></div>':'')+''+
+        (r.type==='Bereavement Leave'&&r.bereavementRelation?'<div class="field"><div class="field-label">Relationship of Deceased · صلة القرابة بالمتوفى</div><div class="field-value">'+esc(r.bereavementRelation)+'</div></div>':'')+''+
         (r.nameConfirm&&r.nameConfirm.startsWith('data:')?'<div class="field" style="grid-column:1/-1"><div class="field-label">Handwritten Name · الاسم بخط اليد</div><img src="'+r.nameConfirm+'" style="max-height:50px;border:1px solid #e2e8f0;border-radius:4px;background:#fff;display:block"></div>':'')+''+
         (r.contact?'<div class="field"><div class="field-label">Contact During Leave · للتواصل</div><div class="field-value">'+esc(r.contact)+'</div></div>':'')+''+
         (r.note?'<div class="field" style="grid-column:1/-1"><div class="field-label">Notes · ملاحظات</div><div class="field-value">'+esc(r.note)+'</div></div>':'')+
