@@ -1042,7 +1042,7 @@ tr:hover td{background:#f8fafc}
             <div><label>From · من</label><input type="date" id="vacFrom" oninput="calcVacDays()"></div>
             <div><label>To · إلى</label><input type="date" id="vacTo" oninput="calcVacDays()"></div>
             <div><label>Duration · المدة</label><div id="vacDisp" style="padding:.6rem .85rem;background:var(--tbg);border-radius:var(--rs);font-weight:700;color:var(--td)">— days</div></div>
-            <div><label>Type · النوع</label><select id="vacType" onchange="toggleSickFields()"><option value="Annual Leave">Annual Leave · إجازة سنوية</option><option value="Sick Leave">Sick Leave · إجازة مرضية</option><option value="Emergency Leave">Emergency Leave · إجازة طارئة</option><option value="Unpaid Leave">Unpaid Leave · إجازة بدون راتب</option><option value="Maternity Leave">Maternity Leave · إجازة أمومة</option><option value="Other">Other · أخرى</option></select></div>
+            <div><label>Type · النوع</label><select id="vacType" onchange="toggleSickFields()"><option value="Annual Leave">Annual Leave · إجازة سنوية</option><option value="Sick Leave">Sick Leave · إجازة مرضية</option><option value="Emergency Leave">Emergency Leave · إجازة طارئة</option><option value="Unpaid Leave">Unpaid Leave · إجازة بدون راتب</option><option value="Maternity Leave">Maternity Leave · إجازة أمومة</option><option value="Marriage Leave">Marriage Leave · إجازة الزواج</option><option value="Bereavement Leave">Bereavement Leave · إجازة وفاة</option><option value="Newborn Leave">Newborn Leave · إجازة المولود الجديد</option><option value="Other">Other · أخرى</option></select></div>
             <div><label>ID Number · رقم الهوية <span style="color:var(--red)">*</span></label><input type="text" id="vacIdNumber" placeholder="10-digit ID" inputmode="numeric" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)"></div>
             <div><label>Contact During Leave · للتواصل <span style="color:var(--red)">*</span></label><input type="tel" id="vacContact" placeholder="10-digit number" inputmode="numeric" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)"></div>
             <div class="ff"><label>Write Your Name · اكتب اسمك <span style="color:var(--red)">*</span></label>
@@ -1131,6 +1131,9 @@ tr:hover td{background:#f8fafc}
                 <th style="color:#92400e">Emergency</th>
                 <th style="color:#7e22ce">Unpaid</th>
                 <th style="color:#be185d">Maternity</th>
+                <th style="color:#0f766e">Marriage</th>
+                <th style="color:#57534e">Bereavement</th>
+                <th style="color:#c2410c">Newborn</th>
                 <th style="color:#374151">Other</th>
                 <th style="font-weight:800">Total Days</th>
               </tr></thead>
@@ -3909,6 +3912,9 @@ async function submitVac(){
   var days=Math.round((new Date(to)-new Date(from))/86400000)+1;
   if(days<=0){ toast('End date must be after start date.',false); return; }
   if(type==='Maternity Leave'&&days>70){ toast('Maternity Leave is limited to 70 paid days. Please adjust dates.',false); return; }
+  if(type==='Marriage Leave'&&days>5){ toast('Marriage Leave is limited to 5 days. Please adjust dates.',false); return; }
+  if(type==='Bereavement Leave'&&days>5){ toast('Bereavement Leave is limited to 5 days. Please adjust dates.',false); return; }
+  if(type==='Newborn Leave'&&days>3){ toast('Newborn Leave is limited to 3 days. Please adjust dates.',false); return; }
   if(type==='Annual Leave'){
     var b=calcBalance(emp);
     if(b.available < days){ toast(emp+' only has '+b.available+' days available.',false); return; }
@@ -4390,13 +4396,13 @@ function populateVacFilter(){
 
 // ══════════════════════════════════════════
 function exportLeaveSummaryXLS(){
-  var rows=[['Employee','Role','Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Other','Total Days']];
+  var rows=[['Employee','Role','Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Marriage Leave','Bereavement Leave','Newborn Leave','Other','Total Days']];
   var tb=document.getElementById('leaveSummaryBody');
   if(!tb||!tb.rows.length){toast('No data to export.',false);return;}
   var from=document.getElementById('lsFrom').value||'All';
   var to=document.getElementById('lsTo').value||'Time';
   var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
-  var types=['Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Other'];
+  var types=['Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Marriage Leave','Bereavement Leave','Newborn Leave','Other'];
   var lsFrom=document.getElementById('lsFrom').value||'';
   var lsTo=document.getElementById('lsTo').value||'';
   all.forEach(function(emp){
@@ -4409,7 +4415,7 @@ function exportLeaveSummaryXLS(){
       counts[t]+=r.days; total+=r.days;
     });
     var role=lists.doctors.indexOf(emp)>=0?'Doctor':lists.nurses.indexOf(emp)>=0?'Nurse':'Staff';
-    rows.push([emp,role,counts['Annual Leave'],counts['Sick Leave'],counts['Emergency Leave'],counts['Unpaid Leave'],counts['Maternity Leave'],counts['Other'],total]);
+    rows.push([emp,role,counts['Annual Leave'],counts['Sick Leave'],counts['Emergency Leave'],counts['Unpaid Leave'],counts['Maternity Leave'],counts['Marriage Leave'],counts['Bereavement Leave'],counts['Newborn Leave'],counts['Other'],total]);
   });
   var xml='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
   xml+='<Styles><Style ss:ID="h"><Font ss:Bold="1"/><Interior ss:Color="#6abf4b" ss:Pattern="Solid"/></Style></Styles>';
@@ -4451,7 +4457,7 @@ function renderLeaveSummary(){
   var from=document.getElementById('lsFrom').value||'';
   var to=document.getElementById('lsTo').value||'';
   var all=lists.doctors.concat(lists.nurses).concat(lists.staff||[]);
-  var types=['Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Other'];
+  var types=['Annual Leave','Sick Leave','Emergency Leave','Unpaid Leave','Maternity Leave','Marriage Leave','Bereavement Leave','Newborn Leave','Other'];
   var rows=[];
   all.forEach(function(emp){
     var counts={};
@@ -4477,7 +4483,7 @@ function renderLeaveSummary(){
     }
   });
   if(!rows.length){
-    tb.innerHTML='<tr><td colspan="9" class="norec">No employees found.</td></tr>';
+    tb.innerHTML='<tr><td colspan="12" class="norec">No employees found.</td></tr>';
     return;
   }
   // Group by role in Manage list order: Doctors → Nurses → Staff
@@ -4490,7 +4496,7 @@ function renderLeaveSummary(){
   groups.forEach(function(group){
     var groupRows=rows.filter(function(r){return group.members.indexOf(r.emp)>=0;});
     if(!groupRows.length) return;
-    html+='<tr style="background:#f1f5f9"><td colspan="9" style="font-weight:700;color:var(--td);font-size:.78rem;padding:.45rem .75rem;letter-spacing:.04em;text-transform:uppercase">'+group.emoji+' '+group.label+'</td></tr>';
+    html+='<tr style="background:#f1f5f9"><td colspan="12" style="font-weight:700;color:var(--td);font-size:.78rem;padding:.45rem .75rem;letter-spacing:.04em;text-transform:uppercase">'+group.emoji+' '+group.label+'</td></tr>';
     groupRows.forEach(function(row){
       var role=lists.doctors.indexOf(row.emp)>=0?'Doctor':lists.nurses.indexOf(row.emp)>=0?'Nurse':'Staff';
       var rc=role==='Doctor'?'color:#1e40af;background:#dbeafe':role==='Nurse'?'color:#166534;background:#dcfce7':'color:#92400e;background:#fef9c3';
@@ -4502,12 +4508,15 @@ function renderLeaveSummary(){
         '<td style="text-align:center;color:#92400e;font-weight:600">'+(row.counts['Emergency Leave']||0)+'</td>'+
         '<td style="text-align:center;color:#7e22ce;font-weight:600">'+(row.counts['Unpaid Leave']||0)+'</td>'+
         '<td style="text-align:center;color:#be185d;font-weight:600">'+(row.counts['Maternity Leave']||0)+'</td>'+
+        '<td style="text-align:center;color:#0f766e;font-weight:600">'+(row.counts['Marriage Leave']||0)+'</td>'+
+        '<td style="text-align:center;color:#57534e;font-weight:600">'+(row.counts['Bereavement Leave']||0)+'</td>'+
+        '<td style="text-align:center;color:#c2410c;font-weight:600">'+(row.counts['Newborn Leave']||0)+'</td>'+
         '<td style="text-align:center;color:#374151;font-weight:600">'+(row.counts['Other']||0)+'</td>'+
         '<td style="text-align:center;font-weight:800;font-size:1rem">'+row.total+'</td>'+
       '</tr>';
     });
   });
-  tb.innerHTML=html||'<tr><td colspan="9" class="norec">No employees found.</td></tr>';
+  tb.innerHTML=html||'<tr><td colspan="12" class="norec">No employees found.</td></tr>';
 }
 
 // ══════════════════════════════════════════
@@ -4544,6 +4553,12 @@ function calcBalance(emp) {
         sickDays += r.days; // tracked separately, not deducted
       } else if (r.type === 'Maternity Leave') {
         // tracked separately — up to 70 days paid, not deducted from annual balance
+      } else if (r.type === 'Marriage Leave') {
+        // إجازة الزواج — 5 days, not deducted from annual balance
+      } else if (r.type === 'Bereavement Leave') {
+        // إجازة وفاة (spouse, ascendants, or descendants) — 5 days, not deducted from annual balance
+      } else if (r.type === 'Newborn Leave') {
+        // إجازة المولود الجديد — 3 days, not deducted from annual balance
       }
     }
   });
