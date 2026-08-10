@@ -123,12 +123,6 @@
   }
   .btn-primary:hover{ background:var(--teal-deep); }
   .btn-ghost{ background:transparent; }
-  .archived-toggle{
-    display:flex; align-items:center; gap:6px;
-    font-size:13px; color:#7a7468; cursor:pointer; user-select:none;
-    margin-inline-start:auto;
-  }
-  .archived-toggle input{ accent-color: var(--teal); cursor:pointer; }
 
   .progress-card{
     background:var(--card);
@@ -341,8 +335,6 @@
     <div class="month-bar">
       <select id="monthSelect" onchange="onMonthChange()"></select>
       <button class="btn btn-primary" onclick="openNewMonthModal()">+ خطة شهر جديد</button>
-      <button class="btn btn-ghost" id="archiveBtn" onclick="toggleArchiveCurrent()" style="display:none;">أرشفة الخطة</button>
-      <label class="archived-toggle"><input type="checkbox" id="showArchivedChk" onchange="onToggleShowArchived()"> عرض المؤرشفة</label>
     </div>
 
     <div id="progressCard" class="progress-card" style="display:none;">
@@ -423,9 +415,9 @@
     <div class="field">
       <label>الملف (فيديو أو صورة)</label>
       <div class="file-drop" onclick="document.getElementById('fileInput').click()">
-        اضغط لرفع فيديو أو صورة
+        اضغط لإضافة فيديو أو صورة (يمكن اختيار أكثر من ملف)
       </div>
-      <input type="file" id="fileInput" accept="video/*,image/*" style="display:none;" onchange="onFileSelected(event)">
+      <input type="file" id="fileInput" accept="video/*,image/*" multiple style="display:none;" onchange="onFileSelected(event)">
       <div id="filePreview" class="file-preview"></div>
     </div>
 
@@ -516,8 +508,8 @@ let db;
 let currentPlanId = null;
 let currentItems = [];
 let activeDayId = null;
-let pendingFile = null;
-let removeFileFlag = false;
+let pendingFiles = [];      // new files queued for upload
+let filesToRemove = [];     // existing file paths marked for deletion
 let currentUser = null;
 
 function initSupabase(){
@@ -591,84 +583,31 @@ async function boot(){
   await loadMonthList();
 }
 
-let allPlans = [];
-let showArchived = false;
-
-async function loadMonthList(keepSelection){
+async function loadMonthList(){
   const { data, error } = await db.from('ct_content_plans').select('*').order('created_at', { ascending:false });
   if(error){ showToast('خطأ في تحميل الأشهر'); console.error(error); return; }
-  allPlans = data || [];
-  const visible = allPlans.filter(p => showArchived ? true : !p.archived);
   const sel = document.getElementById('monthSelect');
   sel.innerHTML = '';
-  if(visible.length===0){
+  if(!data || data.length===0){
     document.getElementById('emptyState').style.display='block';
     document.getElementById('progressCard').style.display='none';
     document.getElementById('dayGrid').innerHTML='';
-    document.getElementById('archiveBtn').style.display='none';
-    currentPlanId = null;
-    // If plans exist but all are archived, hint the user
-    if(allPlans.length>0 && !showArchived){
-      document.querySelector('#emptyState div').textContent = 'كل الخطط مؤرشفة — فعّل «عرض المؤرشفة» لاستعادتها';
-    } else {
-      document.querySelector('#emptyState div').textContent = 'لا توجد خطة لهذا الشهر بعد';
-    }
     return;
   }
-  document.getElementById('emptyState').style.display='none';
-  visible.forEach(plan=>{
+  data.forEach(plan=>{
     const opt = document.createElement('option');
     opt.value = plan.id;
-    const base = `${plan.month_label} (${plan.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام'})`;
-    opt.textContent = plan.archived ? `📦 ${base} — مؤرشفة` : base;
+    opt.textContent = `${plan.month_label} (${plan.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام'})`;
     sel.appendChild(opt);
   });
-  // Keep current selection if still visible, otherwise first visible plan
-  if(keepSelection && currentPlanId && visible.some(p=>p.id===currentPlanId)){
-    sel.value = currentPlanId;
-  } else {
-    currentPlanId = visible[0].id;
-    sel.value = currentPlanId;
-  }
-  updateArchiveBtn();
+  currentPlanId = data[0].id;
+  sel.value = currentPlanId;
   await loadPlan(currentPlanId);
 }
 
 function onMonthChange(){
   currentPlanId = document.getElementById('monthSelect').value;
-  updateArchiveBtn();
   loadPlan(currentPlanId);
-}
-
-function updateArchiveBtn(){
-  const btn = document.getElementById('archiveBtn');
-  const plan = allPlans.find(p=>p.id===currentPlanId);
-  if(!plan){ btn.style.display='none'; return; }
-  btn.style.display='inline-block';
-  btn.textContent = plan.archived ? 'استعادة الخطة' : 'أرشفة الخطة';
-}
-
-function onToggleShowArchived(){
-  showArchived = document.getElementById('showArchivedChk').checked;
-  loadMonthList(true);
-}
-
-async function toggleArchiveCurrent(){
-  const plan = allPlans.find(p=>p.id===currentPlanId);
-  if(!plan) return;
-  const archiving = !plan.archived;
-  const msg = archiving
-    ? `أرشفة خطة «${plan.month_label}»؟\n\nالخطة وكل أيامها وملفاتها ستبقى محفوظة، وستختفي فقط من القائمة الرئيسية. يمكن استعادتها في أي وقت من «عرض المؤرشفة».`
-    : `استعادة خطة «${plan.month_label}» إلى القائمة الرئيسية؟`;
-  if(!confirm(msg)) return;
-  const { error } = await db.from('ct_content_plans').update({ archived: archiving }).eq('id', plan.id);
-  if(error){
-    showToast('خطأ في العملية — تأكد من إضافة عمود archived في قاعدة البيانات');
-    console.error(error);
-    return;
-  }
-  showToast(archiving ? 'تمت أرشفة الخطة' : 'تمت استعادة الخطة');
-  await loadMonthList();
 }
 
 async function loadPlan(planId){
@@ -722,7 +661,7 @@ function renderDayGrid(){
         ${item.pillar ? `<span class="tag">${item.pillar}</span>` : ''}
         ${item.format ? `<span class="tag">${item.format}</span>` : ''}
         ${item.needs_doctor_review ? `<span class="tag doctor">يحتاج مراجعة الطبيب</span>` : ''}
-        ${item.file_url ? `<span class="tag">📎 ملف مرفق</span>` : ''}
+        ${item.file_url ? `<span class="tag">📎 ${parseFilePaths(item.file_url).length > 1 ? parseFilePaths(item.file_url).length + ' ملفات' : 'ملف مرفق'}</span>` : ''}
       </div>
     `;
     grid.appendChild(card);
@@ -730,10 +669,17 @@ function renderDayGrid(){
 }
 
 // ---------- Day modal ----------
+// Helper: parse file_url field which is now a JSON array string or legacy single path
+function parseFilePaths(fileUrl){
+  if(!fileUrl) return [];
+  try { const p = JSON.parse(fileUrl); return Array.isArray(p) ? p : [fileUrl]; }
+  catch(e){ return [fileUrl]; } // legacy single path
+}
+
 async function openDayModal(itemId){
   activeDayId = itemId;
-  pendingFile = null;
-  removeFileFlag = false;
+  pendingFiles = [];
+  filesToRemove = [];
   const item = currentItems.find(i=>i.id===itemId);
   document.getElementById('dayModalTitle').textContent = `اليوم ${item.day_number}`;
   document.getElementById('doctorFlag').checked = !!item.needs_doctor_review;
@@ -747,26 +693,30 @@ async function openDayModal(itemId){
 
   const preview = document.getElementById('filePreview');
   preview.innerHTML = '';
-  if(item.file_url){
-    preview.innerHTML = '<div style="font-size:12px;color:#7a7468;">جاري تحميل المعاينة...</div>';
-    // bucket is private — resolve a temporary signed URL for viewing
-    const { data: signedData, error: signErr } = await db.storage
+  const paths = parseFilePaths(item.file_url);
+  if(paths.length > 0){
+    preview.innerHTML = '<div style="font-size:12px;color:#7a7468;margin-bottom:6px;">جاري تحميل الملفات...</div>';
+    const { data: signedList, error } = await db.storage
       .from('ct-content-media')
-      .createSignedUrl(item.file_url, 3600); // valid for 1 hour
-    if(signErr || !signedData){
+      .createSignedUrls(paths, 3600);
+    if(error || !signedList){
       preview.innerHTML = '<div style="font-size:12px;color:#a8334a;">تعذّر تحميل المعاينة</div>';
     } else {
-      const signedUrl = signedData.signedUrl;
-      let mediaHtml = '';
-      if(item.file_url.match(/\.(mp4|mov|webm)$/i)){
-        mediaHtml = `<video src="${signedUrl}" controls></video>`;
-      } else {
-        mediaHtml = `<img src="${signedUrl}">`;
-      }
-      preview.innerHTML = mediaHtml + `<div style="margin-top:8px;"><button type="button" class="btn" style="background:#fbe3e7;color:#a8334a;border:none;width:100%;" onclick="markFileForRemoval()">🗑 حذف الملف</button></div>`;
+      preview.innerHTML = '';
+      signedList.forEach((s, idx) => {
+        const path = paths[idx];
+        const url = s.signedUrl;
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:8px;';
+        wrapper.id = `existing-file-${idx}`;
+        let mediaHtml = path.match(/\.(mp4|mov|webm)$/i)
+          ? `<video src="${url}" controls style="max-width:100%;border-radius:6px;max-height:180px;"></video>`
+          : `<img src="${url}" style="max-width:100%;border-radius:6px;max-height:180px;">`;
+        wrapper.innerHTML = mediaHtml + `<button type="button" class="btn" style="background:#fbe3e7;color:#a8334a;border:none;width:100%;margin-top:6px;" onclick="markSingleFileForRemoval('${path}', 'existing-file-${idx}')">🗑 حذف هذا الملف</button>`;
+        preview.appendChild(wrapper);
+      });
     }
   }
-
   document.getElementById('dayModalOverlay').style.display='flex';
 }
 function closeDayModal(){ document.getElementById('dayModalOverlay').style.display='none'; }
@@ -785,25 +735,29 @@ function getActiveStatus(){
   return active ? active.dataset.status : 'لم يبدأ';
 }
 
-function markFileForRemoval(){
-  removeFileFlag = true;
-  pendingFile = null;
-  const preview = document.getElementById('filePreview');
-  preview.innerHTML = '<div style="font-size:12.5px;color:#a8334a;">سيتم حذف الملف عند الحفظ. اضغط حفظ لتأكيد الحذف.</div>';
+function markSingleFileForRemoval(path, wrapperId){
+  filesToRemove.push(path);
+  const wrapper = document.getElementById(wrapperId);
+  if(wrapper) wrapper.innerHTML = `<div style="font-size:12px;color:#a8334a;padding:6px;">🗑 سيتم حذف هذا الملف عند الحفظ</div>`;
 }
 
 function onFileSelected(e){
-  const file = e.target.files[0];
-  if(!file) return;
-  pendingFile = file;
-  removeFileFlag = false;
+  const files = Array.from(e.target.files);
+  if(!files.length) return;
+  pendingFiles = pendingFiles.concat(files);
   const preview = document.getElementById('filePreview');
-  const url = URL.createObjectURL(file);
-  if(file.type.startsWith('video')){
-    preview.innerHTML = `<video src="${url}" controls></video>`;
-  } else {
-    preview.innerHTML = `<img src="${url}">`;
-  }
+  files.forEach(file => {
+    const url = URL.createObjectURL(file);
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:8px;background:#f0fdf4;';
+    wrapper.innerHTML = (file.type.startsWith('video')
+      ? `<video src="${url}" controls style="max-width:100%;border-radius:6px;max-height:180px;"></video>`
+      : `<img src="${url}" style="max-width:100%;border-radius:6px;max-height:180px;">`)
+      + `<div style="font-size:11px;color:#3f7a2a;margin-top:4px;">✓ ${file.name} — سيتم رفعه عند الحفظ</div>`;
+    preview.appendChild(wrapper);
+  });
+  // reset input so selecting the same file again still triggers onchange
+  e.target.value = '';
 }
 
 async function saveDay(){
@@ -812,34 +766,30 @@ async function saveDay(){
   btn.innerHTML = '<span class="spinner"></span> جاري الحفظ...';
 
   const item = currentItems.find(i=>i.id===activeDayId);
-  let filePath = item.file_url; // stores the storage PATH, not a permanent URL (bucket is private)
-  let fileName = item.file_name;
 
-  if(removeFileFlag && item.file_url){
-    const { error: delErr } = await db.storage.from('ct-content-media').remove([item.file_url]);
-    if(delErr){
-      console.error('Storage delete error:', delErr);
-      // Continue anyway — better to clear the DB reference than leave the UI stuck,
-      // and an orphaned storage file is a minor cleanup issue rather than a blocker.
-    }
-    filePath = null;
-    fileName = null;
+  // Start from existing paths, remove any marked for deletion
+  let existingPaths = parseFilePaths(item.file_url);
+  if(filesToRemove.length > 0){
+    await db.storage.from('ct-content-media').remove(filesToRemove);
+    existingPaths = existingPaths.filter(p => !filesToRemove.includes(p));
   }
 
-  if(pendingFile){
-    const ext = pendingFile.name.split('.').pop();
-    const path = `${currentPlanId}/day-${item.day_number}-${Date.now()}.${ext}`;
-    const { data: upData, error: upErr } = await db.storage.from('ct-content-media').upload(path, pendingFile);
-    if(upErr){
-      showToast('فشل رفع الملف');
-      console.error(upErr);
-      btn.disabled = false;
-      btn.textContent = 'حفظ';
-      return;
-    }
-    filePath = path;
-    fileName = pendingFile.name;
+  // Upload any new files
+  const newPaths = [];
+  for(const file of pendingFiles){
+    const ext = file.name.split('.').pop();
+    const path = `${currentPlanId}/day-${item.day_number}-${Date.now()}-${Math.random().toString(36).slice(2,7)}.${ext}`;
+    const { error: upErr } = await db.storage.from('ct-content-media').upload(path, file);
+    if(upErr){ console.error('Upload error:', upErr); showToast('فشل رفع أحد الملفات'); }
+    else { newPaths.push(path); }
   }
+
+  const allPaths = [...existingPaths, ...newPaths];
+  // Store as JSON array if multiple, null if empty, single string if only one (backward compat)
+  const fileUrlValue = allPaths.length === 0 ? null
+    : allPaths.length === 1 ? allPaths[0]
+    : JSON.stringify(allPaths);
+  const fileNameValue = allPaths.length === 0 ? null : (item.file_name || pendingFiles[0]?.name || null);
 
   const updates = {
     pillar: document.getElementById('pillarInput').value,
@@ -850,8 +800,8 @@ async function saveDay(){
     status: getActiveStatus(),
     posted_link: document.getElementById('postedLinkInput').value,
     notes: document.getElementById('notesInput').value,
-    file_url: filePath,
-    file_name: fileName,
+    file_url: fileUrlValue,
+    file_name: fileNameValue,
     updated_by: currentUser ? currentUser.id : null,
     updated_at: new Date().toISOString(),
   };
@@ -862,8 +812,8 @@ async function saveDay(){
   if(error){ showToast('خطأ في الحفظ'); console.error(error); return; }
 
   showToast('تم الحفظ');
-  removeFileFlag = false;
-  pendingFile = null;
+  pendingFiles = [];
+  filesToRemove = [];
   closeDayModal();
   await loadPlan(currentPlanId);
 }
