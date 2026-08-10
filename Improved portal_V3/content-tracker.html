@@ -123,6 +123,13 @@
   }
   .btn-primary:hover{ background:var(--teal-deep); }
   .btn-ghost{ background:transparent; }
+  .btn-danger{ background:#fbe3e7; color:#a8334a; border:1px solid #f5c6cb; }
+  .btn-danger:hover{ background:#f5c6cb; }
+  .btn-archive{ background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+  .btn-archive:hover{ background:#fde68a; }
+  .btn-ghost-green{ background:transparent; color:var(--teal); border:1px solid var(--teal); }
+  .btn-ghost-green:hover{ background:#f0fdf4; }
+  .btn-ghost-green.active{ background:var(--teal); color:#fff; }
 
   .progress-card{
     background:var(--card);
@@ -333,8 +340,15 @@
 
   <div class="container">
     <div class="month-bar">
-      <select id="monthSelect" onchange="onMonthChange()"></select>
-      <button class="btn btn-primary" onclick="openNewMonthModal()">+ خطة شهر جديد</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;">
+        <select id="monthSelect" onchange="onMonthChange()" style="flex:1;min-width:160px;"></select>
+        <button class="btn btn-archive" id="archiveBtn" onclick="toggleArchivePlan()" title="أرشفة / إلغاء الأرشفة">📦</button>
+        <button class="btn btn-danger" id="deleteBtn" onclick="confirmDeletePlan()" title="حذف الخطة">🗑</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost-green" id="showArchivedBtn" onclick="toggleShowArchived()">عرض المؤرشف</button>
+        <button class="btn btn-primary" onclick="openNewMonthModal()">+ خطة شهر جديد</button>
+      </div>
     </div>
 
     <div id="progressCard" class="progress-card" style="display:none;">
@@ -438,6 +452,19 @@
 </div>
 
 <!-- New month modal -->
+<!-- Delete confirm modal -->
+<div id="deleteConfirmOverlay" class="overlay" style="display:none;">
+  <div class="modal" style="max-width:400px;">
+    <h3 style="color:#a8334a;">⚠️ حذف الخطة</h3>
+    <p style="font-size:14px;color:var(--muted);margin:0 0 18px;">سيتم حذف هذه الخطة وجميع أيامها والملفات المرفقة بها بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.</p>
+    <p style="font-size:15px;font-weight:600;margin:0 0 22px;" id="deletePlanLabel"></p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-danger" style="flex:1;font-weight:700;" onclick="executePlanDelete()">نعم، احذف الخطة</button>
+      <button class="btn" style="flex:1;" onclick="document.getElementById('deleteConfirmOverlay').style.display='none'">إلغاء</button>
+    </div>
+  </div>
+</div>
+
 <div id="newMonthOverlay" class="overlay" style="display:none;" onclick="if(event.target===this)closeNewMonthModal()">
   <div class="modal">
     <button class="close-x" onclick="closeNewMonthModal()">×</button>
@@ -579,6 +606,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
 
 // ---------- Boot ----------
+let showArchived = false;
+
 async function boot(){
   await loadMonthList();
 }
@@ -588,25 +617,62 @@ async function loadMonthList(){
   if(error){ showToast('خطأ في تحميل الأشهر'); console.error(error); return; }
   const sel = document.getElementById('monthSelect');
   sel.innerHTML = '';
-  if(!data || data.length===0){
+
+  const filtered = (data || []).filter(p => showArchived ? p.archived : !p.archived);
+  const archived = (data || []).filter(p => p.archived);
+
+  // Update archived toggle button label
+  const archivedBtn = document.getElementById('showArchivedBtn');
+  if(archivedBtn){
+    archivedBtn.textContent = showArchived ? 'عرض النشط' : `المؤرشف (${archived.length})`;
+    archivedBtn.classList.toggle('active', showArchived);
+  }
+
+  if(filtered.length === 0){
     document.getElementById('emptyState').style.display='block';
     document.getElementById('progressCard').style.display='none';
     document.getElementById('dayGrid').innerHTML='';
+    document.getElementById('deleteBtn').style.display='none';
+    document.getElementById('archiveBtn').style.display='none';
     return;
   }
-  data.forEach(plan=>{
+
+  filtered.forEach(plan=>{
     const opt = document.createElement('option');
     opt.value = plan.id;
-    opt.textContent = `${plan.month_label} (${plan.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام'})`;
+    opt.textContent = `${plan.archived ? '📦 ' : ''}${plan.month_label} (${plan.platform === 'tiktok' ? 'تيك توك' : 'إنستغرام'})`;
     sel.appendChild(opt);
   });
-  currentPlanId = data[0].id;
+
+  document.getElementById('deleteBtn').style.display='';
+  document.getElementById('archiveBtn').style.display='';
+
+  currentPlanId = filtered[0].id;
   sel.value = currentPlanId;
+  updatePlanActionButtons(filtered[0]);
   await loadPlan(currentPlanId);
+}
+
+function updatePlanActionButtons(plan){
+  if(!plan) return;
+  const archiveBtn = document.getElementById('archiveBtn');
+  if(archiveBtn){
+    archiveBtn.title = plan.archived ? 'إلغاء الأرشفة' : 'أرشفة الخطة';
+    archiveBtn.textContent = plan.archived ? '📤' : '📦';
+  }
+}
+
+function toggleShowArchived(){
+  showArchived = !showArchived;
+  loadMonthList();
 }
 
 function onMonthChange(){
   currentPlanId = document.getElementById('monthSelect').value;
+  // update archive button state for newly selected plan
+  db.from('ct_content_plans').select('*').eq('id', currentPlanId).single().then(({data})=>{
+    if(data) updatePlanActionButtons(data);
+  });
   loadPlan(currentPlanId);
 }
 
@@ -975,6 +1041,48 @@ async function createNewMonth(){
   document.getElementById('monthSelect').value = plan.id;
   currentPlanId = plan.id;
   await loadPlan(plan.id);
+}
+
+// ---------- Archive & Delete ----------
+async function toggleArchivePlan(){
+  if(!currentPlanId){ showToast('لا توجد خطة محددة'); return; }
+  const { data: plan } = await db.from('ct_content_plans').select('archived').eq('id', currentPlanId).single();
+  if(!plan) return;
+  const newState = !plan.archived;
+  const { error } = await db.from('ct_content_plans').update({ archived: newState }).eq('id', currentPlanId);
+  if(error){ showToast('خطأ في الأرشفة'); console.error(error); return; }
+  showToast(newState ? 'تم أرشفة الخطة' : 'تم إلغاء الأرشفة');
+  await loadMonthList();
+}
+
+function confirmDeletePlan(){
+  if(!currentPlanId){ showToast('لا توجد خطة محددة'); return; }
+  const sel = document.getElementById('monthSelect');
+  const label = sel.options[sel.selectedIndex]?.text || '';
+  document.getElementById('deletePlanLabel').textContent = label;
+  document.getElementById('deleteConfirmOverlay').style.display='flex';
+}
+
+async function executePlanDelete(){
+  document.getElementById('deleteConfirmOverlay').style.display='none';
+  if(!currentPlanId) return;
+  // Delete all storage files for this plan first
+  const { data: items } = await db.from('ct_content_items').select('file_url').eq('plan_id', currentPlanId);
+  if(items && items.length > 0){
+    const paths = items.flatMap(item => {
+      if(!item.file_url) return [];
+      try { return JSON.parse(item.file_url); } catch { return [item.file_url]; }
+    }).filter(Boolean);
+    if(paths.length > 0){
+      await db.storage.from('ct-content-media').remove(paths);
+    }
+  }
+  // Delete plan (cascades to ct_content_items via FK)
+  const { error } = await db.from('ct_content_plans').delete().eq('id', currentPlanId);
+  if(error){ showToast('خطأ في الحذف'); console.error(error); return; }
+  showToast('تم حذف الخطة نهائيًا');
+  currentPlanId = null;
+  await loadMonthList();
 }
 
 // ---------- Toast ----------
