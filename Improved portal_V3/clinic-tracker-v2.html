@@ -3183,8 +3183,23 @@ function renderRecords(){
     var isum=r.items&&r.items.length?r.items.map(function(it){return '<span class="itag"><span class="iname">'+esc(it.name)+'</span><span class="iqty">'+it.qty+'ml</span></span>';}).join(''):'—';
     var isRetouch=r.procedure==='Retouch';
     var isComp=r.procedure==='Complimentary';
+    // When filtering by a specific item, show/sum only that item's own portion of this
+    // invoice (each item already carries its own totalSell/totalCost/profit — see the
+    // record-entry code that builds r.items). Falls back to the whole-record totals when
+    // no item filter is active (unchanged default behavior), or if items are in the old
+    // plain-string format with no per-item breakdown to draw from.
+    var rowSell=r.totalSell, rowCost=r.totalCost, rowProfit=r.profit, rowMargin=r.margin;
+    if(fi && Array.isArray(r.items)){
+      var matchedItems=r.items.filter(function(it){ return it && typeof it==='object' && it.name===fi; });
+      if(matchedItems.length){
+        rowSell=matchedItems.reduce(function(s,it){return s+(it.totalSell||0);},0);
+        rowCost=matchedItems.reduce(function(s,it){return s+(it.totalCost||0);},0);
+        rowProfit=matchedItems.reduce(function(s,it){return s+(it.profit||0);},0);
+        rowMargin=rowSell>0?+((rowProfit/rowSell)*100).toFixed(1):0;
+      }
+    }
     // Retouch: excluded from totals. Complimentary: included (shows real loss)
-    if(!isRetouch){ totSell+=r.totalSell; totCost+=r.totalCost; totProfit+=r.profit; }
+    if(!isRetouch){ totSell+=rowSell; totCost+=rowCost; totProfit+=rowProfit; }
     html+=(isRetouch?'<tr class="rec-retouch">':isComp?'<tr class="rec-comp">':'<tr>');
     html+='<td style="color:var(--ss)">'+(i+1)+'</td><td style="white-space:nowrap">'+fmtD(r.date)+'</td>';
     var stBadge=isRetouch?'<span class="badge-retouch">🔄 Retouch</span>':isComp?'<span class="badge-comp">🎁 Comp</span>':'';
@@ -3192,11 +3207,11 @@ function renderRecords(){
     html+='<td>'+esc(r.doctor)+'</td><td><span class="badge">'+esc(r.procedure)+'</span></td>';
     html+='<td><span style="font-size:.78rem;color:var(--td);font-weight:500">'+esc(r.area||'—')+'</span></td>';
     html+='<td>'+isum+'</td>';
-    html+='<td style="color:#0369a1;font-weight:600;white-space:nowrap">SAR '+r.totalSell.toFixed(2)+'</td>';
+    html+='<td style="color:#0369a1;font-weight:600;white-space:nowrap">SAR '+rowSell.toFixed(2)+'</td>';
     if(isGM()){
-      html+='<td style="color:#92400e;white-space:nowrap">SAR '+r.totalCost.toFixed(2)+'</td>';
-      html+='<td class="'+(r.profit>=0?'pp':'pn')+'" style="white-space:nowrap">SAR '+r.profit.toFixed(2)+'</td>';
-      html+='<td style="color:#6d28d9;font-weight:600">'+r.margin+'%</td>';
+      html+='<td style="color:#92400e;white-space:nowrap">SAR '+rowCost.toFixed(2)+'</td>';
+      html+='<td class="'+(rowProfit>=0?'pp':'pn')+'" style="white-space:nowrap">SAR '+rowProfit.toFixed(2)+'</td>';
+      html+='<td style="color:#6d28d9;font-weight:600">'+rowMargin+'%</td>';
       html+='<td style="color:var(--ss);font-size:.8rem">'+esc(r.nurse||'—')+'<br><div style="display:flex;gap:.4rem;margin-top:.3rem"><button class="expand-btn" onclick="openEditModal('+r.id+')">✏️ Edit</button><button class="expand-btn" style="color:var(--red)" onclick="confirmDeleteRecord('+r.id+')">🗑 Delete</button></div></td>';
     } else {
       // Staff can edit own records within 48 hours
@@ -3215,7 +3230,7 @@ function renderRecords(){
   if(isGM()&&f.length){
     var totMargin=totSell>0?((totProfit/totSell)*100).toFixed(1):'0.0';
     html+='<tr style="background:var(--tbg);font-weight:700;border-top:2px solid var(--tb)">';
-    html+='<td colspan="7" style="font-size:.8rem;color:var(--td);text-transform:uppercase;letter-spacing:.05em">Totals ('+f.length+' records)</td>';
+    html+='<td colspan="7" style="font-size:.8rem;color:var(--td);text-transform:uppercase;letter-spacing:.05em">Totals ('+f.length+' records)'+(fi?' — '+esc(fi)+' only':'')+'</td>';
     html+='<td style="color:#0369a1;white-space:nowrap">SAR '+totSell.toFixed(2)+'</td>';
     html+='<td style="color:#92400e;white-space:nowrap">SAR '+totCost.toFixed(2)+'</td>';
     html+='<td class="'+(totProfit>=0?'pp':'pn')+'" style="white-space:nowrap">SAR '+totProfit.toFixed(2)+'</td>';
