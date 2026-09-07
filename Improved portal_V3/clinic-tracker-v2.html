@@ -5029,8 +5029,9 @@ function setLoading(on){
 }
 function fmtD(d){ if(!d)return'—'; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
 function fmtM(m){ return new Date(m+'-01').toLocaleString('en',{month:'long',year:'numeric'}); }
-function toast(msg,ok){
+function toast(msg,ok,sticky){
   var t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(ok?'tok':'terr');
+  if(sticky) return; // caller will replace this toast when the operation finishes — don't auto-hide mid-save
   setTimeout(function(){t.className='';},3000);
 }
 
@@ -5307,13 +5308,14 @@ async function ensurePayrollHistoryLoaded() {
       if(cachedH) payrollHistory = JSON.parse(cachedH);
     } catch(e) {}
     try {
-      toast('Loading payroll history…', true);
+      toast('Loading payroll history…', true, true);
       var r2 = await sbGet('ct_config', 'key=eq.payrollHistory');
       if (r2 && r2.length && r2[0].value) {
         var v2 = r2[0].value;
         payrollHistory = (typeof v2 === 'string') ? JSON.parse(v2) : v2;
         try{ localStorage.setItem('pr_history_cache', JSON.stringify(payrollHistory)); }catch(e){}
       }
+      toast('Payroll history loaded.', true);
       _payrollHistoryLoaded = true;
       var curPage=''; try{ curPage=sessionStorage.getItem('ct_page')||''; }catch(e){}
       if(curPage==='payroll' && prCurrentDr){ prCheckCarryForward(document.getElementById('prDrSel').value); }
@@ -6115,8 +6117,9 @@ function prCalc() {
 
 async function prSaveHistory() {
   var btn = (typeof event!=='undefined' && event && event.target) ? event.target : null;
-  var origBtnText = btn ? btn.textContent : '';
-  if(btn){ btn.disabled=true; btn.textContent='Saving…'; btn.style.opacity='.65'; btn.style.cursor='wait'; }
+  var origBtnHTML = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Saving…'; btn.style.cursor='wait'; }
+  toast('Saving to history…', true, true);
   try {
   await ensurePayrollHistoryLoaded();
   if(!window._prLastResult){ toast('Nothing to save yet.', false); return; }
@@ -6184,7 +6187,7 @@ async function prSaveHistory() {
     _prCurrentFile = null; // clear after save
   } catch(e) { toast('Save failed: '+e.message, false); }
   } finally {
-    if(btn){ btn.disabled=false; btn.textContent=origBtnText; btn.style.opacity=''; btn.style.cursor=''; }
+    if(btn){ btn.disabled=false; btn.innerHTML=origBtnHTML; btn.style.cursor=''; }
   }
 }
 
@@ -6366,8 +6369,9 @@ function renderPayrollHistory() {
 
 async function prAddPayment(dr, mon, idx){
   var btn = (typeof event!=='undefined' && event && event.target) ? event.target : null;
-  var origBtnText = btn ? btn.textContent : '';
-  if(btn){ btn.disabled=true; btn.textContent='Adding…'; btn.style.opacity='.65'; btn.style.cursor='wait'; }
+  var origBtnHTML = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Adding…'; btn.style.cursor='wait'; }
+  toast('Recording payment…', true, true);
   try {
   await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
@@ -6382,7 +6386,7 @@ async function prAddPayment(dr, mon, idx){
   try { await savePayrollHistory(); renderPayrollHistory(); toast('Payment recorded!',true); }
   catch(e){ rec.payments.pop(); toast('Save failed: '+e.message,false); }
   } finally {
-    if(btn){ btn.disabled=false; btn.textContent=origBtnText; btn.style.opacity=''; btn.style.cursor=''; }
+    if(btn){ btn.disabled=false; btn.innerHTML=origBtnHTML; btn.style.cursor=''; }
   }
 }
 
@@ -6402,8 +6406,9 @@ function prConfirmRemovePayment(dr, mon, pi){
 
 async function prRemovePayment(dr, mon, pi){
   var btn = (typeof event!=='undefined' && event && event.target) ? event.target : null;
-  var origBtnText = btn ? btn.textContent : '';
-  if(btn){ btn.disabled=true; btn.textContent='Removing…'; btn.style.opacity='.65'; btn.style.cursor='wait'; }
+  var origBtnHTML = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled=true; btn.innerHTML='<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(239,68,68,.3);border-top-color:#ef4444;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:.3rem"></span>Removing…'; btn.style.cursor='wait'; }
+  toast('Removing payment…', true, true);
   try {
   await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
@@ -6412,7 +6417,7 @@ async function prRemovePayment(dr, mon, pi){
   try { await savePayrollHistory(); renderPayrollHistory(); toast('Payment removed.',true); }
   catch(e){ toast('Failed.',false); }
   } finally {
-    if(btn){ btn.disabled=false; btn.textContent=origBtnText; btn.style.opacity=''; btn.style.cursor=''; }
+    if(btn){ btn.disabled=false; btn.innerHTML=origBtnHTML; btn.style.cursor=''; }
   }
 }
 
