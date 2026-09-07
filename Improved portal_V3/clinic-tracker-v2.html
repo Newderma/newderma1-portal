@@ -825,12 +825,22 @@ tr:hover td{background:#f8fafc}
             </div>
             <div class="fg" style="margin-bottom:.75rem">
               <div>
-                <label>Deductions SAR (materials + expenses)</label>
+                <label>Deductions SAR (materials + expenses) <span style="font-size:.7rem;color:var(--ss)">(reduces bonus base — subtracted before the % is applied)</span></label>
                 <input type="number" id="prSpDeductions" min="0" step="0.01" placeholder="0">
               </div>
               <div>
                 <label>Deduction Note (optional)</label>
                 <input type="text" id="prSpDeductNote" placeholder="e.g. Materials + Clinic Expenses">
+              </div>
+            </div>
+            <div class="fg" style="margin-bottom:.75rem">
+              <div>
+                <label>Other Deduction SAR <span style="font-size:.7rem;color:var(--ss)">(optional — does NOT affect the bonus, e.g. Iqama fees)</span></label>
+                <input type="number" id="prSpOtherDeduct" min="0" step="0.01" placeholder="0">
+              </div>
+              <div>
+                <label>Other Deduction Note (optional)</label>
+                <input type="text" id="prSpOtherDeductNote" placeholder="e.g. Iqama Renewal Fee">
               </div>
             </div>
             <div class="fg" style="margin-bottom:.75rem;padding:.75rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px">
@@ -3636,7 +3646,7 @@ function exportRecXLS(){
   if(fn) fname+='_'+fn.replace(/\s+/g,'_');
   if(fd) fname+='_'+fd.replace(/\s+/g,'_');
   if(fm) fname+='_'+fm;
-  var rows=[['#','Date','Patient','File No.','Doctor','Procedure','Area Treated','Item','Qty (ml)','Sell/ml (SAR)','Selling','Cost','Profit','Margin','Nurse','Notes']];
+  var rows=[['#','Date','Patient','File No.','Doctor','Procedure','Area Treated','Item','Qty (ml)','Sell/ml (SAR)','Selling','Cost','Profit','Margin','Nurse','Notes','Record Total Selling','Record Total Cost','Record Total Profit']];
   filtered.forEach(function(r,i){
     var base=[i+1,r.date,r.patient,r.patientId||'',r.doctor,r.procedure,r.area||''];
     if(r.items&&r.items.length){
@@ -3651,13 +3661,19 @@ function exportRecXLS(){
           '',
           j===0?r.margin+'%':'',
           j===0?(r.nurse||''):'',
-          j===0?(r.notes||''):''
+          j===0?(r.notes||''):'',
+          '','',''
         ]));
       });
-      // Totals row
-      rows.push(base.concat(['','','TOTAL',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),'','','']));
+      // Record-level total — kept in its OWN columns (Record Total Selling/Cost/Profit),
+      // NOT in the Selling/Cost/Profit columns above, so those columns stay pure per-item
+      // data throughout the sheet. Summing Selling/Cost/Profit gives correct item totals;
+      // summing Record Total Selling/Cost/Profit gives correct invoice totals — neither
+      // double-counts the other, since a multi-item record no longer repeats its total in
+      // the same columns as its own item rows.
+      rows.push(base.concat(['','','TOTAL','','','','','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2)]));
     } else {
-      rows.push(base.concat(['—','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),r.margin+'%',r.nurse||'',r.notes||'']));
+      rows.push(base.concat(['—','','',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2),r.margin+'%',r.nurse||'',r.notes||'',r.totalSell.toFixed(2),r.totalCost.toFixed(2),r.profit.toFixed(2)]));
     }
   });
   if(!filtered.length){toast('No records match current filters.',false);return;}
@@ -5291,6 +5307,7 @@ async function ensurePayrollHistoryLoaded() {
       if(cachedH) payrollHistory = JSON.parse(cachedH);
     } catch(e) {}
     try {
+      toast('Loading payroll history…', true);
       var r2 = await sbGet('ct_config', 'key=eq.payrollHistory');
       if (r2 && r2.length && r2[0].value) {
         var v2 = r2[0].value;
@@ -5648,6 +5665,8 @@ function prResetToProfileDefaults(){
     document.getElementById('prSpPerfPct').value   = prCurrentDr.perfPct||35;
     document.getElementById('prSpDeductions').value = '';
     document.getElementById('prSpDeductNote').value = '';
+    document.getElementById('prSpOtherDeduct').value = '';
+    document.getElementById('prSpOtherDeductNote').value = '';
     document.getElementById('prSpAddition').value   = '';
     document.getElementById('prSpAdditionNote').value = '';
   }
@@ -5700,6 +5719,8 @@ function prLoadProfile() {
     document.getElementById('prSpPerfPct').value    = prCurrentDr.perfPct||35;
     document.getElementById('prSpDeductions').value = '';
     document.getElementById('prSpDeductNote').value = '';
+    document.getElementById('prSpOtherDeduct').value = '';
+    document.getElementById('prSpOtherDeductNote').value = '';
     document.getElementById('prSpAddition').value   = '';
     document.getElementById('prSpAdditionNote').value = '';
   }
@@ -5885,6 +5906,8 @@ function prCalc() {
     var spExternal  = parseFloat(document.getElementById('prSpExternal').value)   || 0;
     var deductions  = parseFloat(document.getElementById('prSpDeductions').value) || 0;
     var deductNote  = document.getElementById('prSpDeductNote').value.trim() || 'Materials & Expenses / مواد ومصاريف';
+    var otherDeduct     = parseFloat(document.getElementById('prSpOtherDeduct').value) || 0;
+    var otherDeductNote = document.getElementById('prSpOtherDeductNote').value.trim();
     var addition    = parseFloat(document.getElementById('prSpAddition').value)  || 0;
     var addNote     = document.getElementById('prSpAdditionNote').value.trim();
 
@@ -5897,9 +5920,15 @@ function prCalc() {
     var netIncSPTotal = netIncSP + spExternal;
     rows.push({label:'Net Revenue / صافي الإيراد', amount:netIncSPTotal, deduct:false, sub:true});
 
-    // Step 1: Net after deductions (informational)
+    // Step 1: Net after deductions (informational) — materials/expenses are subtracted
+    // from revenue BEFORE the bonus percentage is applied, by design (Dr Alkaf's bonus is
+    // a percentage of net-after-materials, not of gross revenue).
+    // Other Deduction is shown right here too — grouped together with Materials so both
+    // deductions are visible one under another — but its amount is NOT part of this
+    // subtraction: it still only reduces the final total in Step 3 below, same as before.
     var netAfterDeduct = netIncSPTotal - deductions;
     rows.push({label:'− '+deductNote+' / الخصومات', amount:deductions, deduct:false, sub:true});
+    if(otherDeduct) rows.push({label:otherDeductNote || 'Other Deduction / خصم آخر', amount:otherDeduct, deduct:true});
     rows.push({label:'Net after Deductions / الصافي بعد الخصم', amount:netAfterDeduct, deduct:false, sub:true});
 
     // Step 2: Performance bonus on net after deductions
@@ -5911,11 +5940,12 @@ function prCalc() {
       rows.push({label:'Net SAR '+fmtSAR(netAfterDeduct)+' below threshold SAR '+fmtSAR(threshold), amount:0, deduct:false, sub:true});
     }
 
-    // Step 3: Build payout = Fixed Salary + Bonus only
+    // Step 3: Build payout = Fixed Salary + Bonus − Other Deduction (already shown above) + Addition
     // Reset total and build cleanly
     total = 0;
     addRow('Fixed Salary / الراتب الثابت', baseSalary, false);
     if(perfBonus > 0) addRow('Performance Bonus '+perfPct+'% / نسبة الأداء '+perfPct+'%', perfBonus, false);
+    total -= otherDeduct; // row already pushed above — just apply its effect on the total here
     if(addition) addRow(addNote || 'Addition / إضافة', addition, false);
 
   } else if(isShared){
@@ -6084,6 +6114,10 @@ function prCalc() {
 }
 
 async function prSaveHistory() {
+  var btn = (typeof event!=='undefined' && event && event.target) ? event.target : null;
+  var origBtnText = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; btn.style.opacity='.65'; btn.style.cursor='wait'; }
+  try {
   await ensurePayrollHistoryLoaded();
   if(!window._prLastResult){ toast('Nothing to save yet.', false); return; }
   var r = window._prLastResult;
@@ -6149,6 +6183,9 @@ async function prSaveHistory() {
     populateHistoryDrFilter();
     _prCurrentFile = null; // clear after save
   } catch(e) { toast('Save failed: '+e.message, false); }
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent=origBtnText; btn.style.opacity=''; btn.style.cursor=''; }
+  }
 }
 
 function prPaymentStatus(h){
@@ -6328,6 +6365,10 @@ function renderPayrollHistory() {
 }
 
 async function prAddPayment(dr, mon, idx){
+  var btn = (typeof event!=='undefined' && event && event.target) ? event.target : null;
+  var origBtnText = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='Adding…'; btn.style.opacity='.65'; btn.style.cursor='wait'; }
+  try {
   await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec){ toast('Record not found.',false); return; }
@@ -6340,6 +6381,9 @@ async function prAddPayment(dr, mon, idx){
   rec.payments.push({ date:date, amount:amt, method:method, ref:ref, addedAt:new Date().toISOString() });
   try { await savePayrollHistory(); renderPayrollHistory(); toast('Payment recorded!',true); }
   catch(e){ rec.payments.pop(); toast('Save failed: '+e.message,false); }
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent=origBtnText; btn.style.opacity=''; btn.style.cursor=''; }
+  }
 }
 
 function prConfirmRemovePayment(dr, mon, pi){
@@ -6357,12 +6401,19 @@ function prConfirmRemovePayment(dr, mon, pi){
 }
 
 async function prRemovePayment(dr, mon, pi){
+  var btn = (typeof event!=='undefined' && event && event.target) ? event.target : null;
+  var origBtnText = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='Removing…'; btn.style.opacity='.65'; btn.style.cursor='wait'; }
+  try {
   await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec||!rec.payments) return;
   rec.payments.splice(pi,1);
   try { await savePayrollHistory(); renderPayrollHistory(); toast('Payment removed.',true); }
   catch(e){ toast('Failed.',false); }
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent=origBtnText; btn.style.opacity=''; btn.style.cursor=''; }
+  }
 }
 
 var _xlsViewWorkbook = null;
@@ -6735,6 +6786,11 @@ async function prEditHistory(dr, mon){
       document.getElementById('prSpDeductions').value = deductRowSP.amount;
       var dnote = deductRowSP.label.replace(/^[−\-]\s*/,'').replace(/\s*\/\s*الخصومات.*/,'').trim();
       document.getElementById('prSpDeductNote').value = dnote !== 'Materials & Expenses' ? dnote : '';
+    }
+    var otherDeductRowSP = rows.find(function(x){ return x.deduct===true && !x.sub; });
+    if(otherDeductRowSP){
+      document.getElementById('prSpOtherDeduct').value = otherDeductRowSP.amount;
+      document.getElementById('prSpOtherDeductNote').value = (otherDeductRowSP.label !== 'Other Deduction / خصم آخر') ? otherDeductRowSP.label : '';
     }
     var addRowSP = rows.find(function(x){ return !x.deduct && x.label && (x.label.indexOf('Addition')>=0 || x.label.indexOf('إضافة')>=0) && !x.sub && !x.bold; });
     if(addRowSP){ document.getElementById('prSpAddition').value = addRowSP.amount; document.getElementById('prSpAdditionNote').value = addRowSP.label.split('/')[0].trim(); }
