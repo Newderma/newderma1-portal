@@ -4796,36 +4796,60 @@ async function saveEmpProfiles() {
 
 window.resetBalancePrompt = function(emp) {
   var b = calcBalance(emp);
-  var msg =
-    '⟳ Reset Leave Balance — ' + emp + '\n\n' +
-    'Current available: ' + b.available + ' days\n' +
-    'Total earned to date: ' + b.totalEarned + ' days\n\n' +
-    'Enter the new balance you want this employee to have (in days):\n' +
-    '(Enter 0 to zero out, or any number e.g. 5)';
-  var input = window.prompt(msg);
-  if (input === null) { toast('Reset cancelled.', false); return; }
-  var newBalance = parseFloat(input);
-  if (isNaN(newBalance) || newBalance < 0) {
-    toast('Invalid number. Reset cancelled.', false); return;
-  }
-  if (newBalance > b.totalEarned) {
-    toast('Cannot set balance higher than total earned (' + b.totalEarned + ' days).', false); return;
-  }
-  var confirmed = window.confirm(
-    'Set ' + emp + '\'s balance to ' + newBalance + ' days?\n\n' +
-    'This will adjust "Used Before App" accordingly.\n' +
-    'Future approved leaves will deduct from this new balance.'
-  );
-  if (!confirmed) { toast('Reset cancelled.', false); return; }
-  var p = empProfiles[emp] || {};
-  // historicalUsed = totalEarned - newBalance (absorbs in-app used too)
-  p.historicalUsed = parseFloat((b.totalEarned - newBalance).toFixed(1));
-  empProfiles[emp] = p;
-  saveConfig('empProfiles', empProfiles).then(function() {
-    toast('✓ Balance for ' + emp + ' set to ' + newBalance + ' days.', true);
-    renderEmpProfiles();
-    renderBalances();
-  }).catch(function(e) { toast('Reset failed: ' + e.message, false); });
+  // Remove any existing modal
+  var old = document.getElementById('rbModal');
+  if (old) old.remove();
+  // Build modal HTML
+  var overlay = document.createElement('div');
+  overlay.id = 'rbModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:14px;padding:1.6rem;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)">' +
+      '<h3 style="font-size:1rem;font-weight:700;margin-bottom:.5rem">⟳ Reset Leave Balance</h3>' +
+      '<p style="font-size:.85rem;color:#475569;margin-bottom:1rem">' + emp + '</p>' +
+      '<div style="background:#f1f5f9;border-radius:8px;padding:.8rem;font-size:.82rem;color:#334155;margin-bottom:1.1rem;line-height:1.8">' +
+        'Current available: <strong>' + b.available + ' days</strong><br>' +
+        'Total earned to date: <strong>' + b.totalEarned + ' days</strong>' +
+      '</div>' +
+      '<label style="display:block;font-size:.8rem;font-weight:600;color:#475569;margin-bottom:.35rem">New balance (days)</label>' +
+      '<input id="rbInput" type="number" min="0" max="' + b.totalEarned + '" step="0.5" placeholder="e.g. 10" ' +
+        'style="width:100%;padding:.6rem .8rem;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.95rem;margin-bottom:1rem;outline:none">' +
+      '<div id="rbErr" style="color:#dc2626;font-size:.8rem;margin-bottom:.6rem;display:none"></div>' +
+      '<div style="display:flex;gap:.7rem;justify-content:flex-end">' +
+        '<button onclick="document.getElementById(\'rbModal\').remove()" ' +
+          'style="padding:.5rem 1.1rem;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:.85rem">Cancel</button>' +
+        '<button id="rbConfirmBtn" ' +
+          'style="padding:.5rem 1.2rem;border:none;border-radius:8px;background:#92400e;color:#fff;cursor:pointer;font-size:.85rem;font-weight:600">Set Balance</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  // Focus input
+  setTimeout(function(){ var inp = document.getElementById('rbInput'); if(inp) inp.focus(); }, 50);
+  // Confirm button logic
+  document.getElementById('rbConfirmBtn').onclick = function() {
+    var inp = document.getElementById('rbInput');
+    var errEl = document.getElementById('rbErr');
+    var newBalance = parseFloat(inp.value);
+    if (isNaN(newBalance) || newBalance < 0) {
+      errEl.textContent = 'Please enter a valid number (0 or more).';
+      errEl.style.display = 'block'; return;
+    }
+    if (newBalance > b.totalEarned) {
+      errEl.textContent = 'Cannot exceed total earned (' + b.totalEarned + ' days).';
+      errEl.style.display = 'block'; return;
+    }
+    overlay.remove();
+    var p = empProfiles[emp] || {};
+    p.historicalUsed = parseFloat((b.totalEarned - newBalance).toFixed(1));
+    empProfiles[emp] = p;
+    saveConfig('empProfiles', empProfiles).then(function() {
+      toast('✓ Balance for ' + emp + ' set to ' + newBalance + ' days.', true);
+      renderEmpProfiles();
+      renderBalances();
+    }).catch(function(e) { toast('Reset failed: ' + e.message, false); });
+  };
+  // Close on overlay click
+  overlay.addEventListener('click', function(e){ if(e.target === overlay) overlay.remove(); });
 };
 
 function saveAnnual(){ annualDays=parseInt(document.getElementById('annDays')?document.getElementById('annDays').value:21)||21; saveConfig('annualDays',annualDays); }
