@@ -1,4 +1,0 @@
-[[headers]]
-  for = "/clinic-tracker-v2"
-  [headers.values]
-    Content-Type = "text/html; charset=utf-8"
