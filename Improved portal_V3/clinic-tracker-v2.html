@@ -4794,7 +4794,7 @@ async function saveEmpProfiles() {
   } catch(e) { toast('Save failed: ' + e.message, false); }
 }
 
-function resetBalancePrompt(emp) {
+window.resetBalancePrompt = function(emp) {
   var b = calcBalance(emp);
   var msg =
     '⟳ Reset Leave Balance — ' + emp + '\n\n' +
@@ -4811,12 +4811,12 @@ function resetBalancePrompt(emp) {
   if (newBalance > b.totalEarned) {
     toast('Cannot set balance higher than total earned (' + b.totalEarned + ' days).', false); return;
   }
-  var confirm = window.confirm(
+  var confirmed = window.confirm(
     'Set ' + emp + '\'s balance to ' + newBalance + ' days?\n\n' +
     'This will adjust "Used Before App" accordingly.\n' +
     'Future approved leaves will deduct from this new balance.'
   );
-  if (!confirm) { toast('Reset cancelled.', false); return; }
+  if (!confirmed) { toast('Reset cancelled.', false); return; }
   var p = empProfiles[emp] || {};
   // historicalUsed = totalEarned - newBalance (absorbs in-app used too)
   p.historicalUsed = parseFloat((b.totalEarned - newBalance).toFixed(1));
@@ -4826,7 +4826,7 @@ function resetBalancePrompt(emp) {
     renderEmpProfiles();
     renderBalances();
   }).catch(function(e) { toast('Reset failed: ' + e.message, false); });
-}
+};
 
 function saveAnnual(){ annualDays=parseInt(document.getElementById('annDays')?document.getElementById('annDays').value:21)||21; saveConfig('annualDays',annualDays); }
 function saveClinicName(){ var n=document.getElementById('clinicNameInput').value.trim(); if(n){localStorage.setItem('clinicName',n); document.getElementById('clinicName').textContent=n; toast('Clinic name saved!',true);} }
