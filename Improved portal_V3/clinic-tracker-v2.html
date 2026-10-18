@@ -3689,8 +3689,11 @@ function exportDashXLS(){
   dlXLS(rows,'Dashboard_'+mon);
 }
 function exportVacXLS(){
-  var rows=[['#','Employee','Type','From','To','Days','Status','Note','Reject Reason','Submitted']];
-  vacReqs.forEach(function(r,i){rows.push([i+1,r.employee,r.type,r.from,r.to,r.days,r.status,r.note||'',(r.rejectReason||r.approveNote||''),r.reqDate]);});
+  var typeAr={'Annual Leave':'إجازة سنوية','Sick Leave':'إجازة مرضية','Unpaid Leave':'إجازة بدون راتب','Maternity Leave':'إجازة أمومة','Marriage Leave':'إجازة الزواج','Bereavement Leave':'إجازة وفاة','Newborn Leave':'إجازة المولود الجديد','Emergency Leave':'إجازة طارئة','Other':'أخرى'};
+  var statusAr={'Approved':'مقبول','Rejected':'مرفوض','Pending':'قيد الانتظار'};
+  function bi(en,map){return map[en]?en+' · '+map[en]:(en||'');}
+  var rows=[['# · م','Employee · الموظف','Type · النوع','From · من','To · إلى','Days · الأيام','Status · الحالة','Employee Note · ملاحظة الموظف','Admin Reason · سبب الإدارة','Submitted · تاريخ الطلب']];
+  vacReqs.forEach(function(r,i){rows.push([i+1,r.employee,bi(r.type,typeAr),r.from,r.to,r.days,bi(r.status,statusAr),r.note||'',(r.rejectReason||r.approveNote||''),r.reqDate]);});
   dlXLS(rows,'Vacation_Records');
 }
 
