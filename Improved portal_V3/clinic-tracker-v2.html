@@ -1169,12 +1169,12 @@ tr:hover td{background:#f8fafc}
         <div class="card" style="padding:1rem .8rem">
           <div style="display:flex;gap:.8rem;margin-bottom:1.2rem;flex-wrap:wrap;align-items:center">
             <input type="text" id="vSrch" placeholder="Search…" oninput="renderVacH()" style="max-width:180px">
-            <select id="vFSt" onchange="renderVacH()" style="max-width:150px"><option value="">All Statuses</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
+            <select id="vFSt" onchange="renderVacH()" style="max-width:210px"><option value="">All Statuses · كل الحالات</option><option value="Pending">Pending · قيد الانتظار</option><option value="Approved">Approved · مقبول</option><option value="Rejected">Rejected · مرفوض</option></select>
             <select id="vFEm" onchange="renderVacH()" style="max-width:180px"></select>
             <button class="btn bx" id="btnExportVac" style="margin-left:auto" onclick="exportVacXLS()">Export XLS</button>
           </div>
           <div style="overflow-x:auto">
-            <table><thead><tr><th>#</th><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th>Reason/Note</th><th>Submitted</th><th></th></tr></thead>
+            <table><thead><tr><th>#</th><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status · الحالة</th><th>Employee Note · ملاحظة الموظف</th><th>Admin Reason · سبب الإدارة</th><th>Submitted</th><th></th></tr></thead>
             <tbody id="vacHBody"></tbody></table>
           </div>
         </div>
@@ -4416,15 +4416,19 @@ function renderVacH(){
     if(!isGM()&&r.employee!==CU.empName) return false;
     if(fSt&&r.status!==fSt) return false;
     if(fEm&&r.employee!==fEm) return false;
-    if(srch){var s=srch.toLowerCase();if((r.employee+r.type+r.status+(r.note||'')).toLowerCase().indexOf(s)<0)return false;}
+    if(srch){var s=srch.toLowerCase();if((r.employee+r.type+r.status+(r.note||'')+(r.rejectReason||'')+(r.approveNote||'')).toLowerCase().indexOf(s)<0)return false;}
     return true;
   });
   tbody.innerHTML='';
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--ss);padding:2rem">No records found</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--ss);padding:2rem">No records found</td></tr>';return;}
   rows.forEach(function(r,i){
     var fromDisplay=r.selectedDates&&r.selectedDates.length?r.selectedDates.map(fmtD).join(', '):fmtD(r.from);
     var toDisplay=r.selectedDates&&r.selectedDates.length?'—':fmtD(r.to);
     var statusColor=r.status==='Approved'?'#16a34a':r.status==='Rejected'?'#dc2626':'#b45309';
+    var statusAr=r.status==='Approved'?'مقبول':r.status==='Rejected'?'مرفوض':r.status==='Pending'?'قيد الانتظار':'';
+    var adminCell='';
+    if(r.status==='Rejected') adminCell=r.rejectReason?'<span style="color:#dc2626">'+esc(r.rejectReason)+'</span>':'<span style="color:var(--ss)">No reason given · لم يُذكر سبب</span>';
+    else if(r.approveNote) adminCell='<span style="color:#16a34a">'+esc(r.approveNote)+'</span>';
     var pdfBtn=r.status==='Approved'?'<button class="btn bs" style="font-size:.73rem;padding:.25rem .6rem" onclick="generateVacPDF(\''+r.id+'\')">📄 PDF</button>':'';
     var tr=document.createElement('tr');
     tr.innerHTML='<td>'+(i+1)+'</td>'+
@@ -4433,8 +4437,9 @@ function renderVacH(){
       '<td>'+fromDisplay+'</td>'+
       '<td>'+toDisplay+'</td>'+
       '<td>'+r.days+'</td>'+
-      '<td><span style="color:'+statusColor+';font-weight:600">'+r.status+'</span></td>'+
-      '<td style="font-size:.82rem;color:var(--ss)">'+esc(r.note||r.rejectReason||r.approveNote||'')+'</td>'+
+      '<td><span style="color:'+statusColor+';font-weight:600;white-space:nowrap">'+esc(r.status)+'</span>'+(statusAr?'<div style="color:'+statusColor+';font-size:.8rem;font-weight:600">'+statusAr+'</div>':'')+'</td>'+
+      '<td style="font-size:.82rem;color:var(--ss)">'+esc(r.note||'')+'</td>'+
+      '<td style="font-size:.82rem">'+adminCell+'</td>'+
       '<td style="font-size:.82rem;color:var(--ss)">'+fmtD(r.reqDate)+'</td>'+
       '<td>'+pdfBtn+'</td>';
     tbody.appendChild(tr);
