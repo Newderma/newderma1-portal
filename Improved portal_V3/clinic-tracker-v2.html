@@ -1553,6 +1553,7 @@ tr:hover td{background:#f8fafc}
     <h3>Approve Request</h3>
     <p style="font-size:.88rem;color:var(--sm);margin-bottom:1rem">Optionally add a note for the employee.</p>
     <input type="hidden" id="approveId">
+    <div id="approveAdvInfo" style="display:none;background:#fef3c7;border:1px solid #fde68a;border-radius:var(--rs);padding:.6rem .9rem;margin-bottom:.8rem;font-size:.83rem;color:#92400e;font-weight:600"></div>
     <label>Note (optional)</label>
     <textarea id="approveNoteInput" placeholder="e.g. Accepted this time, but please submit an official sick leave next time…" style="margin-top:.4rem;min-height:90px"></textarea>
     <div class="modal-footer">
@@ -1589,6 +1590,14 @@ tr:hover td{background:#f8fafc}
       <div style="display:flex;justify-content:space-between;font-size:.88rem"><span style="color:var(--sm)">From</span><strong id="vacConfFrom"></strong></div>
       <div style="display:flex;justify-content:space-between;font-size:.88rem"><span style="color:var(--sm)">To</span><strong id="vacConfTo"></strong></div>
       <div style="display:flex;justify-content:space-between;font-size:.88rem"><span style="color:var(--sm)">Duration</span><strong id="vacConfDays" style="color:var(--teal)"></strong></div>
+    </div>
+    <div id="vacAdvBox" style="display:none;background:#fef3c7;border:1px solid #fde68a;border-radius:var(--rs);padding:.8rem 1rem;margin-bottom:1.2rem;font-size:.83rem;color:#92400e;line-height:1.6">
+      <strong>⏩ Advance leave · إجازة مقدمة: <span id="vacAdvDays"></span> day(s) · يوم</strong><br>
+      These days are not earned yet and need GM approval. · هذه الأيام لم تُستحق بعد وتحتاج موافقة المدير العام.
+      <label style="display:flex;gap:.5rem;align-items:flex-start;margin-top:.6rem;cursor:pointer;font-weight:600">
+        <input type="checkbox" id="vacAdvAck" style="width:auto;margin-top:.25rem;accent-color:#b45309">
+        <span>I acknowledge these are advance days, deductible from my dues if I leave before earning them. · أُقر بأن هذه الأيام مقدمة، وتُخصم من مستحقاتي إذا انتهت خدمتي قبل استحقاقها.</span>
+      </label>
     </div>
     <div class="modal-footer">
       <button class="btn bs" onclick="document.getElementById('vacConfirmModal').classList.add('hidden')">Back</button>
@@ -3536,6 +3545,13 @@ async function confirmReject(){
 function openApproveModal(id){
   document.getElementById('approveId').value = id;
   document.getElementById('approveNoteInput').value = '';
+  var advI=document.getElementById('approveAdvInfo');
+  if(advI){
+    var rr=null; for(var k=0;k<vacReqs.length;k++){ if(vacReqs[k].id==id){ rr=vacReqs[k]; break; } }
+    var a=vacAdvanceFor(rr);
+    if(a>0){ advI.innerHTML='⏩ This includes '+a+' advance day(s) — balance will become -'+a+'.<br>تتضمن '+a+' يوم مقدمة — سيصبح الرصيد -'+a+'.'; advI.style.display=''; }
+    else advI.style.display='none';
+  }
   document.getElementById('approveModal').classList.remove('hidden');
 }
 
@@ -3548,6 +3564,7 @@ function closeApproveModal(){
 async function confirmApprove(){
   var id   = parseInt(document.getElementById('approveId').value);
   var note = document.getElementById('approveNoteInput').value.trim();
+  for(var k=0;k<vacReqs.length;k++){ if(vacReqs[k].id==id){ var advA=vacAdvanceFor(vacReqs[k]); if(advA>0) note='Advance leave · إجازة مقدمة: '+advA+'d'+(note?' — '+note:''); break; } }
   closeApproveModal();
   setSyncDot('syncing');
   try {
@@ -3967,7 +3984,16 @@ async function submitVac(){
   if(type==='Bereavement Leave'&&!bereaveRelation){ toast('Please select the relationship of the deceased.',false); return; }
   if(type==='Annual Leave'){
     var b=calcBalance(emp);
-    if(b.available < days){ toast(emp+' only has '+b.available+' days available.',false); return; }
+    if(days > b.maxUsable){ toast(emp+' can take at most '+b.maxUsable+' days (incl. advance up to end of contract year). · الحد الأقصى '+b.maxUsable+' يوم شاملاً الإجازة المقدمة حتى نهاية سنة العقد.',false); return; }
+    window._vacAdvanceDays = days > b.available ? parseFloat((days - b.available).toFixed(1)) : 0;
+  } else { window._vacAdvanceDays = 0; }
+  var advBox=document.getElementById('vacAdvBox');
+  if(advBox){
+    var advChk=document.getElementById('vacAdvAck'); if(advChk) advChk.checked=false;
+    if(window._vacAdvanceDays>0){
+      document.getElementById('vacAdvDays').textContent=window._vacAdvanceDays;
+      advBox.style.display='';
+    } else advBox.style.display='none';
   }
   // Show confirmation modal
   document.getElementById('vacConfEmp').textContent=emp;
@@ -3979,6 +4005,11 @@ async function submitVac(){
 }
 
 async function doSubmitVac(){
+  var advDays = window._vacAdvanceDays || 0;
+  if(advDays>0){
+    var ack=document.getElementById('vacAdvAck');
+    if(!ack||!ack.checked){ toast('Please acknowledge the advance leave. · يرجى الإقرار بالإجازة المقدمة.',false); return; }
+  }
   document.getElementById('vacConfirmModal').classList.add('hidden');
   var emp=document.getElementById('vacEmp').value;
   var from=document.getElementById('vacFrom').value;
@@ -3987,6 +4018,7 @@ async function doSubmitVac(){
   var req=new Date().toISOString().slice(0,10);
   var days=Math.round((new Date(to)-new Date(from))/86400000)+1;
   var sigData = document.getElementById('sigCanvas').toDataURL('image/png');
+  var bereaveRelation = (document.getElementById('vacBereaveRelation')||{}).value||'';
   setSyncDot('syncing');
   var btnSubmit = document.querySelector('#vs-submit .bp');
   if(btnSubmit){ btnSubmit.disabled=true; btnSubmit.innerHTML='<span class="spinner"></span>Submitting…'; }
@@ -4005,7 +4037,7 @@ async function doSubmitVac(){
       });
     }
     var vr={id:id, employee:emp, from_date:from, to_date:to, days:days, type:type,
-      note:document.getElementById('vacNote').value.trim(), req_date:req, status:'Pending',
+      note:(function(){ var n=document.getElementById('vacNote').value.trim(); return advDays>0 ? (n?n+' | ':'')+'[Advance leave acknowledged · إقرار إجازة مقدمة: '+advDays+'d]' : n; })(), req_date:req, status:'Pending',
       signature:sigData, attachment_url:attachUrl, attachment_name:attachName,
       contact:document.getElementById('vacContact').value.trim(),
       name_confirm:document.getElementById('nameCanvas').toDataURL('image/png'),
@@ -4057,6 +4089,12 @@ function clearVac(){
   clearSig();
   clearAttachment();
 }
+function vacAdvanceFor(r){
+  // Live: how many days of this pending/approving Annual Leave exceed the earned balance
+  if(!r||r.type!=='Annual Leave'||r.status!=='Pending') return 0;
+  var b=calcBalance(r.employee);
+  return r.days > b.available ? parseFloat((r.days - b.available).toFixed(1)) : 0;
+}
 function renderPending(){
   var pend=vacReqs.filter(function(r){return r.status==='Pending'&&(isGM()||r.employee===CU.empName);}).sort(function(a,b){return a.reqDate.localeCompare(b.reqDate);});
   var el=document.getElementById('pendList');
@@ -4066,6 +4104,8 @@ function renderPending(){
     html+='<div class="reqcard"><div><div class="reqn">'+r.employee+'</div>';
     html+='<div class="reqd">'+fmtD(r.from)+' to '+fmtD(r.to)+' | '+r.type+'</div>';
     html+='<div class="reqs">'+r.days+' day'+(r.days>1?'s':'')+' | Submitted: '+fmtD(r.reqDate)+'</div>';
+    var advP=vacAdvanceFor(r);
+    if(advP>0) html+='<div style="display:inline-block;margin-top:.35rem;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:6px;padding:.2rem .6rem;font-size:.78rem;font-weight:700">⏩ Advance · مقدمة: '+advP+'d — balance after approval · الرصيد بعد الموافقة: -'+advP+'</div>';
     if(r.type==='Bereavement Leave')html+='<div class="reqnote" style="font-weight:600">Relationship of Deceased · صلة القرابة: '+esc(r.bereavementRelation||'—')+'</div>';
     if(r.note)html+='<div class="reqnote">"'+r.note+'"</div>';
     // Signature
@@ -4633,7 +4673,7 @@ function calcBalance(emp) {
       entitled: entitled, historicalUsed: historicalUsed,
       appUsed: appUsed, totalUsed: totalUsed, sickDays: sickDays,
       totalEarned: 0, accruedThis: 0, completedYears: 0,
-      daysIntoYear: 0, accrualPct: 0, available: 0,
+      daysIntoYear: 0, accrualPct: 0, available: 0, advanceOwed: 0, maxUsable: 0,
       nextRenewal: '', contractStart: ''
     };
   }
@@ -4660,8 +4700,13 @@ function calcBalance(emp) {
   var totalEarned  = parseFloat(((completedYears * entitled) + accruedThis).toFixed(1));
   var available    = parseFloat(Math.max(totalEarned - totalUsed, 0).toFixed(1));
   var accrualPct   = Math.min((daysIntoYear / ACCRUAL_DAYS) * 100, 100);
+  // Advance leave: days used beyond what is earned so far (recovers automatically as accrual continues)
+  var advanceOwed  = parseFloat(Math.max(totalUsed - totalEarned, 0).toFixed(1));
+  // Max annual days usable now incl. advance = full entitlement up to end of current contract year
+  var maxUsable    = parseFloat(Math.max(((completedYears + 1) * entitled) - totalUsed, 0).toFixed(1));
 
   return {
+    advanceOwed: advanceOwed, maxUsable: maxUsable,
     entitled: entitled, historicalUsed: historicalUsed,
     appUsed: appUsed, totalUsed: totalUsed, sickDays: sickDays,
     totalEarned: totalEarned, accruedThis: accruedThis,
@@ -4697,7 +4742,9 @@ function renderBalances() {
     html += '<div class="bcnum"><div class="bcval">' + b.entitled + '</div><div class="bclbl">Due/yr</div></div>';
     html += '<div class="bcnum carry"><div class="bcval">' + b.accruedThis + '</div><div class="bclbl">Accrued</div></div>';
     html += '<div class="bcnum used"><div class="bcval">' + b.totalUsed + '</div><div class="bclbl">Used</div></div>';
-    html += '<div class="bcnum left ' + cls + '"><div class="bcval">' + b.available + '</div><div class="bclbl">Available</div></div>';
+    html += b.advanceOwed > 0
+      ? '<div class="bcnum left crit"><div class="bcval" style="color:var(--red)">-' + b.advanceOwed + '</div><div class="bclbl">Advance · مقدمة</div></div>'
+      : '<div class="bcnum left ' + cls + '"><div class="bcval">' + b.available + '</div><div class="bclbl">Available</div></div>';
     if(b.sickDays) html += '<div class="bcnum" style="border-color:rgba(59,130,246,.3)"><div class="bcval" style="color:#3b82f6">' + b.sickDays + '</div><div class="bclbl">Sick Days</div></div>';
     html += '</div>';
     // Leave usage bar (used vs earned)
@@ -4711,6 +4758,7 @@ function renderBalances() {
     html += ' + ' + b.accruedThis + 'd = ' + b.totalEarned + ' earned';
     html += ' &nbsp;|&nbsp; ' + b.historicalUsed + ' pre-app + ' + b.appUsed + ' in-app = ' + b.totalUsed + ' used';
     html += ' &nbsp;|&nbsp; <strong>' + b.available + ' available</strong>';
+    if(b.advanceOwed > 0) html += ' &nbsp;|&nbsp; <strong style="color:var(--red)">' + b.advanceOwed + 'd taken in advance · مقدمة</strong>';
     if(b.sickDays) html += ' &nbsp;|&nbsp; <span style="color:#3b82f6">' + b.sickDays + ' sick day' + (b.sickDays!==1?'s':'') + ' (not deducted)</span>';
     html += '</div></div>';
   });
@@ -4737,7 +4785,7 @@ function renderStaffBalCard() {
       '<div class="mbstat"><div class="mbval">' + b.entitled + '</div><div class="mblbl">Due/yr · المستحق <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Total vacation days entitled per year · إجمالي أيام الإجازة المستحقة سنوياً</span></span></div></div>' +
       '<div class="mbstat"><div class="mbval">' + b.accruedThis + '</div><div class="mblbl">Accrued · المتراكم <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Days earned so far this year · الأيام المكتسبة حتى الآن هذا العام</span></span></div></div>' +
       '<div class="mbstat"><div class="mbval">' + b.totalUsed + '</div><div class="mblbl">Used · المستخدم <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Vacation days already taken · أيام الإجازة المستخدمة</span></span></div></div>' +
-      '<div class="mbstat" style="' + availBg + '"><div class="mbval">' + b.available + '</div><div class="mblbl">Available · المتبقي <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Days you can still request · الأيام المتاحة للطلب</span></span></div></div>' +
+      '<div class="mbstat" style="' + (b.advanceOwed > 0 ? 'background:rgba(180,0,0,.25)' : availBg) + '"><div class="mbval">' + (b.advanceOwed > 0 ? '-' + b.advanceOwed : b.available) + '</div><div class="mblbl">Available · المتبقي <span class="mbtt" tabindex="0" onclick="toggleTip(this)">ⓘ<span class="mbtt-box">Days you can still request · الأيام المتاحة للطلب</span></span></div></div>' +
     '</div></div>';
   card.style.display = '';
   card.innerHTML = html;
@@ -4758,7 +4806,9 @@ function renderEmpProfiles() {
     var preview = '';
     if (p.contractStart) {
       var b = calcBalance(emp);
-      preview = ' <span style="font-size:.72rem;color:var(--teal);font-weight:600">→ ' + b.available + ' days available</span>';
+      preview = b.advanceOwed > 0
+        ? ' <span style="font-size:.72rem;color:var(--red);font-weight:600">→ -' + b.advanceOwed + ' days (advance · مقدمة)</span>'
+        : ' <span style="font-size:.72rem;color:var(--teal);font-weight:600">→ ' + b.available + ' days available</span>';
     }
     html += '<div class="eprow">';
     html += '<div>';
