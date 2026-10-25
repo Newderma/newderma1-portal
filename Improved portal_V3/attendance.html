@@ -325,7 +325,7 @@ async function sbDel(t,q){var r=await fetch(SB_URL+'/rest/v1/'+t+'?'+q,{method:'
 async function sbRpc(fn,p){var r=await fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:sbH(),body:JSON.stringify(p)});if(!r.ok)throw new Error(await r.text());return r.json();}
 
 // STATE
-var autoStaffNames=[]; // remote staff — hidden from login
+var autoStaffNames=[]; // remote staff (auto-filled attendance)
 var cfg={adminPass:'admin123',staffPass:'staff123',recoveryKey:'NEWDERMA1-ATT-RESET',
   clinicLat:null,clinicLng:null,radiusM:150,workStart:'',workEnd:'',graceMin:10,phoneStamps:[]};
 var staffList=[];
@@ -452,7 +452,7 @@ function populateLoginDropdown(){
   if(!sel)return;
   var cur=sel.value;
   sel.innerHTML='<option value="">-- Select your name --</option><option value="__admin__">Admin (General Manager)</option>';
-  var active=staffList.filter(function(s){return s.active!==false && autoStaffNames.indexOf(s.name)<0;});
+  var active=staffList.filter(function(s){return s.active!==false;}); // all active staff, incl. remote
   active.sort(function(a,b){return a.name.localeCompare(b.name);});
   active.forEach(function(s){
     var opt=document.createElement('option');
