@@ -820,7 +820,7 @@ function buildLogsPage(){
     '<select id="logStaff" onchange="filterLogs()"><option value="">All Staff</option></select>',
     '<button class="btn btn-s btn-sm" onclick="exportXLS()">XLS</button>',
     '<button class="btn btn-s btn-sm" onclick="exportCSV()">CSV</button>',
-    '<button class="btn btn-sm" style="background:var(--teal);color:#fff" onclick="openMissedRec()">＋ Add missed record · إضافة سجل فائت</button>',
+    '<button class="btn btn-s btn-sm" onclick="printLogsPDF()">🖨 PDF</button>',
     '</div>',
     '<div style="overflow-x:auto"><table><thead><tr>',
     '<th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Duration</th>',
@@ -940,6 +940,37 @@ async function saveMissedRec(){
   }catch(e){
     err.textContent='Failed: '+e.message; btn.disabled=false; btn.textContent='Save · حفظ';
   }
+}
+
+// ── Print current Logs view (same date range + staff filter) as PDF via the browser print dialog ──
+function printLogsPDF(){
+  var staff=(document.getElementById('logStaff')||{}).value||'';
+  var from=(document.getElementById('logFrom')||{}).value||'', to=(document.getElementById('logTo')||{}).value||'';
+  var list=staff?allLogs.filter(function(r){return r.staff_name===staff;}):allLogs;
+  if(!list.length){toast('No records to print.',false);return;}
+  var g=cfg.graceMin!=null?cfg.graceMin:10, totMs=0, totPen=0;
+  var rows=list.map(function(r){
+    var arr=calcArr(r.clock_in,r.staff_name),dep=calcDep(r.clock_out,r.staff_name);
+    var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0;
+    var al=arr===null?'-':arr<-g?'Late '+Math.abs(arr)+' min':arr>g?'Early '+Math.abs(arr)+' min':'On Time';
+    var dl=dep===null?'-':dep<-g?'Left Early '+Math.abs(dep)+' min':dep>g?'Stayed +'+Math.abs(dep)+' min':'On Time';
+    if(r.clock_in&&r.clock_out){var ms=new Date(r.clock_out)-new Date(r.clock_in);if(ms>0)totMs+=ms;}
+    totPen+=lm+em;
+    return '<tr><td>'+fmtDate(r.date)+'</td><td>'+esc(r.staff_name)+(isFlexStaff(r.staff_name)?' <small>(Flexible · مرن)</small>':'')+'</td><td>'+fmtTime(r.clock_in)+'</td><td>'+fmtTime(r.clock_out)+'</td><td>'+calcDur(r.clock_in,r.clock_out)+'</td><td>'+al+'</td><td>'+dl+'</td><td>'+(lm+em>0?'-'+(lm+em)+' min':'0')+'</td></tr>';
+  }).join('');
+  var th=Math.floor(totMs/3600000), tm=Math.round((totMs%3600000)/60000);
+  var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print.',false);return;}
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Attendance '+(staff||'All Staff')+'</title>'+
+    '<style>body{font-family:Arial,Tahoma,sans-serif;margin:24px;color:#1e293b}h1{font-size:18px;margin:0}.sub{color:#64748b;font-size:12px;margin:4px 0 14px}'+
+    'table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:5px 6px;text-align:left}th{background:#f1f5f9}'+
+    '.tot{margin-top:12px;font-size:12px;font-weight:bold}.sig{margin-top:40px;display:flex;justify-content:space-between;font-size:12px}@page{size:A4 landscape;margin:12mm}</style></head><body>'+
+    '<h1>Newderma1 — Attendance Report · تقرير الحضور</h1>'+
+    '<div class="sub">Staff · الموظف: <b>'+esc(staff||'All Staff · كل الموظفين')+'</b> &nbsp;|&nbsp; Period · الفترة: <bdi dir="ltr">'+(from?fmtDate(from):'—')+' → '+(to?fmtDate(to):'—')+'</bdi> &nbsp;|&nbsp; Printed · الطباعة: <bdi dir="ltr">'+fmtDate(todayStr())+'</bdi></div>'+
+    '<table><thead><tr><th>Date · التاريخ</th><th>Name · الاسم</th><th>In · الحضور</th><th>Out · الانصراف</th><th>Duration · المدة</th><th>Arrival · الوصول</th><th>Departure · المغادرة</th><th>Penalty · الخصم</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="tot"><span>Days · الأيام: <bdi dir="ltr">'+list.length+'</bdi></span> &nbsp;|&nbsp; <span>Total hours · إجمالي الساعات: <bdi dir="ltr">'+th+'h '+tm+'m</bdi></span> &nbsp;|&nbsp; <span>Total penalty · إجمالي الخصم: <bdi dir="ltr">'+totPen+' min</bdi></span></div>'+
+    '<div class="sig"><div>Employee signature · توقيع الموظف: ____________</div><div>Manager signature · توقيع المدير: ____________</div></div>'+
+    '</body></html>');
+  w.document.close(); w.focus(); setTimeout(function(){w.print();},300);
 }
 
 var vacationLeaves=[];
@@ -1140,6 +1171,13 @@ function buildSettingsPage(){
   h.push('</div></div>');
   h.push('<button class="btn btn-p" onclick="addStaff()">+ Add Staff</button>');
   h.push('<div id="staffListAdmin" style="margin-top:1.1rem"></div>');
+  h.push('</div>');
+
+  // Missed records (admin)
+  h.push('<div class="card" style="max-width:540px">');
+  h.push('<div class="ct">Missed Records · السجلات الفائتة</div>');
+  h.push('<p style="font-size:.8rem;color:var(--txt2);margin:0 0 .8rem">Add attendance a staff member forgot to record, with the actual times. · إضافة حضور نسي الموظف تسجيله، بالأوقات الفعلية.</p>');
+  h.push('<button class="btn btn-p" onclick="openMissedRec()">＋ Add missed record · إضافة سجل فائت</button>');
   h.push('</div>');
 
   // Working hours
