@@ -306,7 +306,7 @@ function showClockConfirm(action,staffName,clockTime){
   document.getElementById('ccSub').textContent=staffName+' at '+fmtTime(clockTime);
   var badge=document.getElementById('ccBadge');
   if(isIn){
-    var arr=calcArr(clockTime);var g=cfg.graceMin!=null?cfg.graceMin:10;
+    var arr=calcArr(clockTime,staffName);var g=cfg.graceMin!=null?cfg.graceMin:10;
     if(arr===null){badge.style.display='none';}
     else if(arr<-g){badge.textContent='⏰ Late '+Math.abs(arr)+' min';badge.style.display='';}
     else if(arr>g){badge.textContent='⚡ Early '+Math.abs(arr)+' min';badge.style.display='';}
@@ -675,7 +675,7 @@ function renderLive(){
         return '<tr><td><strong>'+r.staff_name+'</strong></td>'+
           '<td>'+fmtTime(r.clock_in)+'</td><td>'+fmtTime(r.clock_out)+'</td>'+
           '<td>'+calcDur(r.clock_in,r.clock_out)+'</td>'+
-          '<td>'+arrBadge(calcArr(r.clock_in))+'</td>'+
+          '<td>'+arrBadge(calcArr(r.clock_in,r.staff_name))+'</td>'+
           '<td><button class="btn btn-d btn-sm" onclick="delRec('+r.id+')">Del</button></td>'+
         '</tr>';
       }).join('');
@@ -771,7 +771,14 @@ async function confirmPin(){
 function fmtTime(iso){if(!iso)return '-';return new Date(iso).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});}
 function fmtDate(d){if(!d)return '-';var p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
 function calcDur(cin,cout){if(!cin||!cout)return '-';var ms=new Date(cout)-new Date(cin);if(ms<0)return '-';return Math.floor(ms/3600000)+'h '+Math.floor((ms%3600000)/60000)+'m';}
-function calcArr(ci){
+// Flexible staff (e.g. marketing/field work): no fixed hours — no late/early penalty
+function isFlexStaff(name){
+  if(!name)return false;
+  var s=staffList.find(function(x){return x.name===name;});
+  return !!(s&&s.flexible);
+}
+function calcArr(ci,name){
+  if(isFlexStaff(name))return null;
   if(!cfg.workStart||!ci)return null;
   var cin=new Date(ci),p=cfg.workStart.split(':'),ref=new Date(cin);
   ref.setHours(+p[0],+p[1],0,0);
@@ -779,7 +786,8 @@ function calcArr(ci){
   if(+p[0]>=12&&cin.getHours()<12)ref.setDate(ref.getDate()-1);
   return Math.round((ref-cin)/60000);
 }
-function calcDep(co){
+function calcDep(co,name){
+  if(isFlexStaff(name))return null;
   if(!cfg.workEnd||!co)return null;
   var cout=new Date(co),p=cfg.workEnd.split(':'),ref=new Date(cout);
   ref.setHours(+p[0],+p[1],0,0);
@@ -844,11 +852,11 @@ function filterLogs(){
   if(!list.length){tb.innerHTML='<tr><td colspan="10" class="norec">No records found.</td></tr>';return;}
   var g=cfg.graceMin!=null?cfg.graceMin:10;
   tb.innerHTML=list.map(function(r){
-    var arr=calcArr(r.clock_in),dep=calcDep(r.clock_out);
+    var arr=calcArr(r.clock_in,r.staff_name),dep=calcDep(r.clock_out,r.staff_name);
     var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0,pen=lm+em;
     var penStr=pen>0?'<span style="color:var(--red);font-weight:600">-'+pen+' min</span>':'<span style="color:var(--teal)">0</span>';
     var status=r.clock_out?'<span class="badge-out">Done</span>':'<span class="badge-in">Active</span>';
-    return '<tr><td>'+fmtDate(r.date)+'</td><td><strong>'+r.staff_name+'</strong></td>'+
+    return '<tr><td>'+fmtDate(r.date)+'</td><td><strong>'+r.staff_name+'</strong>'+(isFlexStaff(r.staff_name)?'<div style="font-size:.7rem;color:#0e7490;font-weight:600">Flexible · مرن</div>':'')+'</td>'+
       '<td>'+fmtTime(r.clock_in)+'</td><td>'+fmtTime(r.clock_out)+'</td>'+
       '<td>'+calcDur(r.clock_in,r.clock_out)+'</td><td>'+status+'</td>'+
       '<td>'+arrBadge(arr)+'</td><td>'+depBadge(dep)+'</td><td>'+penStr+'</td>'+
@@ -876,8 +884,8 @@ function openMissedRec(){
     '<h3 style="margin:0 0 .3rem">Add missed record · إضافة سجل فائت</h3>'+
     '<p style="font-size:.8rem;color:#64748b;margin:0 0 1rem">Enter the actual times. Same times apply to every day in the range. · أدخل الأوقات الفعلية، وتُطبّق على كل يوم في الفترة.</p>'+
     '<label style="font-size:.8rem;font-weight:600">Staff · الموظف</label><select id="mrStaff" style="width:100%;margin-bottom:.7rem"><option value="">-- Select --</option>'+names.map(function(n){return '<option>'+esc(n)+'</option>';}).join('')+'</select>'+
-    '<div style="display:flex;gap:.5rem"><div style="flex:1"><label style="font-size:.8rem;font-weight:600">From · من</label><input type="date" id="mrFrom" max="'+today+'" style="width:100%"></div>'+
-    '<div style="flex:1"><label style="font-size:.8rem;font-weight:600">To · إلى</label><input type="date" id="mrTo" max="'+today+'" style="width:100%"></div></div>'+
+    '<div style="display:flex;gap:.5rem"><div style="flex:1"><label style="font-size:.8rem;font-weight:600">From · من</label><input type="date" id="mrFrom" style="width:100%"></div>'+
+    '<div style="flex:1"><label style="font-size:.8rem;font-weight:600">To · إلى</label><input type="date" id="mrTo" style="width:100%"></div></div>'+
     '<div style="display:flex;gap:.5rem;margin-top:.7rem"><div style="flex:1"><label style="font-size:.8rem;font-weight:600">In · الحضور</label><input type="time" id="mrIn" style="width:100%"></div>'+
     '<div style="flex:1"><label style="font-size:.8rem;font-weight:600">Out · الانصراف</label><input type="time" id="mrOut" style="width:100%"></div></div>'+
     '<label style="display:flex;gap:.4rem;align-items:center;margin-top:.8rem;font-size:.82rem"><input type="checkbox" id="mrSkipFri" checked style="width:auto"> Skip Fridays · استثناء الجمعة</label>'+
@@ -897,7 +905,9 @@ async function saveMissedRec(){
   var skipFri=document.getElementById('mrSkipFri').checked;
   if(!name||!from||!tin||!tout){err.textContent='Fill staff, date and both times. · أكمل الموظف والتاريخ والوقتين.';return;}
   if(to<from){err.textContent='"To" is before "From". · تاريخ النهاية قبل البداية.';return;}
-  if(to>=todayStr()){err.textContent='Past days only (before today). · الأيام السابقة فقط.';return;}
+  var _now=new Date(), _todayLocal=new Date(_now.getTime()+3*3600000).toISOString().slice(0,10);
+  if(to>_todayLocal){err.textContent='No future days. · لا يمكن إضافة أيام قادمة.';return;}
+  if(to===_todayLocal && new Date(to+'T'+tout+':00+03:00')>_now){err.textContent='Today: Out time has not passed yet. · اليوم: وقت الانصراف لم يحن بعد.';return;}
   if(tout<=tin){err.textContent='Out must be after In. · الانصراف يجب أن يكون بعد الحضور.';return;}
   var s=staffList.find(function(x){return x.name===name;}); if(!s){err.textContent='Staff not found.';return;}
   var btn=document.getElementById('mrSaveBtn'); btn.disabled=true; btn.textContent='Saving…';
@@ -1015,8 +1025,8 @@ async function renderMonthly(){
     if(!map[name])map[name]={days:0,totalMs:0,lateCount:0,lateMin:0,earlyDepCount:0,earlyDepMin:0,onLeave:0,absent:0};
     map[name].days++;
     if(r.clock_in&&r.clock_out){var ms=new Date(r.clock_out)-new Date(r.clock_in);if(ms>0)map[name].totalMs+=ms;}
-    var arr=calcArr(r.clock_in);if(arr!==null&&arr<-g){map[name].lateCount++;map[name].lateMin+=Math.abs(arr);}
-    var dep=calcDep(r.clock_out);if(dep!==null&&dep<-g){map[name].earlyDepCount++;map[name].earlyDepMin+=Math.abs(dep);}
+    var arr=calcArr(r.clock_in,r.staff_name);if(arr!==null&&arr<-g){map[name].lateCount++;map[name].lateMin+=Math.abs(arr);}
+    var dep=calcDep(r.clock_out,r.staff_name);if(dep!==null&&dep<-g){map[name].earlyDepCount++;map[name].earlyDepMin+=Math.abs(dep);}
   });
   workingDays.forEach(function(ds){
     activeStaff.forEach(function(name){
@@ -1074,7 +1084,7 @@ function exportCSV(){
   var list=staff?allLogs.filter(function(r){return r.staff_name===staff;}):allLogs;
   var csv='Date,Name,Clock In,Clock Out,Duration,Status,Arrival,Departure,Penalty Min\n';
   csv+=list.map(function(r){
-    var arr=calcArr(r.clock_in),dep=calcDep(r.clock_out);
+    var arr=calcArr(r.clock_in,r.staff_name),dep=calcDep(r.clock_out,r.staff_name);
     var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0;
     var al=arr===null?'':arr<-g?'Late '+Math.abs(arr)+' min':arr>g?'Early '+Math.abs(arr)+' min':'On Time';
     var dl=dep===null?'':dep<-g?'Left Early '+Math.abs(dep)+' min':dep>g?'Stayed +'+Math.abs(dep)+' min':'On Time';
@@ -1092,7 +1102,7 @@ function exportXLS(){
   var list=staff?allLogs.filter(function(r){return r.staff_name===staff;}):allLogs;
   var rows=[['Date','Name','Clock In','Clock Out','Duration','Status','Arrival','Departure','Penalty Min']];
   list.forEach(function(r){
-    var arr=calcArr(r.clock_in),dep=calcDep(r.clock_out);
+    var arr=calcArr(r.clock_in,r.staff_name),dep=calcDep(r.clock_out,r.staff_name);
     var lm=(arr!==null&&arr<-g)?Math.abs(arr):0,em=(dep!==null&&dep<-g)?Math.abs(dep):0;
     var al=arr===null?'':arr<-g?'Late '+Math.abs(arr)+' min':arr>g?'Early '+Math.abs(arr)+' min':'On Time';
     var dl=dep===null?'':dep<-g?'Left Early '+Math.abs(dep)+' min':dep>g?'Stayed +'+Math.abs(dep)+' min':'On Time';
@@ -1195,7 +1205,7 @@ function renderStaffList(){
   el.innerHTML=staffList.map(function(s,i){
     return '<div class="staff-item">'+
       '<div>'+
-        '<div class="si-name">'+s.name+'</div>'+
+        '<div class="si-name">'+s.name+(s.flexible?' <span style="font-size:.7rem;background:#cffafe;color:#0e7490;border-radius:4px;padding:.05rem .4rem;font-weight:600">Flexible · مرن</span>':'')+'</div>'+
         '<div class="si-role">PIN: <span id="pv'+i+'">&#9679;&#9679;&#9679;&#9679;</span> '+
           '<button data-idx="'+i+'" onclick="toggleStaffPin(this)" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:.72rem;font-family:inherit">Show</button>'+
         '</div>'+
@@ -1205,6 +1215,7 @@ function renderStaffList(){
       '</div>'+
       '<div style="display:flex;gap:.4rem;flex-wrap:wrap">'+
         '<button class="btn btn-s btn-sm" onclick="editStaffName('+i+')">✏️ Edit Name</button>'+
+        '<button class="btn btn-s btn-sm" onclick="toggleFlexStaff('+i+')">'+(s.flexible?'⏱ Flexible: ON · مرن':'⏱ Fixed hours · دوام ثابت')+'</button>'+
         '<button class="btn btn-s btn-sm" onclick="resetPin('+i+')">Reset PIN</button>'+
         '<button class="btn btn-s btn-sm" onclick="resetStaffPassword('+i+')">Reset Password</button>'+
         '<button class="btn btn-d btn-sm" onclick="removeStaff('+i+')">Remove</button>'+
@@ -1213,6 +1224,12 @@ function renderStaffList(){
   }).join('');
 }
 
+async function toggleFlexStaff(i){
+  var s=staffList[i]; if(!s) return;
+  var prev=!!s.flexible; s.flexible=!prev;
+  try{ await saveStaff(); renderStaffList(); toast(s.name+(s.flexible?' → Flexible hours (no late/early penalty) · دوام مرن':' → Fixed hours · دوام ثابت'),true); }
+  catch(e){ s.flexible=prev; toast('Failed: '+e.message,false); }
+}
 function toggleStaffPin(btn){
   var i=parseInt(btn.dataset.idx);var s=staffList[i];if(!s)return;var pin=s.pin;
   var el=document.getElementById('pv'+i);if(!el)return;
