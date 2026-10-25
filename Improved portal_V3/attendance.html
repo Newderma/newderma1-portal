@@ -812,6 +812,7 @@ function buildLogsPage(){
     '<select id="logStaff" onchange="filterLogs()"><option value="">All Staff</option></select>',
     '<button class="btn btn-s btn-sm" onclick="exportXLS()">XLS</button>',
     '<button class="btn btn-s btn-sm" onclick="exportCSV()">CSV</button>',
+    '<button class="btn btn-sm" style="background:var(--teal);color:#fff" onclick="openMissedRec()">＋ Add missed record · إضافة سجل فائت</button>',
     '</div>',
     '<div style="overflow-x:auto"><table><thead><tr>',
     '<th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Duration</th>',
@@ -863,6 +864,74 @@ async function delRec(id){
     filterLogs();renderLive();toast('Deleted.',true);
   }catch(e){toast('Failed: '+e.message,false);}
 }
+// ── Admin: add missed (past) attendance records with the REAL times entered by the admin ──
+function openMissedRec(){
+  if(!CU||CU.role!=='admin'){toast('Admin only',false);return;}
+  var old=document.getElementById('missedRecModal'); if(old) old.remove();
+  var names=staffList.filter(function(s){return s.active!==false;}).map(function(s){return s.name;}).sort();
+  var today=todayStr();
+  var m=document.createElement('div'); m.id='missedRecModal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem';
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:1.3rem;box-shadow:0 10px 40px rgba(0,0,0,.2);max-height:90vh;overflow:auto">'+
+    '<h3 style="margin:0 0 .3rem">Add missed record · إضافة سجل فائت</h3>'+
+    '<p style="font-size:.8rem;color:#64748b;margin:0 0 1rem">Enter the actual times. Same times apply to every day in the range. · أدخل الأوقات الفعلية، وتُطبّق على كل يوم في الفترة.</p>'+
+    '<label style="font-size:.8rem;font-weight:600">Staff · الموظف</label><select id="mrStaff" style="width:100%;margin-bottom:.7rem"><option value="">-- Select --</option>'+names.map(function(n){return '<option>'+esc(n)+'</option>';}).join('')+'</select>'+
+    '<div style="display:flex;gap:.5rem"><div style="flex:1"><label style="font-size:.8rem;font-weight:600">From · من</label><input type="date" id="mrFrom" max="'+today+'" style="width:100%"></div>'+
+    '<div style="flex:1"><label style="font-size:.8rem;font-weight:600">To · إلى</label><input type="date" id="mrTo" max="'+today+'" style="width:100%"></div></div>'+
+    '<div style="display:flex;gap:.5rem;margin-top:.7rem"><div style="flex:1"><label style="font-size:.8rem;font-weight:600">In · الحضور</label><input type="time" id="mrIn" style="width:100%"></div>'+
+    '<div style="flex:1"><label style="font-size:.8rem;font-weight:600">Out · الانصراف</label><input type="time" id="mrOut" style="width:100%"></div></div>'+
+    '<label style="display:flex;gap:.4rem;align-items:center;margin-top:.8rem;font-size:.82rem"><input type="checkbox" id="mrSkipFri" checked style="width:auto"> Skip Fridays · استثناء الجمعة</label>'+
+    '<p style="font-size:.76rem;color:#64748b;margin:.6rem 0 0">Days that already have a record, or approved leave, are skipped automatically. · الأيام المسجلة مسبقاً أو التي فيها إجازة معتمدة تُستثنى تلقائياً.</p>'+
+    '<div id="mrErr" style="color:#dc2626;font-size:.8rem;margin-top:.6rem;min-height:1em"></div>'+
+    '<div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:.8rem">'+
+      '<button class="btn btn-s btn-sm" onclick="document.getElementById(\'missedRecModal\').remove()">Cancel · إلغاء</button>'+
+      '<button class="btn btn-sm" id="mrSaveBtn" style="background:var(--teal);color:#fff" onclick="saveMissedRec()">Save · حفظ</button>'+
+    '</div></div>';
+  document.body.appendChild(m);
+}
+async function saveMissedRec(){
+  var err=document.getElementById('mrErr'); err.textContent='';
+  var name=document.getElementById('mrStaff').value;
+  var from=document.getElementById('mrFrom').value, to=document.getElementById('mrTo').value||from;
+  var tin=document.getElementById('mrIn').value, tout=document.getElementById('mrOut').value;
+  var skipFri=document.getElementById('mrSkipFri').checked;
+  if(!name||!from||!tin||!tout){err.textContent='Fill staff, date and both times. · أكمل الموظف والتاريخ والوقتين.';return;}
+  if(to<from){err.textContent='"To" is before "From". · تاريخ النهاية قبل البداية.';return;}
+  if(to>=todayStr()){err.textContent='Past days only (before today). · الأيام السابقة فقط.';return;}
+  if(tout<=tin){err.textContent='Out must be after In. · الانصراف يجب أن يكون بعد الحضور.';return;}
+  var s=staffList.find(function(x){return x.name===name;}); if(!s){err.textContent='Staff not found.';return;}
+  var btn=document.getElementById('mrSaveBtn'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    var existing=await sbGetAllPaged('att_records','staff_name=eq.'+encodeURIComponent(name)+'&date=gte.'+from+'&date=lte.'+to+'&order=date.asc');
+    var have={}; existing.forEach(function(r){have[r.date]=true;});
+    var vac=await sbGet('ct_vacation','status=eq.Approved&employee=eq.'+encodeURIComponent(name)+'&select=from_date,to_date,selected_dates').catch(function(){return[];});
+    var onLeave={};
+    vac.forEach(function(v){
+      var ds=[]; try{ if(v.selected_dates) ds=JSON.parse(v.selected_dates); }catch(e){}
+      if(!ds.length){ var d=new Date(v.from_date+'T00:00:00Z'), e2=new Date(v.to_date+'T00:00:00Z'); while(d<=e2){ ds.push(d.toISOString().slice(0,10)); d.setUTCDate(d.getUTCDate()+1); } }
+      ds.forEach(function(x){onLeave[x]=true;});
+    });
+    var rows=[], skipped=0;
+    var d=new Date(from+'T00:00:00Z'), end=new Date(to+'T00:00:00Z');
+    while(d<=end){
+      var ds=d.toISOString().slice(0,10);
+      if((skipFri&&d.getUTCDay()===5)||have[ds]||onLeave[ds]){ skipped++; }
+      else rows.push({staff_id:s.id,staff_name:s.name,date:ds,
+        clock_in:new Date(ds+'T'+tin+':00+03:00').toISOString(),
+        clock_out:new Date(ds+'T'+tout+':00+03:00').toISOString(),
+        lat_in:null,lng_in:null});
+      d.setUTCDate(d.getUTCDate()+1);
+    }
+    if(!rows.length){err.textContent='Nothing to add — all days skipped ('+skipped+'). · لا توجد أيام للإضافة.';btn.disabled=false;btn.textContent='Save · حفظ';return;}
+    for(var i=0;i<rows.length;i+=50){ await sbPost('att_records',rows.slice(i,i+50)); }
+    document.getElementById('missedRecModal').remove();
+    toast('Added '+rows.length+' day(s) for '+name+(skipped?' · skipped '+skipped:''),true);
+    if(document.getElementById('logsTable')) renderLogs();
+  }catch(e){
+    err.textContent='Failed: '+e.message; btn.disabled=false; btn.textContent='Save · حفظ';
+  }
+}
+
 var vacationLeaves=[];
 var _mthCache={};
 
