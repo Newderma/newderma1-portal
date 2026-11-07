@@ -5432,7 +5432,10 @@ async function ensurePayrollHistoryLoaded() {
       _payrollHistoryLoaded = true;
       var curPage=''; try{ curPage=sessionStorage.getItem('ct_page')||''; }catch(e){}
       if(curPage==='payroll' && prCurrentDr){ prCheckCarryForward(document.getElementById('prDrSel').value); }
-    } catch(e) { console.warn('ensurePayrollHistoryLoaded error:', e); }
+    } catch(e) {
+      console.warn('ensurePayrollHistoryLoaded error:', e);
+      _payrollHistoryLoadPromise = null; // allow retry; saving is blocked until a real load succeeds
+    }
   })();
   return _payrollHistoryLoadPromise;
 }
@@ -5440,7 +5443,25 @@ async function savePayrollProfiles() {
   await cfgSet('drProfiles', JSON.stringify(drProfiles));
   try{ localStorage.setItem('pr_profiles_cache', JSON.stringify(drProfiles)); }catch(e){}
 }
+// Records deleted in this session (doctor|month) — so the merge below does not bring them back
+var _prDeletedKeys = {};
+// SAFE SAVE: payrollHistory is one blob in ct_config. Writing a stale in-memory copy (old cache,
+// failed load, or a tab left open while months were saved elsewhere) used to WIPE those months.
+// Now: re-read the server copy right before writing and keep every server record this tab doesn't have.
 async function savePayrollHistory() {
+  if(!_payrollHistoryLoaded) throw new Error('Payroll history not loaded from server — save blocked to protect data. Reload the page and try again.');
+  var r2 = await sbGet('ct_config', 'key=eq.payrollHistory'); // throws on network error → nothing is written
+  var server = [];
+  if(r2 && r2.length && r2[0].value){ var v2=r2[0].value; server = (typeof v2==='string') ? JSON.parse(v2) : v2; }
+  if(!Array.isArray(server)) throw new Error('Unexpected payroll history format on server — save blocked.');
+  var have = {};
+  payrollHistory.forEach(function(h){ have[h.doctor+'|'+h.month] = true; });
+  var restored = 0;
+  server.forEach(function(h){
+    var k = h.doctor+'|'+h.month;
+    if(!have[k] && !_prDeletedKeys[k]){ payrollHistory.push(h); have[k]=true; restored++; }
+  });
+  if(restored) console.warn('savePayrollHistory: kept '+restored+' server record(s) missing from this tab');
   await cfgSet('payrollHistory', JSON.stringify(payrollHistory));
   try{ localStorage.setItem('pr_history_cache', JSON.stringify(payrollHistory)); }catch(e){}
 }
@@ -6810,6 +6831,7 @@ async function exportAllData(){
 
 async function prDeleteHistory(dr, mon){
   await ensurePayrollHistoryLoaded();
+  _prDeletedKeys[dr+'|'+mon] = true;
   payrollHistory = payrollHistory.filter(function(h){ return !(h.doctor===dr && h.month===mon); });
   try { await savePayrollHistory(); renderPayrollHistory(); toast('Deleted.', true); }
   catch(e){ toast('Delete failed.',false); }
