@@ -5443,6 +5443,29 @@ async function savePayrollProfiles() {
   await cfgSet('drProfiles', JSON.stringify(drProfiles));
   try{ localStorage.setItem('pr_profiles_cache', JSON.stringify(drProfiles)); }catch(e){}
 }
+// Signed copies used to be stored INSIDE payrollHistory as base64 — that bloated the ct_config row
+// until saving timed out (500 statement timeout). They now live in Storage; only the path is kept here.
+function prSafeName(s){ return String(s||'').replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,''); }
+function prSignedPath(dr, mon, fname){
+  var f = String(fname||'signed').replace(/[^a-zA-Z0-9._-]/g,'_').replace(/_+/g,'_');
+  return prSafeName(dr)+'/'+mon+'/signed_'+Date.now()+'_'+f;
+}
+async function prMigrateSignedCopies(){
+  var moved = 0;
+  for(var i=0;i<payrollHistory.length;i++){
+    var h = payrollHistory[i];
+    if(!h || typeof h.signedCopy!=='string' || h.signedCopy.indexOf('data:')!==0) continue;
+    try{
+      var blob = await (await fetch(h.signedCopy)).blob();
+      var path = prSignedPath(h.doctor, h.month, h.signedCopyName);
+      await sbStorageUpload('payroll-files', path, blob);
+      h.signedPath = path; delete h.signedCopy; moved++;
+    }catch(e){ console.warn('Signed copy migration failed for '+h.doctor+' '+h.month+' (kept inline):', e); }
+  }
+  if(moved) console.info('Moved '+moved+' signed copies from ct_config to Storage');
+  return moved;
+}
+
 // Records deleted in this session (doctor|month) — so the merge below does not bring them back
 var _prDeletedKeys = {};
 // SAFE SAVE: payrollHistory is one blob in ct_config. Writing a stale in-memory copy (old cache,
@@ -5462,6 +5485,7 @@ async function savePayrollHistory() {
     if(!have[k] && !_prDeletedKeys[k]){ payrollHistory.push(h); have[k]=true; restored++; }
   });
   if(restored) console.warn('savePayrollHistory: kept '+restored+' server record(s) missing from this tab');
+  await prMigrateSignedCopies();
   await cfgSet('payrollHistory', JSON.stringify(payrollHistory));
   try{ localStorage.setItem('pr_history_cache', JSON.stringify(payrollHistory)); }catch(e){}
 }
@@ -6281,6 +6305,7 @@ async function prSaveHistory() {
     if(!r.xlsPath     && existing.xlsPath)     { r.xlsPath=existing.xlsPath; r.xlsFileName=existing.xlsFileName; }
     if(!r.payments    && existing.payments)    { r.payments=existing.payments; }
     if(!r.signedCopy  && existing.signedCopy)  { r.signedCopy=existing.signedCopy; r.signedCopyName=existing.signedCopyName; }
+    if(!r.signedPath  && existing.signedPath)  { r.signedPath=existing.signedPath; r.signedCopyName=existing.signedCopyName; }
   }
 
   // Remove duplicate for same dr+month
@@ -6485,7 +6510,7 @@ function renderPayrollHistory() {
       html += '<label class="btn bs btn-sm" style="cursor:pointer;margin:0;color:#64748b">📎 Attach XLS<input type="file" accept=".xlsx,.xls" style="display:none" onchange="prAttachXls(this,\''+esc(h.doctor)+'\',\''+h.month+'\')"></label>';
     }
     // Signed copy
-    if(h.signedCopy){
+    if(h.signedCopy || h.signedPath){
       html += '<button class="btn bs btn-sm" onclick="prViewSigned(\''+esc(h.doctor)+'\',\''+h.month+'\')" style="color:#16a34a;border-color:#bbf7d0">✓ View Signed</button>';
       html += '<button class="btn btn-sm" onclick="prRemoveSigned(\''+esc(h.doctor)+'\',\''+h.month+'\')" style="font-size:.72rem;padding:.2rem .55rem;background:var(--redb);color:var(--red);border:1.5px solid rgba(239,68,68,.3)">Remove</button>';
     } else {
@@ -6842,22 +6867,28 @@ async function prAttachSigned(input, dr, mon){
   await ensurePayrollHistoryLoaded();
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec){ toast('Record not found.', false); return; }
-  var reader = new FileReader();
-  reader.onload = function(e){
-    rec.signedCopy     = e.target.result;
-    rec.signedCopyName = file.name;
-    savePayrollHistory().then(function(){
-      toast('Signed copy attached!', true);
-      renderPayrollHistory();
-    }).catch(function(e){ toast('Save failed: '+e.message, false); });
-  };
-  reader.readAsDataURL(file);
+  try{
+    toast('Uploading…', true, true);
+    var path = prSignedPath(dr, mon, file.name);
+    await sbStorageUpload('payroll-files', path, file);
+    rec.signedPath = path; rec.signedCopyName = file.name; delete rec.signedCopy;
+    await savePayrollHistory();
+    toast('Signed copy attached!', true);
+    renderPayrollHistory();
+  }catch(e){ toast('Save failed: '+e.message, false); }
 }
 
 function prViewSigned(dr, mon){
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
-  if(!rec || !rec.signedCopy){ toast('No attachment found.', false); return; }
+  if(!rec || (!rec.signedCopy && !rec.signedPath)){ toast('No attachment found.', false); return; }
   var w = window.open('', '_blank');
+  if(rec.signedPath){
+    if(w) w.document.write('<p style="font-family:sans-serif;padding:1rem">Loading…</p>');
+    sbStorageDownloadUrl('payroll-files', rec.signedPath)
+      .then(function(u){ if(w) w.location.href = u; else window.open(u,'_blank'); })
+      .catch(function(e){ if(w) w.close(); toast('Could not open: '+e.message, false); });
+    return;
+  }
   if(rec.signedCopy.indexOf('data:image') === 0){
     w.document.write('<html><body style="margin:0;background:#1e293b;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+rec.signedCopy+'" style="max-width:100%;max-height:100vh;object-fit:contain"></body></html>');
   } else {
@@ -6871,6 +6902,7 @@ async function prRemoveSigned(dr, mon){
   var rec = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; });
   if(!rec) return;
   delete rec.signedCopy;
+  delete rec.signedPath;
   delete rec.signedCopyName;
   try { await savePayrollHistory(); renderPayrollHistory(); toast('Attachment removed.', true); }
   catch(e){ toast('Remove failed.', false); }
