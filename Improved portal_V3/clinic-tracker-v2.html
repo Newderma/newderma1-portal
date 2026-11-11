@@ -6394,6 +6394,11 @@ function renderPayrollHistory() {
       +'</div>';
   } else if(sumEl){ sumEl.style.display='none'; }
   if(!filtered.length){ list.innerHTML='<p class="norec">No records found.</p>'; return; }
+  // Newest month first, then doctor name — regardless of the order records were saved in
+  filtered = filtered.slice().sort(function(a,b){
+    var m = String(b.month||'').localeCompare(String(a.month||''));
+    return m !== 0 ? m : String(a.doctor||'').localeCompare(String(b.doctor||''));
+  });
   var html='<div style="display:grid;gap:.9rem">';
   filtered.forEach(function(h, idx){
     var ps = prPaymentStatus(h);
@@ -6503,7 +6508,7 @@ function renderPayrollHistory() {
     html += '<div style="padding:.6rem 1.1rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">';
     // Primary actions
     html += '<button class="btn bs btn-sm" onclick="prEditHistory(\''+esc(h.doctor)+'\',\''+h.month+'\')">✏️ Edit</button>';
-    html += '<button class="btn bs btn-sm" onclick="prPrintHistory('+idx+')">🖨 Print</button>';
+    html += '<button class="btn bs btn-sm" onclick="prPrintHistory(\''+esc(h.doctor)+'\',\''+h.month+'\')">🖨 Print</button>';
     // XLS
     if(h.xlsPath){
       html += '<button class="btn bs btn-sm" onclick="prViewXls(\''+esc(h.doctor)+'\',\''+h.month+'\')" style="color:#1d4ed8;border-color:#bfdbfe">👁 View XLS</button>';
@@ -7013,13 +7018,9 @@ function prPrint() {
   if(!window._prLastResult){ toast('Calculate first.', false); return; }
   prOpenPrintWindow(window._prLastResult);
 }
-function prPrintHistory(idx){
-  var drFilter  = (document.getElementById('prHistDr')||{}).value  || '';
-  var monFilter = (document.getElementById('prHistMon')||{}).value || '';
-  var filtered = payrollHistory.filter(function(h){
-    return (!drFilter||h.doctor===drFilter) && (!monFilter||h.month===monFilter);
-  });
-  var r = filtered[idx]; if(!r) return;
+function prPrintHistory(dr, mon){
+  // Look the record up by doctor + month (list is now sorted, so a positional index is unsafe)
+  var r = payrollHistory.find(function(h){ return h.doctor===dr && h.month===mon; }); if(!r) return;
   prOpenPrintWindow(r);
 }
 function prOpenPrintWindow(r){
