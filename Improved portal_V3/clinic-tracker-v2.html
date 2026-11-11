@@ -5686,7 +5686,9 @@ function renderLedger(){
     var monthBal = thisMonthOwed >= 0
       ? thisMonthOwed - ps.totalPaid
       : thisMonthOwed + ps.totalPaid;
-    runningBalance += monthBal;
+    // Round to halalas so float dust (e.g. -0.0000001) shows as 0.00, not a red "-0.00"
+    monthBal = Math.round(monthBal*100)/100 || 0;
+    runningBalance = Math.round((runningBalance + monthBal)*100)/100 || 0;
 
     var balColor  = runningBalance >= 0 ? '#16a34a' : '#dc2626';
     var monthColor= monthBal >= 0 ? '#16a34a' : '#dc2626';
